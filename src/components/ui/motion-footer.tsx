@@ -488,11 +488,34 @@ export function CinematicFooter({
             </a>
           </p>
 
-          {/* Empty third cell: balances the grid so the copyright sits centred.
-              `md:order-3` is load-bearing — its siblings carry explicit orders,
-              so without one this defaults to 0 and takes the FIRST column,
-              pushing the copyright into the third. */}
-          <span aria-hidden="true" className="hidden md:order-3 md:block" />
+          {/*
+            The legal pages, in what was the empty balancing cell.
+
+            They are deliberately NOT in `publicNav` — that array drives the
+            header and the footer's main list, and these are not somewhere a
+            visitor should be steered. They do have to be reachable from every
+            page: Google's OAuth review fetches them, and a privacy policy
+            nobody can find is not a privacy policy.
+
+            `md:order-3` is load-bearing — its siblings carry explicit orders,
+            so without one this defaults to 0 and takes the FIRST column,
+            pushing the copyright into the third. On mobile it becomes a third
+            row beneath the copyright and the accounts, which is why it is no
+            longer `hidden`.
+          */}
+          {/*
+            `md:mr-16` clears the BackToTop button, which is fixed to the
+            bottom-right of the viewport and sat 24px on top of the Terms link
+            when these were first flush with the edge.
+          */}
+          <span className="order-3 flex items-center gap-4 text-[10px] font-semibold uppercase tracking-widest text-site-muted md:order-3 md:mr-16 md:justify-self-end md:text-xs">
+            <Link href="/privacy" className="transition-colors hover:text-site-fg">
+              Privacy
+            </Link>
+            <Link href="/terms" className="transition-colors hover:text-site-fg">
+              Terms
+            </Link>
+          </span>
         </div>
       </footer>
     </div>

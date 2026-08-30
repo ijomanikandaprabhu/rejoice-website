@@ -37,6 +37,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   });
 
+  /*
+   * The legal pages are deliberately absent from `publicNav` — they belong in
+   * the footer, not the navigation — so like /shorts they have to be listed
+   * here by hand. Low priority and rarely changing, but they must be
+   * indexable: Google's OAuth review fetches them.
+   */
+  for (const path of ['/privacy', '/terms']) {
+    pages.push({
+      url: absoluteUrl(path),
+      lastModified: now,
+      changeFrequency: 'yearly',
+      priority: 0.3,
+    });
+  }
+
   // Only videos the administrator has made visible are listed.
   const videos = await getPublicVideoIds();
 
