@@ -21,6 +21,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: item.href === '/' ? 1 : 0.8,
   }));
 
+  /*
+   * `/shorts` is a real, indexable page but is not in `publicNav` — the nav
+   * drives the header and footer, and the shorts feed is reached from the
+   * video pages rather than the menu. It therefore has to be added by hand,
+   * which is exactly why it was missing.
+   *
+   * Individual Shorts are NOT listed: `/videos/<id>` 404s for a Short, so each
+   * one would be a dead URL. The feed page is the only public address they have.
+   */
+  pages.push({
+    url: absoluteUrl('/shorts'),
+    lastModified: now,
+    changeFrequency: 'daily',
+    priority: 0.7,
+  });
+
   // Only videos the administrator has made visible are listed.
   const videos = await getPublicVideoIds();
 

@@ -18,10 +18,17 @@ export const metadata = buildMetadata({
   path: '/contact',
 });
 
-/** The bordered tile the details sit in. `h-full` so a row of them squares up. */
+/**
+ * The bordered tile the details sit in. `h-full` so a row of them squares up.
+ *
+ * `min-w-0`: these are grid items, and a grid item's automatic minimum size is
+ * its content — so an unbroken contact string (an address line, a long email)
+ * widened the track past the viewport and scrolled the whole page sideways,
+ * by 39px at 320px. Same reasoning as the admin `Panel`.
+ */
 function DetailCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className="h-full rounded-[16px] border border-white/10 bg-site-surface p-6">
+    <div className="h-full min-w-0 rounded-[16px] border border-white/10 bg-site-surface p-6">
       {children}
     </div>
   );
@@ -59,7 +66,9 @@ function DetailRow({
         <Icon className="size-4 text-site-accent" />
         <span className="t-label">{label}</span>
       </span>
-      <span className="mt-2 block whitespace-pre-line text-body leading-[1.7] text-site-fg">
+      {/* `break-words`: an email address or URL has no spaces to break at, so
+          without this it overflows its own tile once the tile can shrink. */}
+      <span className="mt-2 block whitespace-pre-line break-words text-body leading-[1.7] text-site-fg">
         {value}
       </span>
     </>

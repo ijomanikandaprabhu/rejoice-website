@@ -7,7 +7,16 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  // The pooled connection, used by the application at runtime.
   url      = env("DATABASE_URL")
+  /// The SAME database over an unpooled connection, used only for migrations.
+  ///
+  /// Migrations take advisory locks and issue DDL, neither of which survives a
+  /// transaction pooler — over the pooled URL they hang or fail outright.
+  /// Neon hands out both strings; they differ only by `-pooler` in the host.
+  /// Left unset locally, where the embedded Postgres has no pooler in front of
+  /// it and the pooled URL is already direct.
+  directUrl = env("DIRECT_URL")
 }
 
 /// Single administrator account. There is no public registration.

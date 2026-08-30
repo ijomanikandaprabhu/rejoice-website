@@ -24,14 +24,32 @@ const prismaMock = {
         .filter((id) => db.videos.has(id))
         .map((id) => ({ youtubeVideoId: id })),
     ),
-    create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
-      const id = data.youtubeVideoId as string;
-      if (db.videos.has(id)) {
-        throw Object.assign(new Error('Unique constraint failed'), { code: 'P2002' });
-      }
-      db.videos.set(id, { ...data });
-      return data;
-    }),
+    /*
+     * `createMany` with `skipDuplicates`, modelled faithfully: a row whose id
+     * is already present is silently skipped and NOT counted, which is what
+     * the sync relies on to tell "imported" from "already had it".
+     */
+    createMany: vi.fn(
+      async ({
+        data,
+        skipDuplicates,
+      }: {
+        data: Array<Record<string, unknown>>;
+        skipDuplicates?: boolean;
+      }) => {
+        let count = 0;
+        for (const row of data) {
+          const id = row.youtubeVideoId as string;
+          if (db.videos.has(id)) {
+            if (skipDuplicates) continue;
+            throw Object.assign(new Error('Unique constraint failed'), { code: 'P2002' });
+          }
+          db.videos.set(id, { ...row });
+          count++;
+        }
+        return { count };
+      },
+    ),
     update: vi.fn(async ({ where, data }: { where: { youtubeVideoId: string }; data: Record<string, unknown> }) => {
       const existing = db.videos.get(where.youtubeVideoId) ?? {};
       const merged = { ...existing, ...data };
@@ -43,6 +61,13 @@ const prismaMock = {
     upsert: vi.fn().mockResolvedValue({}),
     findUnique: vi.fn().mockResolvedValue(null),
   },
+  /*
+   * The real client takes an array of already-created promises and runs them in
+   * one transaction. The mocked `update` above is an async function, so by the
+   * time this receives them they are in flight — awaiting them is an accurate
+   * model, and the writes land in `db.videos` exactly as before.
+   */
+  $transaction: vi.fn(async (operations: Array<Promise<unknown>>) => Promise.all(operations)),
 };
 
 const fetchUploads = vi.fn();

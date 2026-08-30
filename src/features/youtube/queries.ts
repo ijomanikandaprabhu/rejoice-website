@@ -364,6 +364,17 @@ export async function getPublicVideoIds(): Promise<
     // The sitemap must carry the PUBLIC address, which is the YouTube id.
     select: { youtubeVideoId: true, updatedAt: true },
     orderBy: { youtubePublishedAt: 'desc' },
-    take: 1000,
+    /*
+     * Deliberately UNCAPPED.
+     *
+     * A `take: 1000` here silently truncated the sitemap: there are 1,059
+     * public landscape videos, so the newest 1,000 were listed and the oldest
+     * 59 were invisible to search engines with nothing to indicate it. The two
+     * columns selected are small, and Google's own limit is 50,000 URLs per
+     * sitemap — an order of magnitude above this catalogue — so the cap cost
+     * indexing and bought nothing. Revisit only if the catalogue approaches
+     * that limit, and then by splitting into a sitemap index rather than by
+     * dropping rows.
+     */
   });
 }

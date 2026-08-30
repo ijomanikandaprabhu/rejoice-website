@@ -8,7 +8,7 @@
     "db:start": "node scripts/dev-db.mjs",
     "db:stop": "node scripts/dev-db.mjs --stop",
     "db:status": "node scripts/dev-db.mjs --status",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
     "lint": "next lint",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",

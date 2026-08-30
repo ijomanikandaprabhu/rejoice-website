@@ -61,14 +61,65 @@ async function importVideos(
   const startVisible = channel.defaultVideoVisibility === 'AUTO_SHOW';
   const now = new Date();
 
-  let imported = 0;
-  let updated = 0;
+  /*
+   * Writes are BATCHED rather than issued one row at a time.
+   *
+   * The previous loop did a Prisma round-trip per video. Against the local
+   * embedded Postgres that is imperceptible; against a hosted database it is a
+   * network round-trip each, and a full 2,000-video sync would spend well over
+   * a minute in latency alone — past the serverless function ceiling, leaving
+   * the import half-finished with no error to show for it.
+   *
+   * New rows go in a single `createMany`; existing rows still need per-row data
+   * so they are chunked into transactions, which is one round-trip per chunk.
+   * `statsService.refreshVideoStats` already does the same thing for the same
+   * reason.
+   */
+  const CHUNK = 50;
 
-  for (const video of videos) {
-    if (known.has(video.videoId)) {
+  const fresh = videos.filter((v) => !known.has(v.videoId));
+  const stale = videos.filter((v) => known.has(v.videoId));
+
+  let imported = 0;
+
+  for (let i = 0; i < fresh.length; i += CHUNK) {
+    const { count } = await prisma.youTubeVideo.createMany({
+      // A concurrent sync (cron and webhook firing together) may have inserted
+      // one of these between our read and this write. Skipping duplicates is
+      // the batched equivalent of the unique-violation catch this replaces.
+      skipDuplicates: true,
+      data: fresh.slice(i, i + CHUNK).map((video) => ({
+        youtubeVideoId: video.videoId,
+        channelId: channel.id,
+        youtubeTitle: video.title,
+        youtubeDescription: video.description,
+        youtubeThumbnail: video.thumbnail,
+        youtubePublishedAt: video.publishedAt,
+        youtubeUrl: video.url,
+        durationSeconds: video.durationSeconds,
+        // On create there is nothing to preserve, so an unknown shape takes
+        // the column default of "not a Short" until a later sync learns it.
+        isShort: video.isShort ?? false,
+        viewCount: video.viewCount,
+        likeCount: video.likeCount,
+        commentCount: video.commentCount,
+        statsSyncedAt: video.viewCount !== null ? now : null,
+        isVisible: startVisible,
+        importedAt: now,
+        lastSyncedAt: now,
+      })),
+    });
+    imported += count;
+  }
+
+  // Anything skipped as a duplicate was already there, so it counts as refreshed.
+  let updated = fresh.length - imported;
+
+  for (let i = 0; i < stale.length; i += CHUNK) {
+    const writes = stale.slice(i, i + CHUNK).map((video) =>
       // Refresh the mirror of YouTube only. Every display*/publishing column is
       // absent from this update on purpose — see the module comment.
-      await prisma.youTubeVideo.update({
+      prisma.youTubeVideo.update({
         where: { youtubeVideoId: video.videoId },
         data: {
           youtubeTitle: video.title,
@@ -97,63 +148,19 @@ async function importVideos(
            * on a lookup that returned nothing would push the row to the back of
            * the queue without having learned anything.
            */
-          ...(video.viewCount !== null
-            ? { viewCount: video.viewCount, statsSyncedAt: now }
-            : {}),
+          ...(video.viewCount !== null ? { viewCount: video.viewCount, statsSyncedAt: now } : {}),
           ...(video.likeCount !== null ? { likeCount: video.likeCount } : {}),
           ...(video.commentCount !== null ? { commentCount: video.commentCount } : {}),
           lastSyncedAt: now,
         },
-      });
-      updated++;
-      continue;
-    }
+      }),
+    );
 
-    try {
-      await prisma.youTubeVideo.create({
-        data: {
-          youtubeVideoId: video.videoId,
-          channelId: channel.id,
-          youtubeTitle: video.title,
-          youtubeDescription: video.description,
-          youtubeThumbnail: video.thumbnail,
-          youtubePublishedAt: video.publishedAt,
-          youtubeUrl: video.url,
-          durationSeconds: video.durationSeconds,
-          // On create there is nothing to preserve, so an unknown shape takes
-          // the column default of "not a Short" until a later sync learns it.
-          isShort: video.isShort ?? false,
-          viewCount: video.viewCount,
-          likeCount: video.likeCount,
-          commentCount: video.commentCount,
-          statsSyncedAt: video.viewCount !== null ? now : null,
-          isVisible: startVisible,
-          importedAt: now,
-          lastSyncedAt: now,
-        },
-      });
-      imported++;
-    } catch (error) {
-      // A concurrent sync (cron and webhook firing together) may have inserted it
-      // between our read and write. The unique constraint catches that; ignore it.
-      if (isUniqueViolation(error)) {
-        updated++;
-        continue;
-      }
-      throw error;
-    }
+    await prisma.$transaction(writes);
+    updated += writes.length;
   }
 
   return { imported, updated };
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error as { code?: string }).code === 'P2002'
-  );
 }
 
 /**
