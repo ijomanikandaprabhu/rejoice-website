@@ -126,7 +126,7 @@ export function resolveVideoDisplay(video: DisplayableVideo): ResolvedVideo {
     youtubeUrl: override(video.youtubeUrl) ?? watchUrl(video.youtubeVideoId),
     showChannelName: video.showChannelName,
     seoTitle: override(video.seoTitle) ?? title,
-    seoDescription: override(video.seoDescription) ?? truncateForMeta(description),
+    seoDescription: override(video.seoDescription) ?? buildMetaDescription(description, title),
   };
 }
 
@@ -134,6 +134,215 @@ function truncateForMeta(text: string, max = 160): string {
   const clean = text.replace(/\s+/g, ' ').trim();
   if (clean.length <= max) return clean;
   return `${clean.slice(0, max - 1).trimEnd()}…`;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Automatic meta descriptions                                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A YouTube description is not a meta description.
+ *
+ * Rejoice descriptions are credit sheets: `Song : X`, `Album : Y`, `Sung By :
+ * Z`, then a rule of dashes, streaming links, caller-tune instructions and
+ * subscribe boilerplate. Truncating the raw text at 160 characters — which is
+ * what this module used to publish — produced meta descriptions that were
+ * largely dashes, and that is what search results showed.
+ *
+ * Measured over the 1,662 public videos: 1,375 open with a `Key : Value` credit
+ * line, 1,371 carry `Song :`, 1,306 `Album :`. So for most of the catalogue the
+ * credits ARE the useful information, and a sentence composed from them beats
+ * anything extracted from the prose. Three strategies are tried in order, and
+ * the first that yields something usable wins.
+ */
+
+/** `Key : Value`, where the key is a short word or two — not a sentence. */
+const CREDIT_LINE = /^\s*([A-Za-z][A-Za-z0-9 &.,'/-]{0,34}?)\s*:\s*(.+)$/;
+
+/** Three or more rule characters: the separator rows between sections. */
+const SEPARATOR = /^[\s\-=_~*.·—–]{3,}$/;
+
+/**
+ * The same rule characters run INLINE, after real text on the same line —
+ * "1000 praises to god ------------------". Matching only whole lines left
+ * those untouched, so they went into the description verbatim.
+ */
+const INLINE_RULE = /[-=_~*·—–]{3,}/g;
+
+/**
+ * Lines that exist to promote rather than describe. Matched anywhere in the
+ * line, because they appear both as headings and inline.
+ */
+const BOILERPLATE =
+  /(subscribe|follow us|like and follow|stay (happily )?connected|connected with us|enjoy and stay|streaming platform|caller tune|click here|watch more|for more videos|copyright|all rights reserved|do not re-?upload)/i;
+
+/** `Spotify -`, `Apple Music -`, `AIRTEL Subscribers -`: a name and a dangling dash. */
+const DANGLING_LINK_LABEL = /^[^\s].{0,30}[-–—:]\s*$/;
+
+/**
+ * A credit written WITHOUT a colon — "Lyrics,Tune-Rev.H.Immanuel Jacob",
+ * "Music Compsoed 3&4 Titus Abraham". `CREDIT_LINE` misses these because they
+ * separate with a dash, and they were surfacing as descriptions.
+ */
+const CREDIT_PREFIX =
+  /^(lyrics?|music|tune|composed?|composer|arranged?|vocals?|sung|singer|mix(ed)?|master(ed)?|camera|edit(ing|or)?|produced?|directed?|programming|keys|guitars?|bass|drums?|flute|violin|rhythm|label|channel|album|song)\b/i;
+
+const URL_ANYWHERE = /https?:\/\/\S+|\b(?:bit\.ly|youtu\.be|www\.)\S+/gi;
+
+/** A line carrying no letters or digits at all — emoji rows, arrows, hashtag walls. */
+const NO_WORDS = /^[^\p{L}\p{N}]*$/u;
+
+function normaliseKey(key: string): string {
+  return key.toLowerCase().replace(/[^a-z]/g, '');
+}
+
+/**
+ * Read the `Key : Value` lines into a lookup.
+ *
+ * Only the FIRST occurrence of a key is kept: these sheets often repeat
+ * `Music:` for different sections, and the opening one is the headline credit.
+ */
+function parseCredits(text: string): Map<string, string> {
+  const credits = new Map<string, string>();
+
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || SEPARATOR.test(line)) continue;
+
+    const match = CREDIT_LINE.exec(line);
+    if (!match) continue;
+
+    const key = normaliseKey(match[1]);
+    const value = match[2]
+      .replace(URL_ANYWHERE, '')
+      .replace(INLINE_RULE, ' ')
+      .trim()
+      .replace(/[.,;|-]+$/, '')
+      .trim();
+
+    if (key && value && !credits.has(key)) credits.set(key, value);
+  }
+
+  return credits;
+}
+
+function firstCredit(credits: Map<string, string>, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = credits.get(key);
+    if (value) return value;
+  }
+  return null;
+}
+
+/**
+ * Strategy 1 — compose a sentence from the credit sheet.
+ *
+ * Deliberately states only what the fields say. No genre, language or praise is
+ * invented: an album called "SINGLE" is not an album, so it is dropped rather
+ * than published as one.
+ */
+function describeFromCredits(credits: Map<string, string>): string | null {
+  const song = firstCredit(credits, ['song', 'songtitle', 'title', 'track']);
+  if (!song) return null;
+
+  const singer = firstCredit(credits, [
+    'sungby',
+    'sung',
+    'singer',
+    'singers',
+    'vocals',
+    'vocal',
+    'songsungby',
+    'songandsungby',
+  ]);
+  const albumRaw = firstCredit(credits, ['album']);
+  const album = albumRaw && !/^single$/i.test(albumRaw) ? albumRaw : null;
+  const music = firstCredit(credits, ['music', 'musicby', 'composer']);
+  const lyrics = firstCredit(credits, [
+    'lyrics',
+    'lyricstune',
+    'lyricsandtune',
+    'lyricstunecomposed',
+    'lyricsandtunecomposed',
+    'lyricsby',
+    'lyric',
+  ]);
+
+  let sentence = song;
+  if (singer) sentence += `, sung by ${singer}`;
+  if (album) sentence += `, from the album ${album}`;
+  sentence += '.';
+
+  // Only worth adding when the first sentence left room for it.
+  const extra: string[] = [];
+  if (music) extra.push(`Music by ${music}`);
+  if (lyrics && lyrics !== music) extra.push(`lyrics by ${lyrics}`);
+  if (extra.length && sentence.length + extra.join(', ').length + 2 <= 160) {
+    sentence += ` ${extra.join(', ')}.`;
+  }
+
+  return truncateForMeta(sentence);
+}
+
+/**
+ * Strategy 2 — the first line that is actually describing the video.
+ *
+ * Credit lines, separators, links, promotional lines and symbol-only rows are
+ * all rejected, so what survives is prose someone wrote about the video.
+ */
+function describeFromProse(text: string): string | null {
+  const sentences: string[] = [];
+
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.replace(URL_ANYWHERE, '').replace(INLINE_RULE, ' ').replace(/\s+/g, ' ').trim();
+
+    if (!line) continue;
+    if (SEPARATOR.test(line)) continue;
+    if (NO_WORDS.test(line)) continue;
+    if (BOILERPLATE.test(line)) continue;
+    if (DANGLING_LINK_LABEL.test(line)) continue;
+    if (CREDIT_LINE.test(line)) continue;
+    if (CREDIT_PREFIX.test(line)) continue;
+    // A bare hashtag row carries no meaning for a reader.
+    if (/^#/.test(line) && !/\s[^#\s]/.test(line)) continue;
+    // Too short to be a sentence on its own.
+    if (line.replace(/[^\p{L}\p{N}]/gu, '').length < 25) continue;
+
+    sentences.push(line);
+    // Two lines is plenty; 160 characters will not fit more.
+    if (sentences.join(' ').length >= 160) break;
+  }
+
+  if (sentences.length === 0) return null;
+  return truncateForMeta(sentences.join(' '));
+}
+
+/**
+ * The published meta description for a video.
+ *
+ * Never returns an empty string: an absent description is better filled by the
+ * title than left for a search engine to invent one from the page.
+ */
+export function buildMetaDescription(description: string, title: string): string {
+  const text = description ?? '';
+
+  /*
+   * Credits win outright when they name the song, even when the sentence comes
+   * out short. "Neerea. Music by Reegan." is worth more than the longest line
+   * the prose scavenger can find, which in these sheets is usually a fragment
+   * of somebody's thanks.
+   */
+  const fromCredits = describeFromCredits(parseCredits(text));
+  if (fromCredits) return fromCredits;
+
+  const fromProse = describeFromProse(text);
+  if (fromProse) return fromProse;
+
+  /*
+   * The title is the last resort, minus its hashtags: "#Shorts" is a YouTube
+   * filing device, not something a search result should read out.
+   */
+  return truncateForMeta(title.replace(/#\S+/g, '').replace(/\s+/g, ' ').trim()) || truncateForMeta(title);
 }
 
 /**

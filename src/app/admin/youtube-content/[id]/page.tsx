@@ -221,26 +221,49 @@ export default async function VideoEditorPage({ params }: { params: { id: string
           </CardContent>
         </Card>
 
+        {/*
+          The placeholders are the REAL published text, not a hint.
+
+          Both boxes were empty and captioned "Falls back to the …", which read
+          as "nothing is set" — while the site was in fact publishing a title
+          and a generated description that nobody could see from here. Showing
+          the resolved values greyed out makes the automatic behaviour visible
+          and leaves an empty field meaning exactly what it always meant.
+        */}
         <Card>
           <CardHeader>
             <CardTitle>SEO</CardTitle>
+            <CardDescription>
+              Leave these empty to publish the text shown in grey, which follows the video as it
+              changes on YouTube. Type to override it.
+            </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
-            <Field label="SEO title" htmlFor="seoTitle" hint="Falls back to the website title.">
-              <Input id="seoTitle" name="seoTitle" defaultValue={video.seoTitle ?? ''} />
+            <Field
+              label="SEO title"
+              htmlFor="seoTitle"
+              hint="Used in search results and the browser tab."
+            >
+              <Input
+                id="seoTitle"
+                name="seoTitle"
+                defaultValue={video.seoTitle ?? ''}
+                placeholder={resolved.seoTitle}
+              />
               <FieldError name="seoTitle" />
             </Field>
 
             <Field
               label="SEO description"
               htmlFor="seoDescription"
-              hint="Falls back to the description."
+              hint="Built from the song credits when the YouTube description has them."
             >
               <Textarea
                 id="seoDescription"
                 name="seoDescription"
                 rows={3}
                 defaultValue={video.seoDescription ?? ''}
+                placeholder={resolved.seoDescription}
               />
               <FieldError name="seoDescription" />
             </Field>

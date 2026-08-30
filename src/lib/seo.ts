@@ -24,6 +24,29 @@ export function absoluteUrl(path = '/'): string {
   return new URL(path, appConfig.url).toString();
 }
 
+/**
+ * The true pixel size of a social card image.
+ *
+ * `og:image:width` / `height` were hardcoded to 1200×630 for every page, but a
+ * video page's image is a YouTube thumbnail and none of them are that size.
+ * Facebook and X lay the card out from the declared numbers before the image
+ * loads, so misreporting them produces the wrong crop.
+ *
+ * Measured over the 1,662 public videos: 1,486 store `maxresdefault`
+ * (1280×720), 167 `sddefault` (640×480) and 9 `hqdefault` (480×360). The last
+ * two are 4:3 — YouTube pads them — and they stay that way here rather than
+ * being rewritten to a `maxresdefault` URL that YouTube never generated and
+ * would serve as a 404.
+ */
+export function imageDimensions(url: string): { width: number; height: number } {
+  if (url.includes('maxresdefault')) return { width: 1280, height: 720 };
+  if (url.includes('sddefault')) return { width: 640, height: 480 };
+  if (url.includes('hqdefault')) return { width: 480, height: 360 };
+  if (url.includes('mqdefault')) return { width: 320, height: 180 };
+  // The site's own card, and anything else we ship, is authored at 1.91:1.
+  return { width: 1200, height: 630 };
+}
+
 export function buildMetadata({
   title,
   description = seoConfig.defaultDescription,
@@ -36,6 +59,7 @@ export function buildMetadata({
   const fullTitle = title ? seoConfig.titleTemplate.replace('%s', title) : seoConfig.defaultTitle;
   const url = absoluteUrl(path);
   const imageUrl = image.startsWith('http') ? image : absoluteUrl(image);
+  const { width, height } = imageDimensions(imageUrl);
 
   return {
     title: fullTitle,
@@ -49,7 +73,7 @@ export function buildMetadata({
       siteName: appConfig.name,
       locale: seoConfig.locale,
       type: type === 'video.other' ? 'video.other' : type,
-      images: [{ url: imageUrl, width: 1200, height: 630, alt: fullTitle }],
+      images: [{ url: imageUrl, width, height, alt: fullTitle }],
       ...(publishedTime
         ? { publishedTime: new Date(publishedTime).toISOString() }
         : {}),

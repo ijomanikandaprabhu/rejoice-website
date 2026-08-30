@@ -27,11 +27,30 @@ describe('secretBox', () => {
   });
 
   it('rejects a tampered ciphertext rather than returning garbage', () => {
-    const sealed = seal('original');
+    /*
+     * The flipped character is in the MIDDLE, not at the end.
+     *
+     * base64url encodes in four-character groups, and the final group can carry
+     * unused trailing bits — so altering the last character sometimes decodes to
+     * the identical bytes and the test passed or failed depending on the random
+     * IV. A middle character always changes a whole byte.
+     */
+    const sealed = seal('a secret worth protecting');
     const parts = sealed.split('.');
-    // Flip the last character of the ciphertext.
-    const last = parts[3];
-    parts[3] = last.slice(0, -1) + (last.at(-1) === 'A' ? 'B' : 'A');
+    const body = parts[3];
+    const at = Math.floor(body.length / 2);
+    parts[3] = body.slice(0, at) + (body[at] === 'A' ? 'B' : 'A') + body.slice(at + 1);
+
+    expect(parts[3]).not.toBe(body);
+    expect(() => open(parts.join('.'))).toThrow();
+  });
+
+  it('rejects a tampered authentication tag', () => {
+    const sealed = seal('a secret worth protecting');
+    const parts = sealed.split('.');
+    const tag = parts[2];
+    const at = Math.floor(tag.length / 2);
+    parts[2] = tag.slice(0, at) + (tag[at] === 'A' ? 'B' : 'A') + tag.slice(at + 1);
 
     expect(() => open(parts.join('.'))).toThrow();
   });
