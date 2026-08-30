@@ -35,3 +35,6 @@ undefined/
 
 # Screenshots taken while verifying work locally.
 final-dashboard.png
+
+# Generated Vercel environment sheet. Contains every production secret.
+vercel-env.txt
