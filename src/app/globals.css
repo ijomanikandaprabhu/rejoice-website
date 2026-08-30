@@ -1,0 +1,1121 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Two design systems live here, deliberately kept apart.
+ *
+ *   PUBLIC SITE  — dark editorial. Ember-orange accent, glossy cards, pill
+ *                  buttons, radial ember in hero corners. Inter Tight.
+ *                  Owns `body`.
+ *
+ *   ADMIN PORTAL — near-black panel layout. Lime accent used sparingly.
+ *                  Manrope. Scoped to `.admin-theme`, which also remaps the
+ *                  shadcn token set so its components inherit the panel
+ *                  palette instead of shadcn's defaults.
+ *
+ * NOTE: `npx shadcn add ...` re-appends a global base layer to the end of this
+ * file containing `body { @apply bg-background }`. It must be deleted — it
+ * comes after the public site's own body rule and would repaint every public
+ * page in the admin's colours.
+ */
+
+@layer base {
+  /*
+   * shadcn tokens. Bare HSL triplets, because tailwind.config.ts wraps them as
+   * `hsl(var(--token))`. Defined on :root so the components resolve, but the
+   * admin palette below is what actually gets used.
+   */
+  :root {
+    --background: 240 4% 5%;
+    --foreground: 60 8% 95%;
+    --card: 0 0% 8%;
+    --card-foreground: 60 8% 95%;
+    --popover: 240 2% 11%;
+    --popover-foreground: 60 8% 95%;
+    --primary: 73 100% 62%;
+    --primary-foreground: 240 4% 5%;
+    --secondary: 240 2% 11%;
+    --secondary-foreground: 60 8% 95%;
+    --muted: 240 2% 11%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 240 2% 14%;
+    --accent-foreground: 60 8% 95%;
+    --destructive: 5 100% 68%;
+    --destructive-foreground: 240 4% 5%;
+    --border: 0 0% 16%;
+    --input: 0 0% 20%;
+    --ring: 73 100% 62%;
+    --radius: 0.75rem;
+
+    /* Charts: neutral bars, with chart-1 reserved for the single accent peak. */
+    --chart-1: 73 100% 62%;
+    --chart-2: 0 0% 38%;
+    --chart-3: 0 0% 30%;
+    --chart-4: 0 0% 24%;
+    --chart-5: 0 0% 45%;
+
+    --sidebar-background: 0 0% 8%;
+    --sidebar-foreground: 60 8% 95%;
+    --sidebar-primary: 73 100% 62%;
+    --sidebar-primary-foreground: 240 4% 5%;
+    --sidebar-accent: 240 2% 14%;
+    --sidebar-accent-foreground: 60 8% 95%;
+    --sidebar-border: 0 0% 16%;
+    --sidebar-ring: 73 100% 62%;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+
+    /*
+     * Reserve the scrollbar's track whether or not a scrollbar is drawn.
+     *
+     * `SiteLoader` locks scrolling with `overflow: hidden` while it holds. That
+     * removes the scrollbar, which WIDENS the viewport, and everything centred
+     * on it jumps sideways by half the scrollbar's width. Measured on the home
+     * page: the loading disc sat at x=513 on first paint and moved to x=518 the
+     * moment the lock applied, then the page underneath slid back the other way
+     * when the loader left. Two visible hops per page load, roughly 7-8px each
+     * in Chrome on Windows.
+     *
+     * The delay before the first hop is hydration, so it cannot be fixed by
+     * locking earlier: the first paint is always pre-JavaScript and always has
+     * a scrollbar. Padding the body does not help either, because the overlay
+     * is `position: fixed` and centres on the viewport, which widens regardless
+     * of what the body is padded to.
+     *
+     * With the gutter always reserved, taking the scrollbar away changes
+     * nothing about the layout width, so neither hop happens.
+     *
+     * Safari below 18.2 ignores this and keeps the old behaviour. That is a
+     * small cosmetic jump on an older browser, not a broken layout.
+     */
+    scrollbar-gutter: stable;
+  }
+
+  /* The public site owns the document background. */
+  body {
+    @apply bg-site-bg font-sans text-site-fg;
+  }
+
+  /*
+   * Scrollbars.
+   *
+   * The OS default — stepper arrows, a raised thumb in a boxed channel, and a
+   * diagonal resize hatch on textareas — reads as stray desktop chrome on a
+   * dark editorial site.
+   *
+   * Neutral white rather than an accent, deliberately: the public site is
+   * ember-orange and the admin is lime, so either accent would be wrong in the
+   * other half. Both are dark, so a translucent white thumb serves both and
+   * needs no `.admin-theme` override.
+   *
+   * 0.35 is a floor, not a taste call. A scrollbar thumb is a UI control, so
+   * the 3:1 non-text contrast minimum applies. Measured against a near-black
+   * track: 0.16 -> 1.44:1, 0.22 -> 1.79:1, 0.28 -> 2.27:1, 0.35 -> 3.01:1.
+   * Fainter looks tidier in a screenshot and is genuinely hard to find.
+   *
+   * macOS overlay scrollbars largely ignore all of this, which is expected.
+   */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  /* Transparent track and corner: no boxed channel, no arrows. */
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /*
+   * The transparent border plus `background-clip: content-box` is what insets
+   * the thumb inside the gutter — a floating pill rather than a bar filling the
+   * full width. There is no `padding` on a scrollbar pseudo-element, so this
+   * border trick is the way to get it.
+   */
+  ::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.35);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.5);
+  }
+
+  /*
+   * Opt a single container out of the scrollbar styling above.
+   *
+   * For a scroller that carries its own controls — the Shorts feed navigates
+   * by its up/down buttons, so a full-height bar beside a 9:16 video reads as
+   * stray chrome rather than as a control. Scoped per element; the global rule
+   * still dresses everything else.
+   */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Drops the dated diagonal hatch on textareas. Dragging to resize still
+     works; only the drawn grip goes. */
+  ::-webkit-resizer {
+    background: transparent;
+  }
+
+  /* The admin opts in to the panel palette. */
+  .admin-theme {
+    @apply bg-panel-bg font-admin text-panel-fg;
+  }
+
+  .admin-theme *,
+  .admin-theme *::before,
+  .admin-theme *::after {
+    @apply border-border;
+  }
+
+  /* Ember focus ring on the public site, never removed.
+   *
+   * NO `border-radius` here. A rule on `:focus-visible` styles the ELEMENT, not
+   * the outline — so a radius set here overrode every `rounded-pill` on the
+   * site the moment it took focus, squaring off the search field, the buttons
+   * and the nav links. The browser already draws the outline following each
+   * element's own radius, which is what that declaration was reaching for. */
+  body :focus-visible {
+    outline: 2px solid theme('colors.site.accent');
+    outline-offset: 2px;
+  }
+
+  .admin-theme :focus-visible {
+    outline: 2px solid theme('colors.panel.accent');
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: theme('colors.site.accent');
+    color: theme('colors.site.fg');
+  }
+
+  .admin-theme ::selection {
+    background: theme('colors.panel.accent');
+    color: theme('colors.panel.bg');
+  }
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-6xl px-5 sm:px-8;
+  }
+
+  /* ---- Public type scale, exactly as specified ---------------------- */
+
+  .t-h1 {
+    @apply text-[2.5rem] font-light leading-[1.05] tracking-[-0.02em] sm:text-h1;
+  }
+
+  .t-h2 {
+    @apply text-[1.75rem] font-normal leading-[1.15] tracking-[-0.01em] sm:text-h2;
+  }
+
+  .t-h3 {
+    @apply text-h3;
+  }
+
+  .t-label {
+    @apply text-label uppercase tracking-[0.08em] text-site-muted;
+  }
+
+  .t-body {
+    @apply text-body text-site-muted;
+  }
+
+  /*
+   * Glossy card.
+   *
+   * Three layers, in order: a deep drop shadow that lifts the card off the
+   * page, a soft inner highlight along the top edge, and a diagonal sheen
+   * swept across the face. The sheen sits in a ::after so it never intercepts
+   * pointer events or covers content.
+   */
+  .card-gloss {
+    @apply relative isolate overflow-hidden rounded-card border border-white/[0.06] bg-site-surface shadow-gloss;
+  }
+
+  .card-gloss::before {
+    content: '';
+    @apply pointer-events-none absolute inset-x-0 top-0 z-10 h-px;
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.22) 30%,
+      rgba(255, 255, 255, 0.28) 50%,
+      rgba(255, 255, 255, 0.22) 70%,
+      rgba(255, 255, 255, 0) 100%
+    );
+  }
+
+  .card-gloss::after {
+    content: '';
+    @apply pointer-events-none absolute inset-0 z-10 bg-sheen opacity-70 transition-opacity duration-500;
+  }
+
+  .card-gloss:hover::after {
+    @apply opacity-100;
+  }
+
+  /* Hero panel: larger radius, ember in the top-right corner. */
+  .panel-ember {
+    @apply relative isolate overflow-hidden rounded-hero border border-white/[0.06] bg-site-surface;
+  }
+
+  .panel-ember::before {
+    content: '';
+    @apply pointer-events-none absolute inset-0 -z-10 bg-ember;
+  }
+
+  /* ---- Buttons: always full pill ------------------------------------ */
+
+  .btn {
+    @apply inline-flex min-h-[2.75rem] items-center justify-center gap-2 rounded-pill px-6 text-[0.9375rem] font-medium transition-all duration-200;
+  }
+
+  /*
+   * White on `site-accent` measures 2.81:1, and 2.33:1 against the lighter
+   * `accentSoft` hover fill — both under the 4.5:1 that AA asks for at this
+   * label's 15px. Kept deliberately: a near-black label was tried and read as
+   * a disabled button.
+   *
+   * If it is ever revisited, keeping the white and deepening the fill to
+   * #B23F12 reaches 5.81:1.
+   */
+  .btn-primary {
+    @apply btn bg-site-accent text-site-fg shadow-ember hover:bg-site-accentSoft;
+  }
+
+  .btn-secondary {
+    @apply btn border border-white/15 bg-white/[0.04] text-site-fg hover:border-white/30 hover:bg-white/[0.08];
+  }
+
+  .btn-ghost {
+    @apply btn text-site-muted hover:bg-white/[0.06] hover:text-site-fg;
+  }
+
+  .prose-site {
+    @apply space-y-5 text-body leading-[1.7] text-site-muted;
+
+    /*
+     * These paragraphs are raw YouTube descriptions, which routinely carry
+     * unbreakable runs: dash dividers and social links joined without spaces.
+     * `anywhere` rather than `break-word` because only `anywhere` lowers the
+     * element's min-content width — without it the text wrapped visually but
+     * still forced its container wide, scrolling the page sideways on a phone.
+     */
+    overflow-wrap: anywhere;
+  }
+
+  .prose-site p {
+    @apply whitespace-pre-line;
+  }
+
+  /* ---- Admin panels -------------------------------------------------- */
+
+  .panel {
+    @apply rounded-panel border border-white/[0.06] bg-panel p-5 shadow-panel;
+  }
+
+  .panel-alt {
+    @apply rounded-panel border border-white/[0.06] bg-panel-alt p-5;
+  }
+
+  /* ---- Fades to the page background ----------------------------------- */
+
+  /*
+   * Eased fade to the page background, for dissolving the edge of media into
+   * the page.
+   *
+   * A plain `from-site-bg to-transparent` ramp is linear: alpha falls at a
+   * constant rate and then stops dead at the end. The eye reads that abrupt
+   * change in rate as a line, which is exactly the seam these are meant to
+   * remove. These stops follow an ease-out curve — alpha ≈ (1 - t)² — so the
+   * tail flattens asymptotically into the background with no knee to catch on.
+   *
+   * Black is hardcoded rather than tokenised because these have to match the
+   * page background exactly; see the note on the hero's ramps.
+   */
+  .fade-to-bg-top {
+    background-image: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 1) 0%,
+      rgba(0, 0, 0, 0.81) 10%,
+      rgba(0, 0, 0, 0.64) 20%,
+      rgba(0, 0, 0, 0.49) 30%,
+      rgba(0, 0, 0, 0.36) 40%,
+      rgba(0, 0, 0, 0.25) 50%,
+      rgba(0, 0, 0, 0.16) 60%,
+      rgba(0, 0, 0, 0.09) 70%,
+      rgba(0, 0, 0, 0.04) 80%,
+      rgba(0, 0, 0, 0.01) 90%,
+      rgba(0, 0, 0, 0) 100%
+    );
+  }
+
+  /*
+   * Top overlay for the hero film, in the deep navy of the clip's own night
+   * sky rather than black. Same ease-out curve as the fades above, for the
+   * same reason — a linear ramp leaves a visible knee.
+   */
+  .fade-from-night-top {
+    background-image: linear-gradient(
+      to bottom,
+      rgba(4, 26, 41, 1) 0%,
+      rgba(4, 26, 41, 0.81) 10%,
+      rgba(4, 26, 41, 0.64) 20%,
+      rgba(4, 26, 41, 0.49) 30%,
+      rgba(4, 26, 41, 0.36) 40%,
+      rgba(4, 26, 41, 0.25) 50%,
+      rgba(4, 26, 41, 0.16) 60%,
+      rgba(4, 26, 41, 0.09) 70%,
+      rgba(4, 26, 41, 0.04) 80%,
+      rgba(4, 26, 41, 0.01) 90%,
+      rgba(4, 26, 41, 0) 100%
+    );
+  }
+
+  .fade-to-bg-bottom {
+    background-image: linear-gradient(
+      to top,
+      rgba(0, 0, 0, 1) 0%,
+      rgba(0, 0, 0, 0.81) 10%,
+      rgba(0, 0, 0, 0.64) 20%,
+      rgba(0, 0, 0, 0.49) 30%,
+      rgba(0, 0, 0, 0.36) 40%,
+      rgba(0, 0, 0, 0.25) 50%,
+      rgba(0, 0, 0, 0.16) 60%,
+      rgba(0, 0, 0, 0.09) 70%,
+      rgba(0, 0, 0, 0.04) 80%,
+      rgba(0, 0, 0, 0.01) 90%,
+      rgba(0, 0, 0, 0) 100%
+    );
+  }
+
+  /*
+   * Glass input, for the sign-in screen.
+   *
+   * The same recipe as `.footer-glass-pill` above — light gradient, hairline
+   * border, drop shadow plus an inner top highlight, and a real backdrop blur.
+   * Reused rather than reinvented so the two read as one material.
+   *
+   * The fields it replaces were `bg-panel-alt/90`: 90% OPAQUE, which made their
+   * `backdrop-blur` inert. There was nothing to blur through.
+   *
+   * The focus state is the admin's lime rather than the pill's ember, because
+   * this is the admin. It is a border and a ring rather than a glow, so the
+   * focused field is unmistakable on a moving background.
+   */
+  /*
+   * Scoped as `.admin-theme .admin-glass-field` for SPECIFICITY, not for tidiness.
+   *
+   * At a bare `.admin-glass-field` this lost every property that another rule
+   * also set: shadcn's `Input` carries `border-input shadow-sm` as utilities and
+   * `.admin-theme *` sets `border-color`. All of those are 0-1-0, the same as a
+   * single class, so the last one to load won — the border rendered #333 and the
+   * glass box-shadow did not apply at all. Two classes is 0-2-0 and settles it.
+   */
+  .admin-theme .admin-glass-field {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.025) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow:
+      0 10px 30px -10px rgba(0, 0, 0, 0.6),
+      inset 0 1px 1px rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    transition:
+      border-color 200ms ease,
+      background 200ms ease;
+  }
+
+  .admin-theme .admin-glass-field:hover {
+    border-color: rgba(255, 255, 255, 0.24);
+  }
+
+  .admin-theme .admin-glass-field:focus {
+    outline: none;
+    border-color: theme('colors.panel.accent');
+    box-shadow:
+      0 10px 30px -10px rgba(0, 0, 0, 0.6),
+      inset 0 1px 1px rgba(255, 255, 255, 0.08),
+      0 0 0 3px rgba(214, 255, 63, 0.25);
+  }
+
+  /*
+   * The same ramp as `.fade-to-bg-bottom`, but to the ADMIN panel colour.
+   *
+   * The sign-in screen runs the hero clip over `bg-panel-bg` (#0B0B0C), not the
+   * public site's pure black. Reusing the black one there leaves a faint band
+   * where the ramp finishes and the page colour begins — exactly the seam these
+   * classes exist to remove.
+   */
+  .fade-to-panel-bottom {
+    background-image: linear-gradient(
+      to top,
+      rgba(11, 11, 12, 1) 0%,
+      rgba(11, 11, 12, 0.81) 10%,
+      rgba(11, 11, 12, 0.64) 20%,
+      rgba(11, 11, 12, 0.49) 30%,
+      rgba(11, 11, 12, 0.36) 40%,
+      rgba(11, 11, 12, 0.25) 50%,
+      rgba(11, 11, 12, 0.16) 60%,
+      rgba(11, 11, 12, 0.09) 70%,
+      rgba(11, 11, 12, 0.04) 80%,
+      rgba(11, 11, 12, 0.01) 90%,
+      rgba(11, 11, 12, 0) 100%
+    );
+  }
+
+  /* ---- Channel rails ---------------------------------------------------- */
+
+  /*
+   * Viewport for a marquee row.
+   *
+   * Normally hidden: the track is deliberately far wider than the screen, so
+   * `overflow-x: auto` would park a scrollbar under every row permanently, and
+   * without any clipping the page itself would gain a horizontal scrollbar.
+   *
+   * Under reduced motion the marquee is frozen by the rule at the end of this
+   * file, which would otherwise strand every card past the first few offscreen
+   * with no way to reach them. There, and only there, it becomes a normal
+   * scrollable row.
+   */
+  .rail-viewport {
+    overflow: hidden;
+
+    /*
+     * Soften both ends of the row.
+     *
+     * Without this the track is clipped dead straight, so cards pop into
+     * existence beside the avatar and vanish at the screen edge. Masking the
+     * edges to transparent makes them fade in and out instead, which reads as
+     * a row continuing past the frame rather than one being cut off.
+     *
+     * A mask rather than a gradient overlay, because the page background is
+     * not always what sits behind a rail — a gradient would have to know the
+     * colour, a mask does not.
+     *
+     * The fade is narrower on small screens: at 375px the rail is only ~270px
+     * wide, and a desktop-sized fade would eat most of a card.
+     */
+    --rail-fade: 1.5rem;
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 var(--rail-fade),
+      #000 calc(100% - var(--rail-fade)),
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 var(--rail-fade),
+      #000 calc(100% - var(--rail-fade)),
+      transparent 100%
+    );
+  }
+
+  @media (min-width: 640px) {
+    .rail-viewport {
+      --rail-fade: 4rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rail-viewport {
+      overflow-x: auto;
+    }
+  }
+
+  /*
+   * Scroll reveal for headings and body copy — see `site/TextReveal.tsx`.
+   *
+   * BOTH classes are applied by JavaScript, never by the markup. If the script
+   * never runs, no element ever gets `.reveal-up` and the page is simply
+   * visible — which is why a site-wide reveal cannot blank the site.
+   *
+   * 14px, 600ms and `cubic-bezier(0.22, 1, 0.36, 1)` are `riseIn`'s values
+   * (tailwind.config.ts) and `ui/reveal.tsx`'s, so text revealed on scroll is
+   * indistinguishable from a card revealed on mount.
+   *
+   * Opacity and transform only — no blur. `filter` forces a repaint every
+   * frame; these two ride the compositor, which is what lets this run on every
+   * heading and paragraph on the site without a per-element budget.
+   */
+  /*
+   * The transition lives on the REVEALED state, not on the hidden one.
+   *
+   * Declared on `.reveal-up`, adding that class animated the elements from
+   * visible to hidden — 40 transitions firing on page load for a change nobody
+   * is meant to see. Measured during the loader's handover, they were a fifth of
+   * everything running. On `.is-revealed` the browser reads the transition from
+   * the incoming style, so revealing still animates and hiding is instant.
+   */
+  .reveal-up {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  .reveal-up.is-revealed {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 600ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /*
+   * Nothing decorative runs while the loading screen is up.
+   *
+   * `SiteLoader` sets `data-loading` on the document. The home page carries two
+   * marquee rails whose tracks measure 27,200px and 19,600px across 235 images,
+   * and they animate continuously — including underneath the overlay, where
+   * nobody can see them, and through the disc's flight, where they were the
+   * largest single cost in the frame budget.
+   *
+   * Paused, not disabled: `animation-play-state` resumes them exactly where they
+   * were, so the rails do not jump when the overlay leaves.
+   */
+  html[data-loading] .animate-marquee,
+  html[data-loading] .animate-riseIn,
+  html[data-loading] .noise-overlay,
+  html[data-loading] .animate-emberDrift {
+    animation-play-state: paused !important;
+  }
+
+  /* ---- Cinematic footer -------------------------------------------------- */
+
+  /*
+   * The three footer treatments that genuinely need raw CSS.
+   *
+   * NOTE ON THE SOURCE: the component these came from coloured everything with
+   * `color-mix(in oklch, var(--foreground) 3%, transparent)`. This project
+   * stores shadcn tokens as HSL TRIPLETS (`--foreground: 60 8% 95%`) consumed
+   * as `hsl(var(--token))`, so that expands to
+   * `color-mix(in oklch, 60 8% 95% 3%, transparent)` — not a valid colour, so
+   * the whole declaration is dropped and the surface renders invisible. Those
+   * tokens are also the ADMIN palette (`--primary` is lime), wrong for a public
+   * page. Everything below is written against the public site's own colours.
+   */
+  .footer-glass-pill {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.015) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 10px 30px -10px rgba(0, 0, 0, 0.6),
+      inset 0 1px 1px rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    transition: all 400ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .footer-glass-pill:hover {
+    background: linear-gradient(145deg, rgba(255, 109, 41, 0.14) 0%, rgba(255, 255, 255, 0.03) 100%);
+    border-color: rgba(255, 109, 41, 0.45);
+    box-shadow:
+      0 20px 40px -10px rgba(0, 0, 0, 0.7),
+      inset 0 1px 1px rgba(255, 255, 255, 0.16);
+  }
+
+  /* ---- Music hero: the light ------------------------------------------ *
+   *
+   * A room with light falling into it from the right, built rather than
+   * photographed — the hand arrives as a cut-out, so the light has to come
+   * from somewhere.
+   *
+   * THREE layers, and each one is doing a job the others cannot:
+   *
+   *   .music-light          the horizontal colour, black on the left through a
+   *                         bright core to orange at the right edge
+   *   .music-light-falloff  a vertical darkening, bright at the top and nearly
+   *                         black at the bottom
+   *   .music-light-bloom    the soft spill around the core
+   *
+   * The first attempt was a narrow column that faded back to black on BOTH
+   * sides and had no vertical shading at all. That reads as a strip laid on a
+   * background. Light in a room is bright where it enters and falls away with
+   * distance and with height, which is what these three together describe.
+   */
+  .music-light {
+    /*
+     * The core sits at 58.5%, not the middle.
+     *
+     * That asymmetry is the whole effect: the dark side is only the left
+     * ~45%, the light enters just past centre, and everything to its right
+     * stays orange out to the edge rather than returning to black.
+     */
+    background-image: linear-gradient(
+      to right,
+      #000000 0%,
+      #050303 34%,
+      #1c0f08 44%,
+      #6b3210 50%,
+      #c86a22 55%,
+      #ffb066 58.5%,
+      #ff9445 62%,
+      #ee7629 70%,
+      #a94e18 84%,
+      #3a1a08 100%
+    );
+  }
+
+  /*
+   * On a phone the type runs the full width, so a core at 58.5% would sit
+   * directly behind the paragraph. Everything shifts right, and the dark side
+   * widens to keep the copy on black.
+   */
+  @media (max-width: 639px) {
+    .music-light {
+      background-image: linear-gradient(
+        to right,
+        #000000 0%,
+        #030202 52%,
+        #140b06 64%,
+        #4d240c 72%,
+        #b85f1e 78%,
+        #ffab5e 83%,
+        #f2801f 90%,
+        #a34a16 100%
+      );
+    }
+  }
+
+  .music-light-falloff {
+    /* Bright where the light enters at the top, falling to near-black at the
+       floor. Without this the colour layer reads as a flat swatch. */
+    background-image: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.02) 0%,
+      rgba(0, 0, 0, 0) 14%,
+      rgba(0, 0, 0, 0.18) 55%,
+      rgba(0, 0, 0, 0.55) 82%,
+      rgba(0, 0, 0, 0.88) 100%
+    );
+  }
+
+  .music-light-bloom {
+    background-image: radial-gradient(
+      ellipse 42% 70% at 64% 34%,
+      rgba(255, 195, 140, 0.5) 0%,
+      rgba(255, 140, 70, 0.2) 46%,
+      transparent 76%
+    );
+    filter: blur(48px);
+  }
+
+  /* Faint rule grid, faded out top and bottom. */
+  .footer-bg-grid {
+    background-size: 60px 60px;
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent);
+    mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent);
+  }
+
+  /* The oversized wordmark behind everything: outlined, fading downward. */
+  .footer-giant-text {
+    line-height: 0.75;
+    letter-spacing: -0.05em;
+    color: transparent;
+    -webkit-text-stroke: 1px rgba(255, 255, 255, 0.07);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.09) 0%, transparent 60%);
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
+
+  /* Metallic sheen on the closing heading. */
+  .footer-text-glow {
+    background: linear-gradient(180deg, #ffffff 0%, rgba(255, 255, 255, 0.4) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 20px rgba(255, 109, 41, 0.25));
+  }
+
+  /* ---- Bento card icons ------------------------------------------------ */
+
+  /*
+   * The four animated marks used by `BentoCards`. They are pseudo-element
+   * driven, which Tailwind cannot express, so they live here alongside the
+   * other bespoke component classes.
+   *
+   * NOTE ON THE SOURCE: the component these came from had its three `@media`
+   * blocks pasted INSIDE the `::before/::after` declaration block, before it
+   * closed. `@media` is invalid there — a browser discards the media queries
+   * outright and the rule loses the declarations that followed them. The rules
+   * below are the corrected form. Nothing here needs a media query at all: the
+   * mark is sized in `em` off the parent, so it scales with the card.
+   *
+   * Being CSS rather than JS also means the global `prefers-reduced-motion`
+   * rule above switches these animations off for free.
+   */
+  .bento-icon {
+    position: relative;
+    display: inline-flex;
+    height: 2.25rem;
+    width: 2.25rem;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    isolation: isolate;
+    border-radius: 9999px;
+    --bento-stroke: theme('colors.site.accent');
+    --bento-trail: rgba(255, 255, 255, 0.25);
+  }
+
+  .bento-icon::before,
+  .bento-icon::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border-radius: inherit;
+    border: 1px solid var(--bento-trail);
+    opacity: 0.45;
+  }
+
+  .bento-icon::after {
+    inset: 8px;
+    opacity: 0.2;
+  }
+
+  /* Orbit — a sweep hand rotating behind the rings. */
+  .bento-icon[data-variant='orbit'] span {
+    position: absolute;
+    height: 140%;
+    width: 3px;
+    transform-origin: center;
+    background: linear-gradient(180deg, transparent, var(--bento-stroke) 55%, transparent);
+    animation: bentoFlare 8s linear infinite;
+  }
+
+  /* Relay — two rails with pulses running along them. */
+  .bento-icon[data-variant='relay'] span {
+    position: absolute;
+    inset: 9px;
+    transform: skewX(-15deg);
+    border-top: 1px solid var(--bento-stroke);
+    border-bottom: 1px solid var(--bento-stroke);
+  }
+
+  .bento-icon[data-variant='relay'] span::before,
+  .bento-icon[data-variant='relay'] span::after {
+    content: '';
+    position: absolute;
+    left: -10%;
+    height: 1px;
+    width: 120%;
+    background: linear-gradient(90deg, transparent, var(--bento-stroke), transparent);
+    animation: bentoDash 2.6s ease-in-out infinite;
+  }
+
+  .bento-icon[data-variant='relay'] span::after {
+    top: 70%;
+    animation-delay: 0.9s;
+  }
+
+  /* Wave — a band sliding back and forth inside a disc. */
+  .bento-icon[data-variant='wave'] span {
+    position: absolute;
+    inset: 7px;
+    overflow: hidden;
+    border-radius: 9999px;
+  }
+
+  .bento-icon[data-variant='wave'] span::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent 5%, var(--bento-stroke) 50%, transparent 95%);
+    transform: translateX(-45%);
+    animation: bentoWave 2.8s ease-in-out infinite alternate;
+  }
+
+  /* Spark — two rings pulsing outward on an offset. */
+  .bento-icon[data-variant='spark'] span,
+  .bento-icon[data-variant='spark'] span::before,
+  .bento-icon[data-variant='spark'] span::after {
+    position: absolute;
+    inset: 0;
+  }
+
+  .bento-icon[data-variant='spark'] span::before,
+  .bento-icon[data-variant='spark'] span::after {
+    content: '';
+    inset: 7px;
+    border-radius: 9999px;
+    border: 1px solid var(--bento-stroke);
+    opacity: 0.28;
+    animation: bentoPulse 2.8s ease-out infinite;
+  }
+
+  .bento-icon[data-variant='spark'] span::after {
+    animation-delay: 0.9s;
+  }
+
+  @keyframes bentoFlare {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes bentoDash {
+    0% {
+      transform: translateX(-25%);
+      opacity: 0;
+    }
+    30%,
+    70% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateX(25%);
+      opacity: 0;
+    }
+  }
+
+  @keyframes bentoWave {
+    from {
+      transform: translateX(-45%);
+    }
+    to {
+      transform: translateX(45%);
+    }
+  }
+
+  @keyframes bentoPulse {
+    0% {
+      transform: scale(0.8);
+      opacity: 0.6;
+    }
+    70% {
+      opacity: 0.05;
+    }
+    100% {
+      transform: scale(1.35);
+      opacity: 0;
+    }
+  }
+
+  /* ---- Hero record ---------------------------------------------------- */
+
+  /*
+   * SVG defaults `transform-origin` to `0 0`, which spins the disc around the
+   * corner of the viewBox and flings it out of frame. Set here rather than with
+   * Tailwind's `origin-center`, whose resolution inside SVG is not dependable
+   * across browsers — `fill-box` pins it to the group's own bounding box.
+   */
+  .vinyl-disc {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  /* ---- Map edge fade -------------------------------------------------- */
+
+  /*
+   * Dissolves the contact map's canvas into the page instead of ending it at a
+   * bordered rectangle.
+   *
+   * Targets the CANVAS, and that is load-bearing in two directions.
+   *
+   * Not the map root: the zoom controls and the attribution live in a sibling
+   * `.maplibregl-control-container`, so masking the root would fade them out
+   * too — and OpenFreeMap's terms require the attribution to stay visible, so
+   * that would be a licensing problem rather than a cosmetic one.
+   *
+   * Not `.maplibregl-canvas-container` either, which looks like the right
+   * target but measures 1088x0: MapLibre positions the canvas absolutely, so
+   * the container has no height of its own. A mask on a zero-height box
+   * collapses every gradient stop into the same place and resolves to fully
+   * transparent, which erased the entire map. The canvas itself has the box.
+   *
+   * It is a global rule because MapLibre builds that element itself; there is
+   * no JSX of ours to hang a utility class on. Scoped under `.map-fade` so it
+   * reaches only the map that opts in.
+   *
+   * One radial rather than two intersected linears: an ellipse falls off toward
+   * every edge AND peaks at the centre, so the same layer gives both the
+   * dissolve and a focus on the marker — which sits dead centre, since the map
+   * is centred on the same coordinates.
+   *
+   * The page is `#000` and this style's own background is `rgb(12,12,12)`, so
+   * fading to transparent reads as a dissolve rather than a colour seam.
+   *
+   * The stops are the fiddly part, and both ends are constrained.
+   *
+   * The ellipse is 60% so that the edge midpoints and the corners land at 0.833
+   * and 1.179 normalised — a larger ellipse (70%) leaves ~0.15 alpha at the left
+   * and right edges, drawing back exactly the hard boundary this rule exists to
+   * remove.
+   *
+   * The solid stop then has to be far enough out that the map survives. A first
+   * pass held solid only to 30% and faded to nothing by 78%, which left little
+   * more than a patch around the marker. 45%/84% keeps alpha at 0.87 halfway
+   * out and 0.36 at 70%, still reaching 0.017 at the edges and 0 at the
+   * corners: a readable map that falls away toward the pin rather than a
+   * spotlight on it.
+   */
+  .map-fade .maplibregl-canvas {
+    -webkit-mask-image: radial-gradient(
+      ellipse 60% 60% at 50% 50%,
+      #000 0%,
+      #000 45%,
+      transparent 84%
+    );
+    mask-image: radial-gradient(ellipse 60% 60% at 50% 50%, #000 0%, #000 45%, transparent 84%);
+  }
+
+  /* ---- Film grain ----------------------------------------------------- */
+
+  /*
+   * Noise overlay. Stretch it over any element (`absolute inset-0`) and pick
+   * the strength with an opacity utility at the call site.
+   *
+   * The noise is SVG fractal turbulence from the `grain` background token, so
+   * it costs no request and stays sharp at any pixel density. It drifts by
+   * shifting `background-position` rather than by transforming the element —
+   * which is what lets it sit flush at `inset-0`. A transform-based drift
+   * would pull the element's own edges into view and need it oversized.
+   * `stitchTiles` on the turbulence makes the tile seamless as it shifts.
+   */
+  .noise-overlay {
+    @apply bg-grain;
+    background-size: 220px 220px;
+    animation: noiseShift 3s steps(6) infinite;
+  }
+}
+
+/*
+ * Neutralised by the reduced-motion rule below, which leaves the grain as a
+ * still texture instead of removing the treatment altogether.
+ */
+@keyframes noiseShift {
+  0%,
+  100% {
+    background-position: 0 0;
+  }
+  16% {
+    background-position: -32px 14px;
+  }
+  33% {
+    background-position: 18px -28px;
+  }
+  50% {
+    background-position: -14px -18px;
+  }
+  66% {
+    background-position: 26px 22px;
+  }
+  83% {
+    background-position: -22px 30px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    /*
+     * `none`, not a near-zero duration.
+     *
+     * The usual trick is `animation-duration: 0.01ms`, and it is wrong for the
+     * entrance animations here. Those start at `opacity: 0` and fill `both`,
+     * and a browser honouring reduced motion may not run the animation at all —
+     * so the element stays pinned to that invisible first frame. Headings
+     * disappeared entirely for the people who asked for less motion.
+     *
+     * Removing the animation lets each element fall back to its natural styles,
+     * where it is simply visible. Nothing here depends on an animation's end
+     * state for anything but its entrance.
+     */
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/*
+ * The homepage statement line: solid near-black type with a spotlight of ember
+ * moving through it.
+ *
+ * The letters were outlined with `-webkit-text-stroke` and are now FILLED. At
+ * #202020 on the page's #000000 they measure 1.29:1 — they are meant to sit at
+ * the edge of visibility and be lit as the spotlight passes, not to be read as
+ * static text. `text-hover-effect.tsx` renders an `sr-only` copy, so the words
+ * reach a screen reader whatever the fill is doing.
+ */
+.spot-base {
+  color: #202020;
+}
+
+/*
+ * The ember ramp is two filled layers under the same travelling mask: a wide
+ * glow and a tighter core. They are filled rather than stroked so the spotlight
+ * lights the letterforms themselves instead of tracing an outline over them.
+ */
+.spot-layer {
+  -webkit-mask-image: radial-gradient(closest-side, #000 0%, rgba(0, 0, 0, 0.55) 45%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 0%, rgba(0, 0, 0, 0.55) 45%, transparent 100%);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  /*
+   * Taller than the box so the spotlight is a band across both lines rather
+   * than an ellipse that clips the second one.
+   */
+  -webkit-mask-size: 55% 260%;
+  mask-size: 55% 260%;
+  animation: spotRoam 7s ease-in-out infinite alternate;
+}
+
+.spot-glow {
+  color: #ff6d29;
+}
+
+.spot-core {
+  color: #ffd9c2;
+  -webkit-mask-size: 24% 200%;
+  mask-size: 24% 200%;
+}
+
+/*
+ * `mask-position` rather than a custom property: an unregistered custom
+ * property animates in discrete jumps, where a position interpolates.
+ */
+@keyframes spotRoam {
+  from {
+    -webkit-mask-position: -25% 50%;
+    mask-position: -25% 50%;
+  }
+  to {
+    -webkit-mask-position: 125% 50%;
+    mask-position: 125% 50%;
+  }
+}
+
+/* Hovered, the spotlight leaves the loop and sits under the cursor. */
+[data-spot='cursor'] .spot-layer {
+  animation: none;
+  -webkit-mask-position: var(--spot-x, 50%) var(--spot-y, 50%);
+  mask-position: var(--spot-x, 50%) var(--spot-y, 50%);
+  transition: -webkit-mask-position 0.18s ease-out, mask-position 0.18s ease-out;
+}

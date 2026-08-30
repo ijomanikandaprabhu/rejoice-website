@@ -1,0 +1,37 @@
+node_modules
+.next
+out
+build
+.DS_Store
+*.pem
+npm-debug.log*
+.env
+.env*.local
+.vercel
+next-env.d.ts.bak
+/test-results
+/playwright-report
+/playwright/.cache
+coverage
+
+# Local embedded Postgres data directory
+.pgdata
+
+# Data dumps taken before destructive migrations. Contain enquirer names,
+# email addresses and message text — never commit these.
+backups/
+
+# Build artefact, rewritten on every compile.
+tsconfig.tsbuildinfo
+
+# OAuth client secret downloaded from Google Cloud Console. This is the
+# credential that authorises reading the channels' private analytics and
+# earnings — it must never reach the repository.
+youtube analytic/
+client_secret_*.json
+
+# Stray output from a path bug that wrote to the literal string "undefined".
+undefined/
+
+# Screenshots taken while verifying work locally.
+final-dashboard.png

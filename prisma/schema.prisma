@@ -1,0 +1,214 @@
+// Rejoice Website — Prisma schema
+// See "Rejoice Website — Next.js Architecture & Standards.md" sections 27-31.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Single administrator account. There is no public registration.
+model Admin {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String?
+  passwordHash String
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+/// How newly imported videos from a channel should behave (section 15).
+enum VideoVisibilityDefault {
+  AUTO_SHOW
+  REVIEW_FIRST
+}
+
+model YouTubeChannel {
+  id                     String                 @id @default(cuid())
+  youtubeChannelId       String                 @unique
+  name                   String
+  /// Public URL segment: /channels/<handle>. Unique because it addresses a page.
+  /// Nullable — a channel imported without one falls back to its id in the URL.
+  handle                 String?                @unique
+  url                    String
+  description            String?
+  thumbnail              String?
+  uploadsPlaylistId      String
+  isActive               Boolean                @default(true)
+  defaultVideoVisibility VideoVisibilityDefault @default(REVIEW_FIRST)
+  /// Statistics mirrored from YouTube on every sync, NOT administrator
+  /// overrides (section 36, Rule 7) — a sync is free to overwrite them.
+  /// `null` means NOT LEARNED, which is different from a genuine zero.
+  subscriberCount        Int?
+  channelViewCount       BigInt?
+  videoCount             Int?
+
+  lastSyncedAt  DateTime?
+  lastSyncError String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  videos     YouTubeVideo[]
+  dailyStats ChannelStatDaily[]
+
+  @@index([isActive])
+}
+
+/// An imported YouTube video.
+///
+/// The `youtube*` fields mirror YouTube and are refreshed on every sync.
+/// The `display*` fields are administrator overrides and are NEVER touched by a sync
+/// (section 36, Rule 7). Rendering falls back to the youtube* value when the override
+/// is null — see src/lib/utils/videoDisplay.ts.
+model YouTubeVideo {
+  id String @id @default(cuid())
+
+  /// Permanent link to the original video. Unique, which is what prevents
+  /// the same video being imported twice (section 29 / Rule 8).
+  youtubeVideoId String @unique
+
+  channelId String
+  channel   YouTubeChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  youtubeTitle       String
+  youtubeDescription String   @default("")
+  youtubeThumbnail   String?
+  youtubePublishedAt DateTime
+  youtubeUrl         String
+  durationSeconds    Int?
+
+  displayTitle       String?
+  displayDescription String?
+  displayThumbnail   String?
+  showChannelName    Boolean @default(true)
+
+  seoTitle       String?
+  seoDescription String?
+
+  /// True when YouTube reports the video as taller than it is wide, i.e. a Short.
+  /// A mirror of YouTube like the youtube* fields above, NOT an administrator
+  /// override — a sync is free to correct it (section 36, Rule 7).
+  isShort Boolean @default(false)
+
+  /// True when the video is AI-generated, mirroring the "AI" label YouTube
+  /// shows on the watch page.
+  ///
+  /// An ADMINISTRATOR flag, set by hand on the video editor — NOT a mirror
+  /// refreshed by the sync, and deliberately not written by it. YouTube does
+  /// expose `status.containsSyntheticMedia`, but an API-key request never
+  /// receives it: kF3VEaQ0zhI carries the label on YouTube and still returns a
+  /// status block without the property. Reading it would need the video owner's
+  /// OAuth credentials at best, so do not wire this back to the sync.
+  isAiDisclosed Boolean @default(false)
+
+  /// Statistics mirrored from YouTube. Like the youtube* fields above these
+  /// are refreshed by the sync and are NOT administrator overrides
+  /// (section 36, Rule 7). `null` means NOT LEARNED, not zero — the stats
+  /// refresh pass relies on that distinction, and on `statsSyncedAt` to decide
+  /// which rows are stalest and should be re-read next.
+  viewCount     Int?
+  likeCount     Int?
+  commentCount  Int?
+  statsSyncedAt DateTime?
+
+  isVisible Boolean @default(false)
+
+  importedAt   DateTime @default(now())
+  lastSyncedAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([isVisible, youtubePublishedAt])
+  @@index([channelId])
+  @@index([isShort])
+  @@index([isAiDisclosed])
+  /// Drives the stats refresh pass: "oldest first, nulls first".
+  @@index([statsSyncedAt])
+  /// Drives the "top videos" and "hidden but popular" panels.
+  @@index([viewCount])
+}
+
+/// One row per channel per day: the channel's cumulative totals as of that day.
+///
+/// YouTube's Data API only reports CURRENT totals, so a growth line is
+/// impossible without keeping our own history. The daily sync writes one row
+/// per channel; every trend on the dashboard is a difference between two of
+/// these rows. It stays empty and the trends stay blank until the first
+/// scheduled run — that is expected, not a fault.
+model ChannelStatDaily {
+  id String @id @default(cuid())
+
+  channelId String
+  channel   YouTubeChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  /// Date only — one snapshot per channel per day, taken by the daily sync.
+  date DateTime @db.Date
+
+  /// BigInt: a channel's lifetime view count comfortably exceeds a 32-bit int.
+  views       BigInt
+  subscribers Int
+  videos      Int
+
+  createdAt DateTime @default(now())
+
+  @@unique([channelId, date])
+  @@index([date])
+}
+
+/// The Google account authorising YouTube Analytics reads (revenue, watch
+/// time, subscriber movement, traffic sources).
+///
+/// This is NOT how the administrator signs in — that is a password
+/// (src/lib/auth/password.ts). This is a one-time connection to the account
+/// that OWNS the channels, stored as a resource. At most one row is expected.
+///
+/// `refreshToken` is encrypted at rest (src/lib/utils/secretBox.ts); it is a
+/// long-lived credential to someone's YouTube earnings and must never be
+/// written in plaintext, logged, or sent to the browser.
+model YouTubeOAuthToken {
+  id String @id @default(cuid())
+
+  googleAccountEmail String
+  refreshToken       String
+  accessToken        String?
+  expiresAt          DateTime?
+  /// Space-separated granted scopes, so the UI can tell "connected" from
+  /// "connected but the monetary scope was declined".
+  scopes             String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// New or seen. A third "resolved" state existed until 27 August 2026; see the
+/// drop_resolved_enquiry_status migration for what happened to those rows.
+enum EnquiryStatus {
+  NEW
+  READ
+}
+
+model Enquiry {
+  id        String        @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String?
+  message   String
+  status    EnquiryStatus @default(NEW)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([status, createdAt])
+}
+
+/// Global technical configuration (section 24). Simple key/value so new settings
+/// never require a migration.
+model SiteSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
