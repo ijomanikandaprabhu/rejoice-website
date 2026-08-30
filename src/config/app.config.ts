@@ -10,7 +10,17 @@ export const appConfig = {
   tagline: 'Gospel Music & Video Production',
   description:
     'Rejoice is a gospel music label and video production company creating worship music, live recordings and professional video production.',
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',
+  /*
+   * `?.trim() ||` rather than `??`.
+   *
+   * `??` only falls back on undefined, so a variable that EXISTS but is empty
+   * — the normal state of a hosting dashboard row someone added without a
+   * value — passed an empty string straight through to `new URL(path, '')` in
+   * `absoluteUrl`, which throws ERR_INVALID_URL and fails the production build
+   * while collecting page data. An empty setting means "not configured", the
+   * same as an absent one.
+   */
+  url: process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'http://localhost:3000',
 } as const;
 
 export type NavItem = { label: string; href: string };

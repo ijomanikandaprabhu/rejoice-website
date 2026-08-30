@@ -38,3 +38,6 @@ final-dashboard.png
 
 # Generated Vercel environment sheet. Contains every production secret.
 vercel-env.txt
+
+.vercel
+.env*
