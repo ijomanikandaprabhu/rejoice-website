@@ -11,6 +11,27 @@ import { absoluteUrl } from '@/lib/seo';
  * never be added to the site and forgotten here. /admin and /api are never
  * included — they are not in publicNav and nothing else is appended.
  */
+
+/**
+ * LOAD-BEARING. Without it this file has no caching directive and uses no
+ * dynamic API, so Next.js generates it ONCE at build time and serves that copy
+ * indefinitely — the sitemap then only ever describes the catalogue as it stood
+ * at the last deployment.
+ *
+ * That is not theoretical: three channels were connected on 30 August and none
+ * of their videos reached the sitemap. It was serving a copy 5.2 days old and
+ * missing 378 public videos, and it re-broke silently on every publish.
+ *
+ * 300 seconds matches every public page rather than inventing a second
+ * interval. `dynamic = 'force-dynamic'` would also work but would query the
+ * database on every crawler request, for content that changes at most daily.
+ *
+ * Worth knowing when testing: a build-time sitemap and a revalidating one are
+ * identical on a freshly built site. The only check that distinguishes them is
+ * changing data WITHOUT deploying and seeing whether the sitemap follows.
+ */
+export const revalidate = 300;
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
 

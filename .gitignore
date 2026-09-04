@@ -39,5 +39,10 @@ final-dashboard.png
 # Generated Vercel environment sheet. Contains every production secret.
 vercel-env.txt
 
+# Account recovery codes kept in the project folder. These are credentials —
+# they must never be committed, and `git add -A` will sweep them up otherwise.
+*recovery-codes*
+recovery-codes*
+
 .vercel
 .env*
