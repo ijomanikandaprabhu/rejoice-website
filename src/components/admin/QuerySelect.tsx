@@ -70,9 +70,13 @@ export function QuerySelect({
       <SelectTrigger id={id} aria-label={ariaLabel} className={cn('w-full', className)}>
         <SelectValue />
       </SelectTrigger>
-      <SelectContent className="admin-theme">
+      <SelectContent className="admin-theme rounded-sm2 border-white/[0.08] bg-panel-alt p-1.5 text-panel-fg shadow-panel data-[state=closed]:duration-100 data-[state=open]:duration-150">
         {options.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
+          <SelectItem
+            key={option.value}
+            value={option.value}
+            className="cursor-pointer rounded-input py-2 pl-3 pr-9 text-sm text-panel-fg transition-colors focus:bg-white/[0.06] focus:text-panel-fg data-[state=checked]:text-panel-accent"
+          >
             {option.label}
           </SelectItem>
         ))}
