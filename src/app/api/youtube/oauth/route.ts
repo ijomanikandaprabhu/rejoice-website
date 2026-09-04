@@ -35,9 +35,21 @@ export async function GET(request: Request) {
    * the admin a crafted callback URL and bind THEIR Google account to the
    * Rejoice install.
    */
-  const state = randomBytes(32).toString('base64url');
+  /*
+   * The state carries the channel the administrator pressed Connect on, so the
+   * callback can compare intent against the account actually chosen. Google's
+   * picker offers every brand account, and picking the wrong one is easy.
+   *
+   * `<nonce>.<channelId>` — the nonce still does the CSRF work on its own; the
+   * channel is only a hint and is never trusted over what the token reports.
+   */
+  const intendedChannel = new URL(request.url).searchParams.get('channel') ?? '';
+  const nonce = randomBytes(32).toString('base64url');
+  const state = intendedChannel ? `${nonce}.${intendedChannel}` : nonce;
 
-  cookies().set(youtubeConfig.oauth.stateCookie, state, {
+  // Only the nonce is stored: the channel hint travels in the URL and must not
+  // be what the comparison is made against.
+  cookies().set(youtubeConfig.oauth.stateCookie, nonce, {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',

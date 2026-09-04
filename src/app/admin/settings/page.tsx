@@ -36,7 +36,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db/prisma';
 import { formatDateTime } from '@/lib/utils';
 import { svgToDataUri } from '@/lib/utils/svg';
-import { getConnection } from '@/services/youtube/analyticsService';
+import { getConnections } from '@/services/youtube/analyticsService';
 import { getLastSyncRecord } from '@/services/youtube/videoSyncService';
 
 export const dynamic = 'force-dynamic';
@@ -64,11 +64,11 @@ export default async function SettingsPage({
   searchParams,
 }: {
   // The OAuth callback returns here with the outcome in the query string.
-  searchParams?: { analytics?: string; reason?: string };
+  searchParams?: { analytics?: string; reason?: string; channelName?: string; mismatch?: string };
 }) {
   const session = await auth();
 
-  const [general, carousel, lastSync, channelCount, videoCount, social, admin, analytics] =
+  const [general, carousel, lastSync, channelCount, videoCount, social, admin, analytics, channels] =
     await Promise.all([
     getGeneralSettings(),
     getCarouselSettings(),
@@ -81,7 +81,13 @@ export default async function SettingsPage({
     session?.user?.id
       ? prisma.admin.findUnique({ where: { id: session.user.id }, select: { email: true } })
       : null,
-      getConnection(),
+      getConnections(),
+      // The analytics card lists every channel, connected or not — a channel
+      // with no connection is the row that needs a Connect button.
+      prisma.youTubeChannel.findMany({
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, name: true },
+      }),
     ]);
 
   /*
@@ -93,7 +99,18 @@ export default async function SettingsPage({
   const status = ((): { tone: 'ok' | 'warn' | 'error'; message: string } | null => {
     switch (searchParams?.analytics) {
       case 'connected':
-        return { tone: 'ok', message: 'Google account connected. Analytics will appear on the dashboard shortly.' };
+        return searchParams.mismatch
+          ? {
+              // A mis-picked brand account is filed where it really belongs
+              // rather than rejected, so say so plainly instead of leaving it
+              // to be discovered later as a channel with no data.
+              tone: 'warn',
+              message: `Connected ${searchParams.channelName ?? 'a channel'} — that is the account you signed in with, not the channel you pressed Connect on.`,
+            }
+          : {
+              tone: 'ok',
+              message: `Connected${searchParams.channelName ? ` ${searchParams.channelName}` : ''}. Analytics will appear on the dashboard shortly.`,
+            };
       case 'connected-no-revenue':
         return {
           tone: 'warn',
@@ -321,50 +338,74 @@ export default async function SettingsPage({
                 authorised redirect URI.
               </p>
             </div>
-          ) : analytics ? (
-            <>
-              <Row label="Connected as">
-                <span className="font-medium">{analytics.email}</span>
-              </Row>
-              <Row label="Revenue access">
-                {analytics.hasMonetaryScope ? (
-                  <Badge variant="secondary" className="gap-1">
-                    <CheckCircle2 className="size-3" /> Granted
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="gap-1">
-                    <XCircle className="size-3" /> Not granted
-                  </Badge>
-                )}
-              </Row>
-              <Row label="Connected on">
-                <span className="font-medium tabular-nums">
-                  {formatDateTime(analytics.connectedAt)}
-                </span>
-              </Row>
-
-              <div className="flex flex-wrap items-center gap-2 pt-4">
-                <Button asChild variant="outline" size="sm">
-                  <Link href="/api/youtube/oauth">Reconnect</Link>
-                </Button>
-                <ActionButton
-                  action={disconnectYouTubeAnalyticsAction}
-                  variant="destructive"
-                  confirm="This removes the stored Google credential and the cached reports from this website. It does not revoke access on Google's side — do that at myaccount.google.com/permissions."
-                >
-                  Disconnect
-                </ActionButton>
-              </div>
-            </>
           ) : (
-            <div className="space-y-4 py-2">
-              <p className="text-sm text-muted-foreground">
-                No account connected. Sign in with the Google account that owns the Rejoice
-                channels — a different account will authorise successfully but report nothing.
+            <div className="space-y-1">
+              <p className="pb-2 text-sm text-muted-foreground">
+                {/*
+                  One sign-in per channel, because a token is issued for one
+                  YouTube identity and brand accounts are separate identities.
+                  Saying so up front is kinder than letting it be discovered
+                  one channel at a time.
+                */}
+                Each channel is connected separately — a Google token reports on one channel only.
+                Sign in with the brand account that owns the channel you are connecting.
               </p>
-              <Button asChild size="sm">
-                <Link href="/api/youtube/oauth">Connect Google account</Link>
-              </Button>
+
+              {channels.map((channel) => {
+                const connection = analytics.find((a) => a.channelId === channel.id);
+
+                return (
+                  <div
+                    key={channel.id}
+                    className="flex flex-wrap items-center justify-between gap-3 border-b py-3 last:border-b-0"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{channel.name}</p>
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {connection ? connection.email : 'Not connected'}
+                      </p>
+                    </div>
+
+                    <div className="flex shrink-0 flex-wrap items-center gap-2">
+                      {connection ? (
+                        <>
+                          {connection.hasMonetaryScope ? (
+                            <Badge variant="secondary" className="gap-1">
+                              <CheckCircle2 className="size-3" /> Revenue
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="gap-1">
+                              <XCircle className="size-3" /> No revenue
+                            </Badge>
+                          )}
+                          <Button asChild variant="outline" size="sm">
+                            <Link href={`/api/youtube/oauth?channel=${channel.id}`}>Reconnect</Link>
+                          </Button>
+                          <ActionButton
+                            action={disconnectYouTubeAnalyticsAction}
+                            hiddenFields={{ channelId: channel.id }}
+                            variant="destructive"
+                            confirm={`This removes the stored Google credential and cached reports for ${channel.name}. Other channels stay connected. It does not revoke access on Google's side — do that at myaccount.google.com/permissions.`}
+                          >
+                            Disconnect
+                          </ActionButton>
+                        </>
+                      ) : (
+                        <Button asChild size="sm">
+                          <Link href={`/api/youtube/oauth?channel=${channel.id}`}>Connect</Link>
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {analytics.some((a) => a.channelId === null) ? (
+                <p className="pt-3 text-xs text-muted-foreground">
+                  One connection has not been matched to a channel yet. It is identified the next
+                  time the dashboard loads analytics.
+                </p>
+              ) : null}
             </div>
           )}
         </CardContent>

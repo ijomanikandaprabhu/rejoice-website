@@ -26,7 +26,14 @@ import { open, seal } from '@/lib/utils/secretBox';
 
 const log = createLogger('youtubeAnalytics');
 
-const CACHE_KEY = 'youtube.analytics.cache';
+/**
+ * One cached report PER CHANNEL.
+ *
+ * A single key meant one channel's refresh evicted every other channel's
+ * report, so connecting a second channel would have quietly halved the value
+ * of the first.
+ */
+const cacheKey = (channelId: string) => `youtube.analytics.cache.${channelId}`;
 
 export type AnalyticsUnavailableReason =
   | 'not-configured'
@@ -72,26 +79,56 @@ export type AnalyticsState =
 /* -------------------------------------------------------------------------- */
 
 export type Connection = {
+  /** Null only for a connection whose channel has not been resolved yet. */
+  channelId: string | null;
   email: string;
   hasMonetaryScope: boolean;
   connectedAt: Date;
 };
 
-export async function getConnection(): Promise<Connection | null> {
-  const row = await prisma.youTubeOAuthToken.findFirst({ orderBy: { createdAt: 'desc' } });
-  if (!row) return null;
-
+function toConnection(row: {
+  channelId: string | null;
+  googleAccountEmail: string;
+  scopes: string;
+  createdAt: Date;
+}): Connection {
   return {
+    channelId: row.channelId,
     email: row.googleAccountEmail,
     hasMonetaryScope: row.scopes.includes(youtubeConfig.oauth.monetaryScope),
     connectedAt: row.createdAt,
   };
 }
 
-export async function disconnect(): Promise<void> {
-  await prisma.youTubeOAuthToken.deleteMany();
-  await prisma.siteSetting.deleteMany({ where: { key: CACHE_KEY } });
-  log.info('YouTube analytics disconnected');
+/** Every connection, for the Settings screen. */
+export async function getConnections(): Promise<Connection[]> {
+  const rows = await prisma.youTubeOAuthToken.findMany({ orderBy: { createdAt: 'asc' } });
+  return rows.map(toConnection);
+}
+
+/**
+ * The connection for one channel.
+ *
+ * Falls back to a row whose channel is not yet resolved, which is how the
+ * connection made before tokens were per-channel keeps working: it is claimed
+ * by the first channel that turns out to own it, in `getAnalytics`.
+ */
+export async function getConnection(channelId: string): Promise<Connection | null> {
+  const exact = await prisma.youTubeOAuthToken.findUnique({ where: { channelId } });
+  if (exact) return toConnection(exact);
+
+  const unresolved = await prisma.youTubeOAuthToken.findFirst({
+    where: { channelId: null },
+    orderBy: { createdAt: 'desc' },
+  });
+  return unresolved ? toConnection(unresolved) : null;
+}
+
+/** Removes ONE channel's connection, leaving every other channel connected. */
+export async function disconnect(channelId: string): Promise<void> {
+  await prisma.youTubeOAuthToken.deleteMany({ where: { channelId } });
+  await prisma.siteSetting.deleteMany({ where: { key: cacheKey(channelId) } });
+  log.info(`YouTube analytics disconnected for channel ${channelId}`);
 }
 
 /**
@@ -101,11 +138,11 @@ export async function disconnect(): Promise<void> {
  * in flight fails exactly like a bad credential, and that failure is
  * indistinguishable from "the user revoked access" at the call site.
  */
-async function getAccessToken(): Promise<string | null> {
+async function getAccessToken(tokenId: string): Promise<string | null> {
   const credentials = getYouTubeOAuthCredentials();
   if (!credentials) return null;
 
-  const row = await prisma.youTubeOAuthToken.findFirst({ orderBy: { createdAt: 'desc' } });
+  const row = await prisma.youTubeOAuthToken.findUnique({ where: { id: tokenId } });
   if (!row) return null;
 
   if (row.accessToken && row.expiresAt && row.expiresAt.getTime() - 60_000 > Date.now()) {
@@ -326,7 +363,7 @@ async function fetchReport(token: string): Promise<AnalyticsReport> {
  * returned marked `stale` — an old number with a date on it is far more useful
  * than an error panel.
  */
-export async function getAnalytics(): Promise<AnalyticsState> {
+export async function getAnalytics(channelId: string): Promise<AnalyticsState> {
   if (!getYouTubeOAuthCredentials()) {
     return {
       status: 'unavailable',
@@ -335,16 +372,28 @@ export async function getAnalytics(): Promise<AnalyticsState> {
     };
   }
 
-  const connection = await getConnection();
-  if (!connection) {
+  /*
+   * The row for this channel, or an unresolved one that might turn out to be
+   * this channel's. `findUnique` first so a resolved connection is never
+   * shadowed by a stray unresolved row.
+   */
+  const row =
+    (await prisma.youTubeOAuthToken.findUnique({ where: { channelId } })) ??
+    (await prisma.youTubeOAuthToken.findFirst({
+      where: { channelId: null },
+      orderBy: { createdAt: 'desc' },
+    }));
+
+  if (!row) {
     return {
       status: 'unavailable',
       reason: 'not-connected',
-      message: 'Connect the Google account that owns the channels to see analytics.',
+      message: 'This channel is not connected yet.',
     };
   }
 
-  const cached = await prisma.siteSetting.findUnique({ where: { key: CACHE_KEY } });
+  const connection = toConnection(row);
+  const cached = await prisma.siteSetting.findUnique({ where: { key: cacheKey(channelId) } });
   const report = cached ? (cached.value as unknown as AnalyticsReport) : null;
 
   const ageMinutes = report
@@ -356,20 +405,45 @@ export async function getAnalytics(): Promise<AnalyticsState> {
   }
 
   try {
-    const token = await getAccessToken();
+    const token = await getAccessToken(row.id);
     if (!token) {
       return {
         status: 'unavailable',
         reason: 'not-connected',
-        message: 'Connect the Google account that owns the channels to see analytics.',
+        message: 'This channel is not connected yet.',
       };
     }
 
     const fresh = await fetchReport(token);
 
+    /*
+     * Adopt an unresolved row the moment its channel is known.
+     *
+     * This is what carries the connection made before tokens were per-channel
+     * into the new shape, without asking anyone to sign in again. If the token
+     * turns out to belong to a DIFFERENT channel than the one being viewed,
+     * file it correctly and report nothing here — the caller is looking at a
+     * channel this credential cannot speak for.
+     */
+    if (row.channelId === null && fresh.channelDbId) {
+      await prisma.youTubeOAuthToken.update({
+        where: { id: row.id },
+        data: { channelId: fresh.channelDbId },
+      });
+      log.info(`Adopted an unresolved analytics connection for channel ${fresh.channelDbId}`);
+    }
+
+    if (fresh.channelDbId && fresh.channelDbId !== channelId) {
+      return {
+        status: 'unavailable',
+        reason: 'not-connected',
+        message: 'This channel is not connected yet.',
+      };
+    }
+
     await prisma.siteSetting.upsert({
-      where: { key: CACHE_KEY },
-      create: { key: CACHE_KEY, value: fresh as unknown as object },
+      where: { key: cacheKey(channelId) },
+      create: { key: cacheKey(channelId), value: fresh as unknown as object },
       update: { value: fresh as unknown as object },
     });
 

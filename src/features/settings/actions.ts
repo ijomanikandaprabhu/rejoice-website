@@ -157,9 +157,14 @@ export async function saveSocialLinksAction(
  * at myaccount.google.com/permissions, and saying so is more honest than
  * implying this button reached into their Google account (Rule 5).
  */
-export async function disconnectYouTubeAnalyticsAction(): Promise<void> {
+export async function disconnectYouTubeAnalyticsAction(formData: FormData): Promise<void> {
   await requireAdmin();
-  await disconnect();
+
+  // One channel at a time — every other connection stays.
+  const channelId = String(formData.get('channelId') ?? '');
+  if (!channelId) return;
+
+  await disconnect(channelId);
   revalidatePath('/admin/settings');
   revalidatePath('/admin');
 }

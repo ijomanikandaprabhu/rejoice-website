@@ -86,7 +86,10 @@ export default async function AdminDashboard({
       getTopVideos(8, scope),
       getNeedsAttention(scope),
       getLastSyncRecord(),
-      getAnalytics(),
+      // Scoped: a token speaks for one channel, so the report has to be
+            // asked for by channel. `All channels` has no single answer, so it
+            // is not asked at all.
+            scope ? getAnalytics(scope) : Promise.resolve(null),
       prisma.youTubeVideo.findMany({
         where: scope ? { channelId: scope } : {},
         orderBy: { importedAt: 'desc' },
@@ -112,14 +115,14 @@ export default async function AdminDashboard({
    * would attribute one channel's earnings to another, so the report is only
    * used when the selection matches.
    */
-  const readyReport = analytics.status === 'ready' ? analytics.report : null;
+  const readyReport = analytics?.status === 'ready' ? analytics.report : null;
   const analyticsChannelName =
     channelList.find((c) => c.id === readyReport?.channelDbId)?.name ?? null;
   const analyticsApplies = Boolean(readyReport && scope && readyReport.channelDbId === scope);
   const report = analyticsApplies ? readyReport : null;
   // Captured alongside `report` so the JSX does not have to re-narrow the
   // union every time it needs one of the two.
-  const analyticsStale = analytics.status === 'ready' && analytics.stale;
+  const analyticsStale = analytics?.status === 'ready' && analytics.stale;
 
   /*
    * Last 28 days from the daily analytics rows.
@@ -390,16 +393,23 @@ export default async function AdminDashboard({
             </Link>
           </p>
         </Panel>
-      ) : analytics.status === 'unavailable' && analytics.reason !== 'not-configured' ? (
+      ) : analytics && analytics.status === 'unavailable' && analytics.reason !== 'not-configured' ? (
         <Panel>
           <PanelHeader
             title="Revenue and watch time"
             caption="These come from the YouTube Analytics API, which needs its own connection."
           />
           <p className="pb-2 text-sm text-panel-muted">
-            {analytics.message}{' '}
+            {/*
+              Now that every channel can be connected on its own, this is an
+              invitation rather than a dead end — name the channel and say what
+              to do about it.
+            */}
+            {activeChannelName
+              ? `${activeChannelName} is not connected yet. Each channel signs in separately, because a Google token reports on one channel only.`
+              : analytics.message}{' '}
             <Link href="/admin/settings#youtube-analytics" className="text-panel-accent underline">
-              Open settings
+              Connect it in settings
             </Link>
           </p>
         </Panel>

@@ -6,9 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
   // The pooled connection, used by the application at runtime.
-  url      = env("DATABASE_URL")
+  url       = env("DATABASE_URL")
   /// The SAME database over an unpooled connection, used only for migrations.
   ///
   /// Migrations take advisory locks and issue DDL, neither of which survives a
@@ -63,6 +63,9 @@ model YouTubeChannel {
 
   videos     YouTubeVideo[]
   dailyStats ChannelStatDaily[]
+
+  /// At most one, enforced by the unique constraint on the other side.
+  analyticsToken YouTubeOAuthToken?
 
   @@index([isActive])
 }
@@ -180,6 +183,20 @@ model ChannelStatDaily {
 /// written in plaintext, logged, or sent to the browser.
 model YouTubeOAuthToken {
   id String @id @default(cuid())
+
+  /// Which channel this credential speaks for.
+  ///
+  /// A YouTube Analytics token is issued for ONE identity — `ids=channel==MINE`
+  /// resolves to whichever brand account signed in — so a connection is
+  /// per-channel, and `@unique` is what enforces that.
+  ///
+  /// Nullable on purpose. The channel cannot be derived in SQL: it is
+  /// identified by asking the Analytics API for the token's top videos and
+  /// matching them against the catalogue. A row therefore starts null and the
+  /// service fills it in, which is also how the connection predating this
+  /// column is adopted rather than discarded.
+  channelId String?         @unique
+  channel   YouTubeChannel? @relation(fields: [channelId], references: [id], onDelete: Cascade)
 
   googleAccountEmail String
   refreshToken       String
