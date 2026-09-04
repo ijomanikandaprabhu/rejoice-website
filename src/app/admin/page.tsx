@@ -166,7 +166,14 @@ export default async function AdminDashboard({
                 ...channelList.map((c) => ({ value: c.id, label: c.name })),
                 { value: 'all', label: 'All channels' },
               ]}
-              className="h-9 w-[15rem]"
+              /*
+                17rem, not 15rem. At 15rem the trigger left 199px for the label
+                while the longest channel name — "Rejoice Gospel
+                Communications" — measures 209px, so the default selection
+                rendered visibly cut off. Sized against the longest name plus
+                the chevron rather than by eye.
+              */
+              className="h-9 w-full sm:w-[17rem]"
             />
           ) : null}
 
