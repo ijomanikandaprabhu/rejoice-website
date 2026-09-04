@@ -29,9 +29,22 @@ import { listChannelsForAdmin } from '@/services/youtube/channelService';
 
 export const dynamic = 'force-dynamic';
 
+/*
+ * The form opens on "Automatically show".
+ *
+ * It used to open on "Review first (recommended)", which no one ever chose:
+ * all five connected channels are AUTO_SHOW. A default nobody picks is a trap
+ * rather than a safeguard — add a channel, miss the dropdown, import several
+ * hundred videos and find nothing on the site. That is the same failure the
+ * deployment nearly shipped, when a fresh import would have arrived entirely
+ * hidden.
+ *
+ * Neither option is labelled "recommended" now. Which one is expected is what
+ * the default position says; a label saying otherwise only contradicts it.
+ */
 const VISIBILITY_OPTIONS = [
-  { value: 'REVIEW_FIRST', label: 'Review first (recommended)' },
   { value: 'AUTO_SHOW', label: 'Automatically show' },
+  { value: 'REVIEW_FIRST', label: 'Review first' },
 ];
 
 /** Admin → YouTube Channels (sections 9, 10, 21). */
@@ -83,7 +96,7 @@ export default async function ChannelsAdminPage() {
                   id="defaultVideoVisibility"
                   name="defaultVideoVisibility"
                   ariaLabel="Default visibility for new videos"
-                  defaultValue="REVIEW_FIRST"
+                  defaultValue="AUTO_SHOW"
                   options={VISIBILITY_OPTIONS}
                 />
               </Field>
