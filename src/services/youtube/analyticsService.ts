@@ -178,17 +178,24 @@ async function fetchReport(token: string): Promise<AnalyticsReport> {
    *   400 — Date range (2025-09-04) in field parameters.start-date
    *         does not align to chosen date dimension.
    *
-   * A month-dimension query has to start on the FIRST day of a month and end
-   * on the LAST day of one. So this walks back 11 months to the 1st, and ends
-   * on the final day of the current month — day 0 of the next month, which is
-   * how JavaScript spells "last day of this one".
+   * BOTH dates must be the FIRST of a month. Not the last, and not an
+   * arbitrary day — the end date names the final month to include, it does not
+   * bound it. Established by probing the live API rather than by reading the
+   * error message, which says only "does not align to chosen date dimension"
+   * and cost three wrong guesses:
+   *
+   *   2025-09-01 .. 2026-08-01   200, 12 rows
+   *   2025-09-01 .. 2026-09-01   200, 13 rows
+   *   2025-09-01 .. 2026-08-31   400  (end is a month END)
+   *   2025-08-31 .. 2026-08-31   400  (start is a month END)
+   *
+   * So: the 1st of the current month back to the 1st eleven months earlier,
+   * which is twelve months inclusive. The current month is included and is
+   * partial by nature — estimated revenue also lags a few days, which is why
+   * the panel labels it an estimate.
    */
-  const revenueStart = new Date(
-    Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 11, 1),
-  );
-  const revenueEnd = new Date(
-    Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0),
-  );
+  const revenueEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+  const revenueStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 11, 1));
 
   /*
    * `allSettled`, not `all`.
