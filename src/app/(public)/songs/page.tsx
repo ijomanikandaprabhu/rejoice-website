@@ -66,21 +66,33 @@ export default function MusicPage() {
          * balloon on a wide monitor while the hero's height stays put, and the
          * crop at the bottom would drift with the window's shape.
          *
-         * Hidden below `sm`. On a phone the copy already runs the full width,
-         * and a device mockup behind it would fight the type — the problem
-         * fixed two rounds ago, not worth reintroducing for decoration.
+         * Hidden below `lg`, not `sm`. The reasoning was already right — a
+         * device mockup behind the copy fights the type — but the breakpoint
+         * was too low, so the fight simply moved to tablets instead of ending.
+         *
+         * Measured, heading right edge against image left edge:
+         *
+         *    640px  overlaps by 300px
+         *    768px  overlaps by 183px
+         *    900px  overlaps by 114px
+         *   1024px  clear
+         *
+         * The type sits ON TOP (z-10 over z-1), so nothing was hidden — but
+         * "Your Favourite Platform." ran across the lit face of the phone and
+         * stopped being comfortably readable. Below `lg` the copy still wants
+         * the full width, exactly as it does on a phone.
          */}
         {musicPage.heroImage ? (
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -bottom-[10%] -right-[6%] z-[1] hidden h-[118%] w-[62%] sm:block md:w-[54%] lg:-right-[4%] lg:w-[46%]"
+            className="pointer-events-none absolute -bottom-[10%] -right-[6%] z-[1] hidden h-[118%] w-[46%] lg:-right-[4%] lg:block"
           >
             <Image
               src={musicPage.heroImage}
               alt=""
               fill
               priority
-              sizes="(min-width: 1024px) 46vw, (min-width: 640px) 62vw, 0px"
+              sizes="(min-width: 1024px) 46vw, 0px"
               className="object-contain object-bottom"
             />
           </div>
