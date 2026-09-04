@@ -166,22 +166,66 @@ async function fetchReport(token: string): Promise<AnalyticsReport> {
   const today = new Date();
   const start90 = new Date(today);
   start90.setUTCDate(start90.getUTCDate() - 90);
-  const start365 = new Date(today);
-  start365.setUTCDate(start365.getUTCDate() - 365);
 
   const window90 = { startDate: ymd(start90), endDate: ymd(today) };
 
-  const [dailyRaw, revenueRaw, trafficRaw, subsRaw] = await Promise.all([
+  /*
+   * The `month` dimension will not accept an arbitrary date range.
+   *
+   * Asking for revenue from "365 days ago" sent start-date 2025-09-04 and
+   * YouTube rejected the whole request:
+   *
+   *   400 — Date range (2025-09-04) in field parameters.start-date
+   *         does not align to chosen date dimension.
+   *
+   * A month-dimension query has to start on the FIRST day of a month and end
+   * on the LAST day of one. So this walks back 11 months to the 1st, and ends
+   * on the final day of the current month — day 0 of the next month, which is
+   * how JavaScript spells "last day of this one".
+   */
+  const revenueStart = new Date(
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 11, 1),
+  );
+  const revenueEnd = new Date(
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0),
+  );
+
+  /*
+   * `allSettled`, not `all`.
+   *
+   * These four reports are independent, but under Promise.all a single
+   * rejection discarded the other three — the malformed revenue range above
+   * meant the dashboard showed NOTHING rather than everything-but-revenue, and
+   * no report was cached at all. One failing panel must not cost the rest.
+   */
+  const settled = await Promise.allSettled([
     query(token, { ...window90, metrics: 'views,estimatedMinutesWatched', dimensions: 'day' }),
     query(token, {
-      startDate: ymd(start365),
-      endDate: ymd(today),
+      startDate: ymd(revenueStart),
+      endDate: ymd(revenueEnd),
       metrics: 'estimatedRevenue',
       dimensions: 'month',
     }),
     query(token, { ...window90, metrics: 'views', dimensions: 'insightTrafficSourceType' }),
     query(token, { ...window90, metrics: 'subscribersGained,subscribersLost', dimensions: 'day' }),
   ]);
+
+  const [dailyRes, revenueRes, trafficRes, subsRes] = settled;
+
+  for (const [i, r] of settled.entries()) {
+    if (r.status === 'rejected') {
+      log.error(`Analytics report ${['daily', 'revenue', 'traffic', 'subscribers'][i]} failed`, r.reason);
+    }
+  }
+
+  /** A rejected report is treated as "no rows", never as a reason to lose the others. */
+  const value = (r: (typeof settled)[number]): ReportRows | { forbidden: true } =>
+    r.status === 'fulfilled' ? r.value : { forbidden: true };
+
+  const dailyRaw = value(dailyRes);
+  const revenueRaw = value(revenueRes);
+  const trafficRaw = value(trafficRes);
+  const subsRaw = value(subsRes);
 
   const rows = (r: ReportRows | { forbidden: true }) =>
     'forbidden' in r ? [] : (r.rows ?? []);
