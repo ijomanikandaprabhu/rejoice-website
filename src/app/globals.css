@@ -94,44 +94,31 @@
      * small cosmetic jump on an older browser, not a broken layout.
      */
     scrollbar-gutter: stable;
-
-    /*
-     * ...and `overflow-y: scroll`, because the gutter alone was not enough.
-     *
-     * Both `SiteLoader` and every Radix overlay lock scrolling by setting
-     * `overflow: hidden` on BODY. When html's overflow is `visible`, CSS
-     * propagates body's value to the VIEWPORT — and a viewport that is not a
-     * scroll container reserves no gutter, so the reservation above was
-     * silently discarded at exactly the moment it was needed.
-     *
-     * Measured on /admin opening the channel dropdown: documentElement
-     * clientWidth went 1335 -> 1345, a 10px jump, with the gutter already in
-     * place.
-     *
-     * Giving html its own `overflow-y` stops the propagation: body's `hidden`
-     * then applies to body's own box only, the viewport stays a scroll
-     * container, and the gutter holds. The lock still works, because a body
-     * that clips its own overflow leaves the viewport nothing to scroll.
-     */
-    overflow-y: scroll;
   }
 
   /*
-   * Radix overlays lock scrolling through `react-remove-scroll`, which injects
+   * ...and that gutter stays reserved while a Radix overlay is open, which
+   * makes react-remove-scroll's compensation a double count.
    *
-   *   body[data-scroll-locked] { overflow: hidden !important;
-   *                              margin-right: 10px !important; }
+   * The library injects
    *
-   * The margin exists to replace a scrollbar it assumes it has just removed.
-   * With `overflow-y: scroll` above, the scrollbar is never removed — so that
-   * margin is a 10px inset compensating for nothing, and every dropdown,
-   * dialog and popover nudged the page sideways as it opened.
+   *   body[data-scroll-locked] { margin-right: 10px !important }
+   *
+   * to stand in for a scrollbar it has removed. Here the gutter above already
+   * holds that space, so the margin narrowed the body by a further 10px and
+   * every dropdown nudged the page as it opened. Measured on /contact:
+   * body clientWidth 1335 -> 1325 while the viewport went 1335 -> 1345.
    *
    * `html body[...]` rather than `body[...]`: their stylesheet is injected at
-   * runtime and therefore comes AFTER ours in source order, so with equal
-   * specificity and `!important` on both sides theirs wins. The extra element
-   * selector settles it. The overflow half of their rule is left alone —
-   * locking the scroll is the part we want.
+   * runtime and so comes after ours, and with `!important` on both sides at
+   * equal specificity theirs would win.
+   *
+   * Their `overflow: hidden` half is deliberately left alone. An earlier
+   * attempt also gave `html` its own `overflow-y` to stop that value
+   * propagating to the viewport — which fixed the width but made BODY a scroll
+   * container, and `position: sticky` then resolved against body instead of
+   * the viewport. The site header dropped out of view the moment any dropdown
+   * opened. Locking scroll is the library's job; only the spacing is ours.
    */
   html body[data-scroll-locked] {
     margin-right: 0 !important;
