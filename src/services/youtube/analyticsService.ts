@@ -42,6 +42,20 @@ export type SubscriberDay = { date: string; gained: number; lost: number };
 export type AnalyticsReport = {
   fetchedAt: string;
   currency: string | null;
+  /**
+   * Which of OUR channels this report describes, as a `YouTubeChannel.id`.
+   *
+   * One OAuth token speaks for exactly one channel (`ids=channel==MINE`), so a
+   * dashboard scoped to a different channel must not show these figures as if
+   * they were its own. Null when it could not be determined.
+   *
+   * Derived rather than read: identifying the channel directly needs the
+   * `youtube.readonly` scope, which this app deliberately does not request —
+   * it only ever needs analytics. So the top videos are asked for instead and
+   * matched against the catalogue, which is unambiguous and costs one extra
+   * query per cache refresh rather than one per page render.
+   */
+  channelDbId: string | null;
   /** Null when the monetary scope was declined or the channel is not monetised. */
   revenueByMonth: MonthRevenue[] | null;
   daily: DayPoint[];
@@ -215,13 +229,24 @@ async function fetchReport(token: string): Promise<AnalyticsReport> {
     }),
     query(token, { ...window90, metrics: 'views', dimensions: 'insightTrafficSourceType' }),
     query(token, { ...window90, metrics: 'subscribersGained,subscribersLost', dimensions: 'day' }),
+    // Only to identify the channel — see `channelDbId`.
+    query(token, {
+      ...window90,
+      metrics: 'views',
+      dimensions: 'video',
+      sort: '-views',
+      maxResults: '10',
+    }),
   ]);
 
-  const [dailyRes, revenueRes, trafficRes, subsRes] = settled;
+  const [dailyRes, revenueRes, trafficRes, subsRes, topRes] = settled;
 
   for (const [i, r] of settled.entries()) {
     if (r.status === 'rejected') {
-      log.error(`Analytics report ${['daily', 'revenue', 'traffic', 'subscribers'][i]} failed`, r.reason);
+      log.error(
+        `Analytics report ${['daily', 'revenue', 'traffic', 'subscribers', 'topVideos'][i]} failed`,
+        r.reason,
+      );
     }
   }
 
@@ -237,8 +262,25 @@ async function fetchReport(token: string): Promise<AnalyticsReport> {
   const rows = (r: ReportRows | { forbidden: true }) =>
     'forbidden' in r ? [] : (r.rows ?? []);
 
+  /*
+   * The channel these figures belong to.
+   *
+   * A video id is enough: every video the token can report on belongs to its
+   * own channel, so the first one we recognise settles it. `findFirst` rather
+   * than a tally — they cannot disagree.
+   */
+  const topVideoIds = rows(value(topRes)).map((r) => String(r[0]));
+  const match =
+    topVideoIds.length > 0
+      ? await prisma.youTubeVideo.findFirst({
+          where: { youtubeVideoId: { in: topVideoIds } },
+          select: { channelId: true },
+        })
+      : null;
+
   return {
     fetchedAt: new Date().toISOString(),
+    channelDbId: match?.channelId ?? null,
     // The Analytics API reports revenue in the channel's payment currency and
     // does not name it in the response, so this stays null until a caller has a
     // reason to configure it.

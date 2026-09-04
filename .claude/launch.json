@@ -4,7 +4,20 @@
     {
       "name": "rejoice",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "port": 3000,
+      "autoPort": false
+    },
+    {
+      "name": "rejoice-neon",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev:only"
+      ],
       "port": 3000,
       "autoPort": false
     }

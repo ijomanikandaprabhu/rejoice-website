@@ -6,6 +6,7 @@ import { ChannelBreakdown } from '@/components/admin/ChannelBreakdown';
 import { GrowthChart } from '@/components/admin/GrowthChart';
 import { NeedsAttention } from '@/components/admin/NeedsAttention';
 import { ListRow, Panel, PanelHeader, Pill, StatPanel } from '@/components/admin/Panels';
+import { QuerySelect } from '@/components/admin/QuerySelect';
 import { QuickFilters } from '@/components/admin/QuickFilters';
 import { RevenueChart } from '@/components/admin/RevenueChart';
 import { TopVideos } from '@/components/admin/TopVideos';
@@ -32,7 +33,37 @@ function compact(n: number) {
   return new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(n);
 }
 
-export default async function AdminDashboard() {
+export default async function AdminDashboard({
+  searchParams,
+}: {
+  searchParams?: { channel?: string };
+}) {
+  /*
+   * Channels load FIRST, because the default selection comes from them.
+   *
+   * Three states, matching /admin/youtube-content exactly rather than
+   * inventing a second convention: an ABSENT `channel` means the default
+   * channel, `all` means every channel, and an id means that channel.
+   *
+   * The id is validated against the list. An unknown or deleted id falls back
+   * to the default — otherwise a stale bookmark would render a dashboard of
+   * zeroes that looks like data loss rather than a bad link.
+   */
+  const channelList = await prisma.youTubeChannel.findMany({
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, name: true },
+  });
+
+  const showingAll = searchParams?.channel === 'all';
+  const requested = showingAll ? undefined : (searchParams?.channel ?? channelList[0]?.id);
+  const activeChannel = channelList.some((c) => c.id === requested)
+    ? requested
+    : (channelList[0]?.id ?? undefined);
+
+  /** Undefined means "every channel", which is what the queries default to. */
+  const scope = showingAll ? undefined : activeChannel;
+  const activeChannelName = channelList.find((c) => c.id === scope)?.name ?? null;
+
   const [
     totals,
     audience,
@@ -45,16 +76,19 @@ export default async function AdminDashboard() {
     analytics,
     recent,
   ] = await Promise.all([
-      getCatalogueTotals(),
-      getAudienceTotals(),
-      getCatalogueByYear(),
-      getGrowthSeries(),
+      getCatalogueTotals(scope),
+      getAudienceTotals(28, scope),
+      getCatalogueByYear(scope),
+      getGrowthSeries(90, scope),
+      // NOT scoped: this is the comparison table, and it is what the rest of
+      // the page is being narrowed against. It also doubles as the way back.
       getChannelBreakdown(),
-      getTopVideos(),
-      getNeedsAttention(),
+      getTopVideos(8, scope),
+      getNeedsAttention(scope),
       getLastSyncRecord(),
       getAnalytics(),
       prisma.youTubeVideo.findMany({
+        where: scope ? { channelId: scope } : {},
         orderBy: { importedAt: 'desc' },
         take: 6,
         select: {
@@ -72,7 +106,17 @@ export default async function AdminDashboard() {
     null,
   );
 
-  const report = analytics.status === 'ready' ? analytics.report : null;
+  /*
+   * Analytics describes ONE channel — whichever the OAuth token was issued
+   * for. Showing its revenue while the page is scoped to a different channel
+   * would attribute one channel's earnings to another, so the report is only
+   * used when the selection matches.
+   */
+  const readyReport = analytics.status === 'ready' ? analytics.report : null;
+  const analyticsChannelName =
+    channelList.find((c) => c.id === readyReport?.channelDbId)?.name ?? null;
+  const analyticsApplies = Boolean(readyReport && scope && readyReport.channelDbId === scope);
+  const report = analyticsApplies ? readyReport : null;
   // Captured alongside `report` so the JSX does not have to re-narrow the
   // union every time it needs one of the two.
   const analyticsStale = analytics.status === 'ready' && analytics.stale;
@@ -99,12 +143,38 @@ export default async function AdminDashboard() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-[1.75rem] font-bold tracking-[-0.01em]">Dashboard</h1>
-          <p className="mt-1 text-sm text-panel-muted">An overview of the Rejoice website.</p>
+          <p className="mt-1 text-sm text-panel-muted">
+            {activeChannelName
+              ? `${activeChannelName} — everything below is this channel only.`
+              : 'Every connected channel, combined.'}
+          </p>
         </div>
-        <Pill tone={isYouTubeConfigured() ? 'accent' : 'negative'}>
-          <Radio className="size-3" />
-          {isYouTubeConfigured() ? 'Sync on' : 'API key missing'}
-        </Pill>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/*
+            `QuerySelect` rather than a form: it merges into the existing query
+            params and navigates client-side. A native GET submit reloaded the
+            whole document, which is what made the channel logos flash.
+          */}
+          {channelList.length > 1 ? (
+            <QuerySelect
+              param="channel"
+              id="channel"
+              ariaLabel="Channel"
+              value={showingAll ? 'all' : (scope ?? 'all')}
+              options={[
+                ...channelList.map((c) => ({ value: c.id, label: c.name })),
+                { value: 'all', label: 'All channels' },
+              ]}
+              className="h-9 w-[15rem]"
+            />
+          ) : null}
+
+          <Pill tone={isYouTubeConfigured() ? 'accent' : 'negative'}>
+            <Radio className="size-3" />
+            {isYouTubeConfigured() ? 'Sync on' : 'API key missing'}
+          </Pill>
+        </div>
       </div>
 
       {/*
@@ -163,11 +233,16 @@ export default async function AdminDashboard() {
           caption={`of ${totals.totalVideos.toLocaleString()} imported`}
           href="/admin/youtube-content?filter=visible"
         />
+        {/*
+          The one card the channel selector does NOT filter — enquiries come
+          from the contact form and belong to no channel. Saying so is better
+          than letting the number look like it belongs to the selection.
+        */}
         <StatPanel
           label="New enquiries"
           value={totals.newEnquiries}
           icon={Inbox}
-          caption="Awaiting reply"
+          caption={activeChannelName ? 'Awaiting reply — all channels' : 'Awaiting reply'}
           href="/admin/enquiries?status=NEW"
         />
       </div>
@@ -228,7 +303,13 @@ export default async function AdminDashboard() {
         <Panel className="lg:col-span-2">
           <PanelHeader
             title="Views over time"
-            caption="Total views across every connected channel, recorded once a day."
+            caption={
+              // The caption has to follow the selection: "every connected
+              // channel" was a lie the moment the page could be scoped to one.
+              activeChannelName
+                ? `Total views for ${activeChannelName}, recorded once a day.`
+                : 'Total views across every connected channel, recorded once a day.'
+            }
           />
           <GrowthChart data={growth} />
         </Panel>
@@ -267,6 +348,41 @@ export default async function AdminDashboard() {
             <TrafficSources sources={report.traffic} />
           </Panel>
         </div>
+      ) : readyReport && !analyticsApplies ? (
+        /*
+         * Connected, but to a different channel than the one being viewed.
+         *
+         * Distinct from "not connected at all": the fix is to change the
+         * selection or connect this channel too, not to go and set analytics
+         * up. Saying "not connected" here would send the administrator to a
+         * Settings page that already says it IS connected.
+         */
+        <Panel>
+          <PanelHeader
+            title="Revenue and watch time"
+            caption="One connection reports on one channel."
+          />
+          <p className="pb-2 text-sm text-panel-muted">
+            {analyticsChannelName ? (
+              <>
+                These figures are available for{' '}
+                <Link
+                  href={`/admin?channel=${readyReport.channelDbId}`}
+                  className="text-panel-accent underline"
+                >
+                  {analyticsChannelName}
+                </Link>
+                {activeChannelName ? `, not for ${activeChannelName}.` : ' only.'} Connecting
+                another channel needs its own sign-in.
+              </>
+            ) : (
+              'Analytics is connected to a channel that is not in this list.'
+            )}{' '}
+            <Link href="/admin/settings#youtube-analytics" className="text-panel-accent underline">
+              Open settings
+            </Link>
+          </p>
+        </Panel>
       ) : analytics.status === 'unavailable' && analytics.reason !== 'not-configured' ? (
         <Panel>
           <PanelHeader

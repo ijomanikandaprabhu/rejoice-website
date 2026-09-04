@@ -16,6 +16,25 @@ import { prisma } from '@/lib/db/prisma';
  * counted them anyway would print a number no visitor could reproduce.
  */
 
+/**
+ * Every query here takes an OPTIONAL channel id.
+ *
+ * Absent means "every channel", which is exactly what these did before the
+ * dashboard gained a channel selector — so the combined view needs no special
+ * casing, and the previous behaviour is the default rather than a mode.
+ *
+ * `New enquiries` is the deliberate exception: enquiries arrive from the
+ * contact form and belong to no channel, so `getCatalogueTotals` reports the
+ * same number whatever is selected. The dashboard labels that card accordingly
+ * rather than letting it look filtered.
+ */
+export type ChannelScope = string | undefined;
+
+/** `{ channelId }` when scoped, `{}` when not — spread into a Prisma `where`. */
+function scope(channelId: ChannelScope) {
+  return channelId ? { channelId } : {};
+}
+
 export type CatalogueTotals = {
   channels: number;
   activeChannels: number;
@@ -28,14 +47,17 @@ export type CatalogueTotals = {
   newEnquiries: number;
 };
 
-export async function getCatalogueTotals(): Promise<CatalogueTotals> {
+export async function getCatalogueTotals(channelId?: ChannelScope): Promise<CatalogueTotals> {
+  const only = scope(channelId);
+
   const [channels, activeChannels, totalVideos, visibleVideos, shorts, newEnquiries] =
     await Promise.all([
       prisma.youTubeChannel.count(),
       prisma.youTubeChannel.count({ where: { isActive: true } }),
-      prisma.youTubeVideo.count(),
-      prisma.youTubeVideo.count({ where: publiclyVisible }),
-      prisma.youTubeVideo.count({ where: { isShort: true } }),
+      prisma.youTubeVideo.count({ where: only }),
+      prisma.youTubeVideo.count({ where: { AND: [publiclyVisible, only] } }),
+      prisma.youTubeVideo.count({ where: { isShort: true, ...only } }),
+      // NOT scoped: enquiries have no channel. See the note on ChannelScope.
       prisma.enquiry.count({ where: { status: 'NEW' } }),
     ]);
 
@@ -72,9 +94,12 @@ export type AudienceTotals = {
  * say "not enough history yet" instead of "no growth", which would be a claim
  * the data does not support.
  */
-export async function getAudienceTotals(days = 28): Promise<AudienceTotals> {
+export async function getAudienceTotals(
+  days = 28,
+  channelId?: ChannelScope,
+): Promise<AudienceTotals> {
   const channels = await prisma.youTubeChannel.findMany({
-    where: { isActive: true },
+    where: { isActive: true, ...(channelId ? { id: channelId } : {}) },
     select: { subscriberCount: true, channelViewCount: true },
   });
 
@@ -90,6 +115,12 @@ export async function getAudienceTotals(days = 28): Promise<AudienceTotals> {
 
   // The earliest snapshot inside the window, per channel, summed. Grouping in
   // the database keeps this to one round trip regardless of history length.
+  /*
+   * The channel filter is applied in BOTH halves of this query, not just the
+   * outer one. Filtering only the outer half would still let every other
+   * channel contribute its own earliest date as a join key, silently comparing
+   * against the wrong rows.
+   */
   const baseline = await prisma.$queryRaw<Array<{ views: bigint; subs: bigint; oldest: Date }>>`
     SELECT sum(s.views)       AS views,
            sum(s.subscribers) AS subs,
@@ -99,8 +130,10 @@ export async function getAudienceTotals(days = 28): Promise<AudienceTotals> {
       SELECT "channelId", min(date) AS date
       FROM "ChannelStatDaily"
       WHERE date >= ${since}
+        AND (${channelId ?? null}::text IS NULL OR "channelId" = ${channelId ?? null})
       GROUP BY "channelId"
     ) first ON first."channelId" = s."channelId" AND first.date = s.date
+    WHERE (${channelId ?? null}::text IS NULL OR s."channelId" = ${channelId ?? null})
   `;
 
   const row = baseline[0];
@@ -182,9 +215,9 @@ export type TopVideoRow = {
 };
 
 /** Most-watched videos. `viewCount: null` rows are excluded, not sorted as zero. */
-export async function getTopVideos(take = 8): Promise<TopVideoRow[]> {
+export async function getTopVideos(take = 8, channelId?: ChannelScope): Promise<TopVideoRow[]> {
   const rows = await prisma.youTubeVideo.findMany({
-    where: { viewCount: { not: null } },
+    where: { viewCount: { not: null }, ...scope(channelId) },
     orderBy: { viewCount: 'desc' },
     take,
     select: {
@@ -219,17 +252,25 @@ export type AttentionItem = {
  * those records — not a statistic. Rows with a count of zero are dropped by the
  * caller so the panel shrinks to nothing when there is nothing to do.
  */
-export async function getNeedsAttention(): Promise<AttentionItem[]> {
+export async function getNeedsAttention(channelId?: ChannelScope): Promise<AttentionItem[]> {
+  const only = scope(channelId);
+
   const [popularHidden, missingSeo, failedChannels] = await Promise.all([
     // Hidden despite being among the most-watched: the most likely oversight
     // in a catalogue where new uploads arrive hidden by default.
     prisma.youTubeVideo.count({
-      where: { isVisible: false, viewCount: { gte: 10_000 } },
+      where: { isVisible: false, viewCount: { gte: 10_000 }, ...only },
     }),
     prisma.youTubeVideo.count({
-      where: { AND: [publiclyVisible, { OR: [{ seoTitle: null }, { seoDescription: null }] }] },
+      where: {
+        AND: [publiclyVisible, only, { OR: [{ seoTitle: null }, { seoDescription: null }] }],
+      },
     }),
-    prisma.youTubeChannel.count({ where: { lastSyncError: { not: null } } }),
+    // Scoped too, so a healthy channel shows no row rather than pointing at
+    // another channel's failure.
+    prisma.youTubeChannel.count({
+      where: { lastSyncError: { not: null }, ...(channelId ? { id: channelId } : {}) },
+    }),
   ]);
 
   return [
@@ -255,7 +296,10 @@ export type GrowthPoint = { date: string; views: number; subscribers: number };
  * Returns an empty array until the daily sync has written snapshots — the chart
  * renders an explanatory empty state rather than a flat line at zero.
  */
-export async function getGrowthSeries(days = 90): Promise<GrowthPoint[]> {
+export async function getGrowthSeries(
+  days = 90,
+  channelId?: ChannelScope,
+): Promise<GrowthPoint[]> {
   const since = new Date();
   since.setUTCDate(since.getUTCDate() - days);
 
@@ -265,6 +309,7 @@ export async function getGrowthSeries(days = 90): Promise<GrowthPoint[]> {
            sum(subscribers) AS subs
     FROM "ChannelStatDaily"
     WHERE date >= ${since}
+      AND (${channelId ?? null}::text IS NULL OR "channelId" = ${channelId ?? null})
     GROUP BY date
     ORDER BY date
   `;
@@ -279,12 +324,13 @@ export async function getGrowthSeries(days = 90): Promise<GrowthPoint[]> {
 export type YearPoint = { year: string; total: number; visible: number };
 
 /** Uploads per year. Grouped in the database rather than pulled into memory. */
-export async function getCatalogueByYear(): Promise<YearPoint[]> {
+export async function getCatalogueByYear(channelId?: ChannelScope): Promise<YearPoint[]> {
   const rows = await prisma.$queryRaw<Array<{ year: string; total: bigint; visible: bigint }>>`
     SELECT to_char("youtubePublishedAt", 'YYYY') AS year,
            count(*)                            AS total,
            count(*) FILTER (WHERE "isVisible") AS visible
     FROM "YouTubeVideo"
+    WHERE (${channelId ?? null}::text IS NULL OR "channelId" = ${channelId ?? null})
     GROUP BY 1
     ORDER BY 1
   `;
