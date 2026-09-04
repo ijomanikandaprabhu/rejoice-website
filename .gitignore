@@ -46,3 +46,7 @@ recovery-codes*
 
 .vercel
 .env*
+
+# Screenshots captured while verifying UI work.
+ring.png
+dropdown.png

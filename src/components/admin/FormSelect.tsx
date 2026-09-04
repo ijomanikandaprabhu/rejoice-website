@@ -41,16 +41,17 @@ export function FormSelect({
   className?: string;
 }) {
   return (
-    <Select
-      name={name}
-      defaultValue={defaultValue}
-    >
+    <Select name={name} defaultValue={defaultValue}>
       <SelectTrigger id={id} aria-label={ariaLabel} className={cn('w-full', className)}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent className="admin-theme">
         {options.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
+          <SelectItem
+            key={option.value}
+            value={option.value}
+            className="cursor-pointer rounded-input py-2 pl-3 pr-9 text-sm text-panel-fg outline-none transition-colors focus:bg-white/[0.1] focus:text-panel-fg focus-visible:outline-none data-[state=checked]:text-panel-accent"
+          >
             {option.label}
           </SelectItem>
         ))}

@@ -158,13 +158,16 @@ export function AdminTopBar({ email, logout }: { email: string; logout: () => Pr
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-white/[0.08]" />
                 <form action={logout}>
-                <DropdownMenuItem asChild className="cursor-pointer rounded-input px-3 py-2 text-sm text-panel-fg focus:bg-white/[0.06] focus:text-panel-fg">
-                  <button type="submit" className="flex w-full items-center gap-2">
-                    <LogOut className="size-4" />
-                    Log out
-                  </button>
-                </DropdownMenuItem>
-              </form>
+                  <DropdownMenuItem
+                    asChild
+                    className="cursor-pointer rounded-input px-3 py-2 text-sm text-panel-fg outline-none focus:bg-white/[0.1] focus:text-panel-fg focus-visible:outline-none"
+                  >
+                    <button type="submit" className="flex w-full items-center gap-2">
+                      <LogOut className="size-4" />
+                      Log out
+                    </button>
+                  </DropdownMenuItem>
+                </form>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

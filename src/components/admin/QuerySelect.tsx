@@ -75,7 +75,7 @@ export function QuerySelect({
           <SelectItem
             key={option.value}
             value={option.value}
-            className="cursor-pointer rounded-input py-2 pl-3 pr-9 text-sm text-panel-fg transition-colors focus:bg-white/[0.06] focus:text-panel-fg data-[state=checked]:text-panel-accent"
+            className="cursor-pointer rounded-input py-2 pl-3 pr-9 text-sm text-panel-fg outline-none transition-colors focus:bg-white/[0.1] focus:text-panel-fg focus-visible:outline-none data-[state=checked]:text-panel-accent"
           >
             {option.label}
           </SelectItem>
