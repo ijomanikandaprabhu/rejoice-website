@@ -94,6 +94,47 @@
      * small cosmetic jump on an older browser, not a broken layout.
      */
     scrollbar-gutter: stable;
+
+    /*
+     * ...and `overflow-y: scroll`, because the gutter alone was not enough.
+     *
+     * Both `SiteLoader` and every Radix overlay lock scrolling by setting
+     * `overflow: hidden` on BODY. When html's overflow is `visible`, CSS
+     * propagates body's value to the VIEWPORT — and a viewport that is not a
+     * scroll container reserves no gutter, so the reservation above was
+     * silently discarded at exactly the moment it was needed.
+     *
+     * Measured on /admin opening the channel dropdown: documentElement
+     * clientWidth went 1335 -> 1345, a 10px jump, with the gutter already in
+     * place.
+     *
+     * Giving html its own `overflow-y` stops the propagation: body's `hidden`
+     * then applies to body's own box only, the viewport stays a scroll
+     * container, and the gutter holds. The lock still works, because a body
+     * that clips its own overflow leaves the viewport nothing to scroll.
+     */
+    overflow-y: scroll;
+  }
+
+  /*
+   * Radix overlays lock scrolling through `react-remove-scroll`, which injects
+   *
+   *   body[data-scroll-locked] { overflow: hidden !important;
+   *                              margin-right: 10px !important; }
+   *
+   * The margin exists to replace a scrollbar it assumes it has just removed.
+   * With `overflow-y: scroll` above, the scrollbar is never removed — so that
+   * margin is a 10px inset compensating for nothing, and every dropdown,
+   * dialog and popover nudged the page sideways as it opened.
+   *
+   * `html body[...]` rather than `body[...]`: their stylesheet is injected at
+   * runtime and therefore comes AFTER ours in source order, so with equal
+   * specificity and `!important` on both sides theirs wins. The extra element
+   * selector settles it. The overflow half of their rule is left alone —
+   * locking the scroll is the part we want.
+   */
+  html body[data-scroll-locked] {
+    margin-right: 0 !important;
   }
 
   /* The public site owns the document background. */
