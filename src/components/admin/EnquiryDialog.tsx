@@ -43,7 +43,7 @@ export function EnquiryDialog({
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="admin-theme max-w-2xl">
         <DialogHeader>
           <DialogTitle>{subject || `Enquiry from ${name}`}</DialogTitle>
           <DialogDescription>

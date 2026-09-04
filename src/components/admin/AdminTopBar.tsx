@@ -151,7 +151,7 @@ export function AdminTopBar({ email, logout }: { email: string; logout: () => Pr
               </Tooltip>
               <DropdownMenuContent
                 align="end"
-                className="w-56 rounded-sm2 border border-white/[0.08] bg-panel-alt p-2 text-panel-fg shadow-panel"
+                className="admin-theme w-56 rounded-sm2 border border-white/[0.08] bg-panel-alt p-2 text-panel-fg shadow-panel"
               >
                 <DropdownMenuLabel className="truncate px-3 py-2 text-xs font-normal text-panel-muted">
                   {email}

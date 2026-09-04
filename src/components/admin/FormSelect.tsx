@@ -48,7 +48,7 @@ export function FormSelect({
       <SelectTrigger id={id} aria-label={ariaLabel} className={cn('w-full', className)}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className="admin-theme">
         {options.map((option) => (
           <SelectItem key={option.value} value={option.value}>
             {option.label}

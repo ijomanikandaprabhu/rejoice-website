@@ -136,7 +136,7 @@ function DeleteForm({
             Delete
           </Button>
         </AlertDialogTrigger>
-        <AlertDialogContent>
+        <AlertDialogContent className="admin-theme">
           <AlertDialogHeader>
             <AlertDialogTitle>
               Delete {ids.length} {ids.length === 1 ? 'enquiry' : 'enquiries'}?

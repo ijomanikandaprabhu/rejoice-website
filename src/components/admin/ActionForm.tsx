@@ -196,7 +196,7 @@ export function ActionForm({
 
       {confirm ? (
         <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <AlertDialogContent>
+          <AlertDialogContent className="admin-theme">
             <AlertDialogHeader>
               <AlertDialogTitle>{confirmTitle}</AlertDialogTitle>
               <AlertDialogDescription>{confirm}</AlertDialogDescription>
@@ -272,7 +272,7 @@ export function ActionButton({
             {children}
           </Button>
         </AlertDialogTrigger>
-        <AlertDialogContent>
+        <AlertDialogContent className="admin-theme">
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>{confirm}</AlertDialogDescription>

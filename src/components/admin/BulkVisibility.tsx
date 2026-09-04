@@ -184,7 +184,7 @@ function BulkForm({
             {label}
           </Button>
         </AlertDialogTrigger>
-        <AlertDialogContent>
+        <AlertDialogContent className="admin-theme">
           <AlertDialogHeader>
             <AlertDialogTitle>
               {label} {confirmCount.toLocaleString()} videos?
