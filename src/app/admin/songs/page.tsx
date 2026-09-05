@@ -1,13 +1,18 @@
-import { ExternalLink, Music, Plus, Trash2 } from 'lucide-react';
+import { ExternalLink, Eye, EyeOff, Music, Plus, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
-import { ActionForm, SubmitButton } from '@/components/admin/ActionForm';
+import { ActionButton, ActionForm, SubmitButton } from '@/components/admin/ActionForm';
+import {
+  BulkProvider,
+  RowCheckbox,
+  SelectAllCheckbox,
+} from '@/components/admin/BulkSelection';
+import { BulkBar } from '@/components/admin/BulkVisibility';
 import { Pagination } from '@/components/admin/Pagination';
 import { PlatformDialog } from '@/components/admin/PlatformDialog';
 import { resolvePerPage, RowsPerPage } from '@/components/admin/RowsPerPage';
 import { SearchField } from '@/components/admin/SearchField';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -19,7 +24,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { pageSizes } from '@/config/app.config';
-import { deleteSongAction } from '@/features/songs/actions';
+import { cn } from '@/lib/utils';
+import {
+  bulkSetSongVisibilityAction,
+  deleteSongAction,
+  toggleSongVisibilityAction,
+} from '@/features/songs/actions';
 import { listPlatforms, listSongsForAdmin, mediaUrl } from '@/features/songs/queries';
 
 export const dynamic = 'force-dynamic';
@@ -94,11 +104,32 @@ export default async function SongsAdminPage({ searchParams }: { searchParams: S
               </p>
             </div>
           ) : (
-            <>
+            <BulkProvider>
+              {/*
+               * Outside the table on purpose. Each row already renders its own
+               * toggle form, and a form inside a form is invalid HTML — so the
+               * selection is posted from out here as hidden inputs.
+               */}
+              <BulkBar
+                action={bulkSetSongVisibilityAction}
+                total={total}
+                pageIds={songs.map((song) => song.id)}
+                // The search is the songs table's ENTIRE filter. Add any new
+                // filter here and to `buildSongListWhere` together, or
+                // escalating would act on rows the operator cannot see.
+                params={{ q: q || undefined }}
+                noun="songs"
+                confirmDescription="This applies to every song matching the current search, including those on other pages."
+              />
+
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-10">
+                        <SelectAllCheckbox ids={songs.map((song) => song.id)} />
+                      </TableHead>
+                      <TableHead className="w-12 text-right">#</TableHead>
                       <TableHead className="w-16">Cover</TableHead>
                       <TableHead>Title</TableHead>
                       <TableHead>Artist</TableHead>
@@ -109,8 +140,22 @@ export default async function SongsAdminPage({ searchParams }: { searchParams: S
                   </TableHeader>
 
                   <TableBody>
-                    {songs.map((song) => (
+                    {songs.map((song, i) => (
                       <TableRow key={song.id}>
+                        <TableCell>
+                          <RowCheckbox id={song.id} />
+                        </TableCell>
+
+                        {/*
+                         * Position in the CURRENT view, not a stable id — it
+                         * shifts the moment the search changes or a song is
+                         * added. Numbering runs on across pages so it matches
+                         * the "26–50 of 120" the footer reports.
+                         */}
+                        <TableCell className="text-right text-sm tabular-nums text-muted-foreground">
+                          {(page - 1) * take + i + 1}
+                        </TableCell>
+
                         <TableCell>
                           <Image
                             src={mediaUrl(song.coverId)}
@@ -138,12 +183,27 @@ export default async function SongsAdminPage({ searchParams }: { searchParams: S
                           {song._count.links}
                         </TableCell>
 
+                        {/*
+                         * A switch, not a label. This used to be a badge, so
+                         * taking a song down meant opening it and saving — the
+                         * one edit that has to be instant was the slowest.
+                         */}
                         <TableCell className="text-center">
-                          {song.isVisible ? (
-                            <Badge variant="secondary">Visible</Badge>
-                          ) : (
-                            <Badge variant="outline">Hidden</Badge>
-                          )}
+                          <ActionButton
+                            action={toggleSongVisibilityAction}
+                            hiddenFields={{ id: song.id }}
+                            variant={song.isVisible ? 'default' : 'outline'}
+                            size="sm"
+                            pendingLabel="…"
+                            className={cn('gap-1.5', !song.isVisible && 'text-muted-foreground')}
+                          >
+                            {song.isVisible ? (
+                              <Eye className="size-3.5" />
+                            ) : (
+                              <EyeOff className="size-3.5" />
+                            )}
+                            {song.isVisible ? 'Showing' : 'Hidden'}
+                          </ActionButton>
                         </TableCell>
 
                         <TableCell>
@@ -191,7 +251,7 @@ export default async function SongsAdminPage({ searchParams }: { searchParams: S
                 <RowsPerPage perPage={take} page={page} total={total} />
                 <Pagination page={page} pageCount={pageCount} buildHref={buildHref} />
               </div>
-            </>
+            </BulkProvider>
           )}
         </CardContent>
       </Card>

@@ -16,12 +16,17 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import type { VideoListParams } from '@/features/youtube/contentFilters';
 
 /**
- * The bar that shows or hides the selected videos.
+ * The bar that shows or hides the selected rows.
  *
  * Selection itself lives in `BulkSelection`, shared with the enquiries table.
+ *
+ * NOT VIDEO-SPECIFIC. It started that way and the songs table wanted exactly
+ * the same bar, so what varies is passed in: the filter is an opaque bag of
+ * hidden fields, and the noun and the confirmation wording are props. Keeping
+ * one bar is the point — the escalation path below is the dangerous half of
+ * this feature and it should exist once.
  *
  * This bar owns ONE form per verb, placed outside the table. Each row already
  * renders its own single-video toggle form, and a form inside a form is invalid
@@ -34,12 +39,22 @@ export function BulkBar({
   total,
   pageIds,
   params,
+  noun = 'videos',
+  confirmDescription = 'This applies to every video matching the current filter, including those on other pages. Nothing on YouTube is changed.',
 }: {
   action: (formData: FormData) => Promise<void>;
   /** Rows matching the current filter, across every page. */
   total: number;
   pageIds: string[];
-  params: VideoListParams;
+  /**
+   * The current filter, written out as hidden fields when the operator
+   * escalates to "everything matching". Every dimension of the filter must be
+   * here — see the note where these are rendered.
+   */
+  params: Record<string, string | undefined>;
+  /** Plural, for "Hide 12 songs?". */
+  noun?: string;
+  confirmDescription?: string;
 }) {
   const { selected, allMatching, setAllMatching, clear } = useBulk();
 
@@ -82,6 +97,8 @@ export function BulkBar({
           selected={selected}
           allMatching={allMatching}
           params={params}
+          noun={noun}
+          confirmDescription={confirmDescription}
           onDone={clear}
         />
         <BulkForm
@@ -93,6 +110,8 @@ export function BulkBar({
           selected={selected}
           allMatching={allMatching}
           params={params}
+          noun={noun}
+          confirmDescription={confirmDescription}
           onDone={clear}
         />
       </div>
@@ -120,6 +139,8 @@ function BulkForm({
   selected,
   allMatching,
   params,
+  noun,
+  confirmDescription,
   onDone,
 }: {
   action: (formData: FormData) => Promise<void>;
@@ -129,7 +150,9 @@ function BulkForm({
   confirmCount: number | null;
   selected: Set<string>;
   allMatching: boolean;
-  params: VideoListParams;
+  params: Record<string, string | undefined>;
+  noun: string;
+  confirmDescription: string;
   onDone: () => void;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
@@ -143,18 +166,19 @@ function BulkForm({
            * Post the FILTER, not the ids. The action rebuilds the same `where`
            * server-side, so nothing here can name a row the filter excludes.
            *
-           * EVERY dimension of the filter has to be here. `type` was missed once
-           * and the effect was silent and severe: escalating on Shorts posted no
-           * type, so the server matched all 1,748 videos and "hide all 603
-           * Shorts" would have hidden the whole catalogue. Add any new filter
-           * field to this list at the same time you add it to
-           * `buildVideoListWhere`.
+           * EVERY dimension of the filter has to be in `params`. `type` was
+           * missed once and the effect was silent and severe: escalating on
+           * Shorts posted no type, so the server matched all 1,748 videos and
+           * "hide all 603 Shorts" would have hidden the whole catalogue.
+           *
+           * Whatever the caller puts in `params` is what the server gets, so a
+           * new filter has to be added to the caller's `params` at the same
+           * time it is added to that table's `build...Where`.
            */}
           <input type="hidden" name="mode" value="filter" />
-          {params.q ? <input type="hidden" name="q" value={params.q} /> : null}
-          {params.filter ? <input type="hidden" name="filter" value={params.filter} /> : null}
-          {params.channel ? <input type="hidden" name="channel" value={params.channel} /> : null}
-          {params.type ? <input type="hidden" name="type" value={params.type} /> : null}
+          {Object.entries(params).map(([name, value]) =>
+            value ? <input key={name} type="hidden" name={name} value={value} /> : null,
+          )}
         </>
       ) : (
         [...selected].map((id) => <input key={id} type="hidden" name="ids" value={id} />)
@@ -187,12 +211,9 @@ function BulkForm({
         <AlertDialogContent className="admin-theme">
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {label} {confirmCount.toLocaleString()} videos?
+              {label} {confirmCount.toLocaleString()} {noun}?
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              This applies to every video matching the current filter, including those on other
-              pages. Nothing on YouTube is changed.
-            </AlertDialogDescription>
+            <AlertDialogDescription>{confirmDescription}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>

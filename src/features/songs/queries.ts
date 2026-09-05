@@ -1,5 +1,7 @@
 import 'server-only';
 
+import type { Prisma } from '@prisma/client';
+
 import { prisma } from '@/lib/db/prisma';
 
 /**
@@ -60,6 +62,30 @@ const songCard = {
  * table's search is: at a few thousand rows that is quick, and if it ever stops
  * being quick the answer is an index, not a different screen.
  */
+/**
+ * The admin catalogue's filter, in one place.
+ *
+ * Extracted so the TABLE and the BULK ACTION cannot disagree. "Select all
+ * matching" posts the filter rather than a list of ids, and the action rebuilds
+ * the selection server-side with this same function — if it built its own copy,
+ * the two would drift and the bulk verb would reach rows the operator never
+ * saw. The videos table learned this the hard way; the note in
+ * `BulkVisibility.tsx` records what a single missed filter field cost there.
+ *
+ * ANY new filter added to the songs table has to be added here, not beside it.
+ */
+export function buildSongListWhere({ q }: { q?: string }): Prisma.SongWhereInput {
+  const search = q?.trim();
+  if (!search) return {};
+
+  return {
+    OR: [
+      { title: { contains: search, mode: 'insensitive' } },
+      { artist: { contains: search, mode: 'insensitive' } },
+    ],
+  };
+}
+
 export async function listSongsForAdmin({
   q,
   skip = 0,
@@ -69,16 +95,7 @@ export async function listSongsForAdmin({
   skip?: number;
   take?: number;
 }) {
-  const search = q?.trim();
-
-  const where = search
-    ? {
-        OR: [
-          { title: { contains: search, mode: 'insensitive' as const } },
-          { artist: { contains: search, mode: 'insensitive' as const } },
-        ],
-      }
-    : {};
+  const where = buildSongListWhere({ q });
 
   const [rows, total] = await Promise.all([
     prisma.song.findMany({

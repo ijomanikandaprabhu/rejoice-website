@@ -8,6 +8,7 @@ import { absoluteUrl } from '@/lib/seo';
 import { prisma } from '@/lib/db/prisma';
 import { createLogger } from '@/lib/logger';
 import { slugify } from '@/lib/utils';
+import { buildSongListWhere } from '@/features/songs/queries';
 import {
   IMAGE_MIME_TYPES,
   MAX_IMAGE_BYTES,
@@ -418,6 +419,70 @@ export async function deleteSongAction(
   revalidateSongs();
 
   return { ok: true, message: `${song.title} deleted.` };
+}
+
+/* -------------------------------------------------------------- visibility */
+
+/**
+ * The ceiling on a posted id list. Same value as the videos and enquiries
+ * tables use — a page can hold at most 100 rows, so a longer list did not come
+ * from the UI.
+ */
+const BULK_ID_LIMIT = 100;
+
+/**
+ * Show or hide one song, from the row it is on.
+ *
+ * A toggle rather than a form field: taking something down is the one edit that
+ * has to be instant, and making the operator open the song and save to do it is
+ * how a song stays live longer than intended.
+ */
+export async function toggleSongVisibilityAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+
+  const id = String(formData.get('id') ?? '');
+  const song = await prisma.song.findUnique({ where: { id }, select: { isVisible: true } });
+  if (!song) return;
+
+  await prisma.song.update({ where: { id }, data: { isVisible: !song.isVisible } });
+
+  revalidateSongs();
+}
+
+/**
+ * Show or hide many songs at once.
+ *
+ * TWO MODES, and the difference matters. With `mode=filter` the form posts the
+ * SEARCH rather than a list of ids, and the selection is rebuilt here with
+ * `buildSongListWhere` — the same function the table itself queries with, so
+ * this cannot reach a row the operator was not looking at. Otherwise it acts on
+ * the ids posted from the checkboxes.
+ *
+ * If a filter beyond `q` is ever added to the songs table, it has to be added
+ * to the hidden fields in `BulkVisibility.tsx` at the same time. Missing one is
+ * silent and severe: the server would match everything and "hide these three"
+ * would hide the catalogue.
+ */
+export async function bulkSetSongVisibilityAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+
+  const isVisible = formData.get('visible') === 'true';
+
+  let where;
+
+  if (formData.get('mode') === 'filter') {
+    const q = String(formData.get('q') ?? '').trim();
+    where = buildSongListWhere({ q: q || undefined });
+  } else {
+    const ids = formData.getAll('ids').map(String).filter(Boolean);
+    if (ids.length === 0 || ids.length > BULK_ID_LIMIT) return;
+    where = { id: { in: ids } };
+  }
+
+  const { count } = await prisma.song.updateMany({ where, data: { isVisible } });
+
+  log.info(`${isVisible ? 'Showed' : 'Hid'} ${count} song${count === 1 ? '' : 's'}`);
+  revalidateSongs();
 }
 
 /* ------------------------------------------------- the ten already shipped */
