@@ -53,6 +53,7 @@ export function SubmitButton({
   className,
   name,
   value,
+  ariaLabel,
 }: {
   children?: ReactNode;
   pendingLabel?: string;
@@ -66,6 +67,12 @@ export function SubmitButton({
    */
   name?: string;
   value?: string;
+  /**
+   * The accessible name, for a button whose content is only an icon. Without
+   * it a screen reader announces the button with no name at all — a tooltip
+   * does not supply one, it only describes.
+   */
+  ariaLabel?: string;
 }) {
   const { pending } = useFormStatus();
   return (
@@ -73,6 +80,7 @@ export function SubmitButton({
       type="submit"
       name={name}
       value={value}
+      aria-label={ariaLabel}
       variant={variant}
       size={size}
       disabled={pending}
@@ -174,9 +182,9 @@ export function ActionForm({
       // on should not vanish at the same speed as "Saved".
       toast.error(state.message, { duration: 8000 });
     }
-  // `onSuccess` is deliberately not a dependency: a caller passing an inline
-  // arrow would otherwise re-run this on every render and fire repeatedly.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // `onSuccess` is deliberately not a dependency: a caller passing an inline
+    // arrow would otherwise re-run this on every render and fire repeatedly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
   return (
@@ -270,7 +278,12 @@ export function ActionButton({
     return (
       <form action={action} className="inline-flex">
         {hidden}
-        <SubmitButton variant={variant} size={size} pendingLabel={pendingLabel} className={className}>
+        <SubmitButton
+          variant={variant}
+          size={size}
+          pendingLabel={pendingLabel}
+          className={className}
+        >
           {children}
         </SubmitButton>
       </form>

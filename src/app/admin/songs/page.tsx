@@ -3,11 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 import { ActionButton, ActionForm, SubmitButton } from '@/components/admin/ActionForm';
-import {
-  BulkProvider,
-  RowCheckbox,
-  SelectAllCheckbox,
-} from '@/components/admin/BulkSelection';
+import { BulkProvider, RowCheckbox, SelectAllCheckbox } from '@/components/admin/BulkSelection';
 import { BulkBar } from '@/components/admin/BulkVisibility';
 import { Pagination } from '@/components/admin/Pagination';
 import { PlatformDialog } from '@/components/admin/PlatformDialog';
@@ -15,6 +11,7 @@ import { resolvePerPage, RowsPerPage } from '@/components/admin/RowsPerPage';
 import { SearchField } from '@/components/admin/SearchField';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Table,
   TableBody,
@@ -90,38 +87,50 @@ export default async function SongsAdminPage({ searchParams }: { searchParams: S
         </div>
       </div>
 
-      <Card>
-        <CardContent className="grid gap-4 p-4">
-          <SearchField defaultValue={q} />
+      {/*
+       * The search sits ABOVE the card, not inside it, and so does the pager
+       * below — the same shape as Admin -> YouTube Content. The card holds the
+       * table and nothing else, so its edge reads as the edge of the data
+       * rather than of the whole screen. These two tables are read side by
+       * side and had no reason to be built differently.
+       */}
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        <SearchField defaultValue={q} />
+      </div>
 
-          {songs.length === 0 ? (
-            <div className="grid place-items-center gap-2 py-16 text-center">
-              <Music aria-hidden className="size-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                {q
-                  ? `Nothing matches “${q}”.`
-                  : 'No songs yet. The first one you add appears at the top of /songs.'}
-              </p>
-            </div>
-          ) : (
-            <BulkProvider>
-              {/*
-               * Outside the table on purpose. Each row already renders its own
-               * toggle form, and a form inside a form is invalid HTML — so the
-               * selection is posted from out here as hidden inputs.
-               */}
-              <BulkBar
-                action={bulkSetSongVisibilityAction}
-                total={total}
-                pageIds={songs.map((song) => song.id)}
-                // The search is the songs table's ENTIRE filter. Add any new
-                // filter here and to `buildSongListWhere` together, or
-                // escalating would act on rows the operator cannot see.
-                params={{ q: q || undefined }}
-                noun="songs"
-                confirmDescription="This applies to every song matching the current search, including those on other pages."
-              />
+      {songs.length === 0 ? (
+        <Card>
+          <CardContent className="grid place-items-center gap-2 py-16 text-center">
+            <Music aria-hidden className="size-8 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              {q
+                ? `Nothing matches “${q}”.`
+                : 'No songs yet. The first one you add appears at the top of /songs.'}
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <BulkProvider>
+          {/*
+           * Outside the table on purpose. Each row already renders its own
+           * toggle form, and a form inside a form is invalid HTML — so the
+           * selection is posted from out here as hidden inputs.
+           */}
+          <BulkBar
+            action={bulkSetSongVisibilityAction}
+            total={total}
+            pageIds={songs.map((song) => song.id)}
+            // The search is the songs table's ENTIRE filter. Add any new
+            // filter here and to `buildSongListWhere` together, or
+            // escalating would act on rows the operator cannot see.
+            params={{ q: q || undefined }}
+            noun="songs"
+            confirmDescription="This applies to every song matching the current search, including those on other pages."
+          />
 
+          {/* One provider for the table, rather than one per row. */}
+          <TooltipProvider delayDuration={200}>
+            <Card className="overflow-hidden py-0">
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -212,15 +221,30 @@ export default async function SongsAdminPage({ searchParams }: { searchParams: S
                               <Link href={`/admin/songs/${song.id}`}>Edit</Link>
                             </Button>
 
-                            <Button asChild variant="ghost" size="icon" title="View on the website">
-                              <Link
-                                href={`/songs/${song.slug}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                <ExternalLink className="size-4" />
-                              </Link>
-                            </Button>
+                            {/*
+                             * The site's own tooltip, not the browser's.
+                             *
+                             * This was `title="View on the website"`, which the
+                             * browser draws in its own OS style after a second
+                             * or so — the wrong typeface, the wrong colours,
+                             * and unreachable from a keyboard. Radix's version
+                             * matches the panel and opens on focus too.
+                             */}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button asChild variant="ghost" size="icon">
+                                  <Link
+                                    href={`/songs/${song.slug}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    aria-label="View on the website"
+                                  >
+                                    <ExternalLink className="size-4" />
+                                  </Link>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>View on the website</TooltipContent>
+                            </Tooltip>
 
                             <ActionForm
                               action={deleteSongAction}
@@ -230,14 +254,29 @@ export default async function SongsAdminPage({ searchParams }: { searchParams: S
                               confirmLabel="Delete song"
                               className="contents"
                             >
-                              <SubmitButton
-                                variant="ghost"
-                                size="icon"
-                                pendingLabel=""
-                                className="text-muted-foreground hover:text-destructive"
-                              >
-                                <Trash2 className="size-4" />
-                              </SubmitButton>
+                              <Tooltip>
+                                {/*
+                                 * The span is load-bearing. `asChild` hands the
+                                 * trigger's ref and hover handlers to its child,
+                                 * and `SubmitButton` takes a fixed set of props
+                                 * and forwards none of them — so the tooltip
+                                 * would attach to nothing and never open.
+                                 */}
+                                <TooltipTrigger asChild>
+                                  <span className="inline-flex">
+                                    <SubmitButton
+                                      variant="ghost"
+                                      size="icon"
+                                      pendingLabel=""
+                                      ariaLabel={`Delete ${song.title}`}
+                                      className="text-muted-foreground hover:text-destructive"
+                                    >
+                                      <Trash2 className="size-4" />
+                                    </SubmitButton>
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>Delete</TooltipContent>
+                              </Tooltip>
                             </ActionForm>
                           </div>
                         </TableCell>
@@ -246,15 +285,15 @@ export default async function SongsAdminPage({ searchParams }: { searchParams: S
                   </TableBody>
                 </Table>
               </div>
+            </Card>
+          </TooltipProvider>
 
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <RowsPerPage perPage={take} page={page} total={total} />
-                <Pagination page={page} pageCount={pageCount} buildHref={buildHref} />
-              </div>
-            </BulkProvider>
-          )}
-        </CardContent>
-      </Card>
+          <div className="flex flex-col-reverse items-center gap-4 sm:flex-row sm:justify-between">
+            <RowsPerPage perPage={take} page={page} total={total} />
+            <Pagination page={page} pageCount={pageCount} buildHref={buildHref} />
+          </div>
+        </BulkProvider>
+      )}
     </>
   );
 }
