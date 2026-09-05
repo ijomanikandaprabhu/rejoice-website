@@ -22,17 +22,25 @@ export function VinylCover({ src, alt }: { src: string; alt: string }) {
      * the disc needs. In ratio rather than pixels, so the whole assembly scales
      * as one object on a phone.
      */
-    <div className="relative aspect-[1.42/1] w-full">
+    <div className="relative aspect-[1.52/1] w-full">
       {/*
        * `left`, not `right`: anchoring to the right edge would change how much
        * of the disc hides behind the sleeve as the box changes shape. From the
        * left, the overlap is fixed.
        *
-       * THESE TWO NUMBERS ARE A PAIR. The disc is sized from the box's HEIGHT
-       * and positioned from its WIDTH, so with a 1.42 ratio its right edge
-       * lands at 0.34 + 0.92/1.42 = 0.988 of the width. At 36% it came to
-       * 1.008 — a hair over, which was enough to make the whole page scroll
-       * sideways on a phone. Change one and check the other.
+       * THESE THREE NUMBERS ARE A SET — the box ratio, this offset, and the
+       * disc's height. The disc is sized from the box's HEIGHT and positioned
+       * from its WIDTH, so at a 1.52 ratio its right edge lands at
+       * 0.38 + 0.92/1.52 = 0.985 of the width. An earlier pairing came to
+       * 1.008 — a hair over, and enough to make the whole page scroll sideways
+       * on a phone. Change one and recompute the others.
+       *
+       * The ratio went 1.42 -> 1.52 to get the record's LABEL out from behind
+       * the sleeve: at 1.42 only 29% of it showed, and the label carrying the
+       * artwork is what makes the rotation legible. 1.52 exposes 63% and costs
+       * the sleeve about 6% of its width — the smallest move that fixes the
+       * cue rather than the largest that would fully clear the label and
+       * shrink the artwork by 17%.
        *
        * `overflow-hidden` is the second half of that fix, and less obvious. The
        * disc LOOKS like a circle but is a square element with rounded corners,
@@ -41,7 +49,7 @@ export function VinylCover({ src, alt }: { src: string; alt: string }) {
        * once the circle itself fitted. Clipping to the circle costs nothing to
        * look at and stops the sweep from reaching the layout.
        */}
-      <div className="absolute left-[34%] top-[4%] aspect-square h-[92%] overflow-hidden rounded-full">
+      <div className="absolute left-[38%] top-[4%] aspect-square h-[92%] overflow-hidden rounded-full">
         <div className="song-vinyl relative size-full rounded-full">
           {/*
            * The label carries the artwork, and that is what makes the rotation

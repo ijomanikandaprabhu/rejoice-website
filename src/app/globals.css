@@ -765,16 +765,32 @@
    * rotation reads as a shimmer and the whole thing looks broken.
    */
   .song-vinyl {
+    /*
+     * THE PAGE BEHIND THIS IS PURE #000000, which is the whole reason these
+     * values are what they are. The first version ran #17171a to #050506, and
+     * that outer edge measures 1.03 contrast against the page — not a dark
+     * object on a dark ground, the same colour as the ground. The disc
+     * disappeared and only its grooves and label showed.
+     *
+     * Measured against black, the rim now sits at 1.21 and the centre at 1.47.
+     * The site's own cards are 1.23, so the record carries the weight of the
+     * other surfaces on the page rather than being lighter than them — still
+     * black vinyl, not grey plastic.
+     */
     background-image:
       repeating-radial-gradient(
         circle at 50% 50%,
-        rgba(255, 255, 255, 0.05) 0 0.35%,
+        rgba(255, 255, 255, 0.08) 0 0.35%,
         rgba(0, 0, 0, 0) 0.35% 1.75%
       ),
-      radial-gradient(circle at 50% 50%, #17171a 0%, #0b0b0d 62%, #050506 100%);
+      radial-gradient(circle at 50% 50%, #2a2a31 0%, #202027 55%, #1a1a21 100%);
     box-shadow:
       0 18px 45px -18px rgba(0, 0, 0, 0.95),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+      /*
+       * The rim does more work than any other value here. A circle on a dark
+       * ground reads by its edge, and at 0.07 there was no edge to read.
+       */
+      inset 0 0 0 1px rgba(255, 255, 255, 0.2);
 
     /*
      * 24 seconds a turn — slow enough that you notice only if you look, which
@@ -799,8 +815,8 @@
   .song-vinyl-sheen {
     background-image: radial-gradient(
       ellipse 70% 55% at 32% 26%,
-      rgba(255, 255, 255, 0.14) 0%,
-      rgba(255, 255, 255, 0.035) 42%,
+      rgba(255, 255, 255, 0.18) 0%,
+      rgba(255, 255, 255, 0.05) 42%,
       rgba(255, 255, 255, 0) 68%
     );
   }
