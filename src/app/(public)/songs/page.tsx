@@ -182,8 +182,15 @@ export default async function MusicPage() {
          * sentence would contradict it.
          */}
         {total > 0 ? (
-          <div className="mt-10">
-            <Link href="/songs/all" className="btn-primary">
+          /*
+           * Centred, and `btn-secondary` rather than `btn-primary` — the same
+           * treatment as `SeeMoreFromChannel`, which is the other "there is
+           * more of this" link on the site. It sits under a grid it belongs to
+           * rather than beside a heading, so it reads as a continuation of the
+           * listing rather than as the page's main action.
+           */
+          <div className="mt-10 flex justify-center">
+            <Link href="/songs/all" className="btn-secondary px-7 text-sm">
               View all songs
             </Link>
           </div>
