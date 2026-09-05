@@ -92,14 +92,21 @@ export default async function SongPage({ params }: Params) {
               * the label's website. An empty line says less and means more.
               */}
             {/*
-              * The gap belongs to the DATE, not to the title. As `mt-5` on the
-              * heading it survived the eyebrow being absent and left a stray
-              * 20px above the title on every song without a release date —
-              * which, since the form has no date field, is all of them.
+              * The release date when there is one, otherwise the label's short
+              * name.
+              *
+              * "Rejoice", not "Rejoice Gospel Communications": the full name
+              * ran wider than the title it sat above, and a visitor is already
+              * on the label's website — the long form reads as letterhead. The
+              * full name still appears in the page's search description, where
+              * it is doing real work.
+              *
+              * The gap belongs to this line, not to the heading. As `mt-5` on
+              * the title it would survive this being absent.
               */}
-            {song.releasedAt ? (
-              <p className="t-label mb-5 text-site-muted">{formatDate(song.releasedAt)}</p>
-            ) : null}
+            <p className="t-label mb-5 text-site-muted">
+              {song.releasedAt ? formatDate(song.releasedAt) : 'Rejoice'}
+            </p>
 
             <h1 className="t-h1">{song.title}</h1>
 
