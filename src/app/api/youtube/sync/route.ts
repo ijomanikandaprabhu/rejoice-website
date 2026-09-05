@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { isYouTubeConfigured } from '@/config/youtube.config';
+import { isYouTubeConfigured, youtubeConfig } from '@/config/youtube.config';
 import { createLogger } from '@/lib/logger';
 import { recordDailyChannelStats, refreshVideoStats } from '@/services/youtube/statsService';
 import { syncAllChannels } from '@/services/youtube/videoSyncService';
@@ -39,6 +39,10 @@ async function runSync(request: Request) {
   }
 
   try {
+    // Everything below shares one invocation. The import has its own budget;
+    // this is the point by which the statistics work must stop too.
+    const runDeadline = Date.now() + youtubeConfig.runTimeBudgetMs;
+
     const results = await syncAllChannels(false);
     const imported = results.reduce((n, r) => n + r.imported, 0);
     log.info(`Scheduled sync complete: ${imported} new videos across ${results.length} channels`);
@@ -55,7 +59,7 @@ async function runSync(request: Request) {
       return 0;
     });
 
-    const stats = await refreshVideoStats().catch((error: unknown) => {
+    const stats = await refreshVideoStats(undefined, runDeadline).catch((error: unknown) => {
       log.error('Video statistics refresh failed', error);
       return { scanned: 0, updated: 0 };
     });

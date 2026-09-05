@@ -46,7 +46,16 @@ export type StatsRefreshResult = {
  * Ordered `statsSyncedAt` ascending with nulls first, so a video that has never
  * had statistics read is always served before one that merely has old ones.
  */
-export async function refreshVideoStats(limit = DEFAULT_LIMIT): Promise<StatsRefreshResult> {
+export async function refreshVideoStats(
+  limit = DEFAULT_LIMIT,
+  /**
+   * When to stop fetching. The scheduled run passes the point by which the
+   * whole invocation must be done, because the import ahead of this may have
+   * spent its own budget first — without it a backfilling channel and a full
+   * statistics pass together outlast the function and it is killed mid-write.
+   */
+  deadline = Number.POSITIVE_INFINITY,
+): Promise<StatsRefreshResult> {
   const stale = await prisma.youTubeVideo.findMany({
     orderBy: { statsSyncedAt: { sort: 'asc', nulls: 'first' } },
     take: limit,
@@ -59,6 +68,14 @@ export async function refreshVideoStats(limit = DEFAULT_LIMIT): Promise<StatsRef
   let updated = 0;
 
   for (let i = 0; i < stale.length; i += BATCH_SIZE) {
+    // Checked between batches, so a partial refresh keeps every batch it
+    // completed. `statsSyncedAt` orders the queue, so the videos this run did
+    // not reach are simply first in line tomorrow.
+    if (Date.now() >= deadline) {
+      log.info(`Statistics refresh stopped early at ${i} of ${stale.length}`);
+      break;
+    }
+
     const batch = stale.slice(i, i + BATCH_SIZE).map((v) => v.youtubeVideoId);
     const details = await fetchVideosByIds(batch);
 

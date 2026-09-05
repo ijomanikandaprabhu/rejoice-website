@@ -6,6 +6,7 @@ import { youtubeConfig } from '@/config/youtube.config';
 import { prisma } from '@/lib/db/prisma';
 import { createLogger } from '@/lib/logger';
 import {
+  YouTubeApiError,
   YouTubeNotConfiguredError,
   fetchUploadsPage,
   fetchVideosByIds,
@@ -285,10 +286,31 @@ export async function syncChannel(
        * shared budget would still overrun across several channels.
        */
       if (cursor !== null && Date.now() < deadline) {
-        const rest = await importPages(channel, cursor, youtubeConfig.maxPagesPerRun, deadline);
-        imported += rest.imported;
-        updated += rest.updated;
-        cursor = rest.nextPageToken ?? null;
+        try {
+          const rest = await importPages(channel, cursor, youtubeConfig.maxPagesPerRun, deadline);
+          imported += rest.imported;
+          updated += rest.updated;
+          cursor = rest.nextPageToken ?? null;
+        } catch (error) {
+          /*
+           * A page token YouTube no longer accepts would otherwise deadlock the
+           * channel: the run fails, the cursor is kept precisely so the next run
+           * can resume, and that run fails on the same token forever. Dropping
+           * it restarts the backfill from the newest video, which costs a
+           * re-read of pages already held — every one of them deduplicates —
+           * and is the only way out that does not need a person to notice.
+           *
+           * Narrowed to 400 on purpose. A quota or network failure says nothing
+           * about the token, and throwing away a large catalogue's progress
+           * over a bad night would be far worse than waiting a day.
+           */
+          if (error instanceof YouTubeApiError && error.status === 400) {
+            log.warn(`${channel.name}: stored page token rejected, restarting the backfill`);
+            cursor = null;
+          } else {
+            throw error;
+          }
+        }
       }
     }
 

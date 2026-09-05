@@ -38,15 +38,26 @@ export const youtubeConfig = {
    * page it was mid-way through with nothing recorded.
    *
    * This is the budget for a WHOLE run, shared by every channel in it — the
-   * scheduled sync walks all five inside one invocation, and the statistics
-   * upkeep that follows runs there too. 40s of the 60 leaves margin for both,
-   * plus the final database writes and the response.
+   * scheduled sync walks all five inside one invocation.
+   *
+   * It is deliberately only half of the invocation, because the statistics
+   * upkeep runs in the same 60 seconds afterwards. Before the import became
+   * time-bounded a sync was a handful of fast pages and statistics had the
+   * function almost to itself; a backfill can now fill whatever it is given,
+   * so the two are budgeted separately rather than competing.
    *
    * When the budget runs out the run is NOT a failure: it stores the next page
    * token on each channel and the following run continues from there, so a
    * very large back catalogue completes over a few runs unattended.
    */
-  syncTimeBudgetMs: 40_000,
+  syncTimeBudgetMs: 30_000,
+
+  /**
+   * The point in a scheduled run by which ALL fetching must stop — syncing and
+   * the statistics refresh that follows it. Below the route's `maxDuration =
+   * 60` so the last database writes and the response still fit inside.
+   */
+  runTimeBudgetMs: 50_000,
 
   /**
    * Runaway guard, not a limit anyone is expected to reach. 500 pages is

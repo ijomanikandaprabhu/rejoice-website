@@ -79,7 +79,18 @@ vi.mock('@/services/youtube/youtubeClient', () => ({
   fetchUploadsPage: (...args: unknown[]) => fetchUploadsPage(...args),
   fetchVideosByIds: vi.fn(),
   YouTubeNotConfiguredError: class extends Error {},
+  YouTubeApiError: class extends Error {
+    constructor(
+      message: string,
+      readonly status: number,
+      readonly retryable: boolean,
+    ) {
+      super(message);
+    }
+  },
 }));
+
+const { YouTubeApiError } = await import('@/services/youtube/youtubeClient');
 
 /**
  * A single, final page — the shape almost every test below wants. Omitting
@@ -100,6 +111,13 @@ const CHANNEL = {
   /** Null = no import in progress, the state of a fully imported channel. */
   importCursor: null as string | null,
 };
+
+/**
+ * A page slow enough that two of them exceed the budget but one does not.
+ * Derived from the budget rather than hard-coded, so tuning that value in
+ * config does not quietly turn these tests into something else.
+ */
+const MS_PER_PAGE = Math.round(youtubeConfig.syncTimeBudgetMs * 0.6);
 
 /** The `data` of the last `youTubeChannel.update` the sync issued. */
 function lastChannelUpdate() {
@@ -298,14 +316,14 @@ describe('syncChannel deep import', () => {
   it('stores its place when the time budget runs out, and reports it as unfinished', async () => {
     vi.useFakeTimers();
     try {
-      // 30 seconds a page against a 40-second budget: stops after page two.
+      // Stops after page two, having stored what both pages carried.
       servePages(
         [
           { videos: [upload('vid1', 'One')], nextPageToken: 'tok1' },
           { videos: [upload('vid2', 'Two')], nextPageToken: 'tok2' },
           { videos: [upload('vid3', 'Three')], nextPageToken: 'tok3' },
         ],
-        30_000,
+        MS_PER_PAGE,
       );
 
       const result = await syncChannel('chan-1', true);
@@ -387,9 +405,8 @@ describe('syncAllChannels', () => {
 
       const started = Date.now();
 
-      // 30 seconds a page against the run's 40-second budget.
       fetchUploadsPage.mockImplementation(async () => {
-        vi.advanceTimersByTime(30_000);
+        vi.advanceTimersByTime(MS_PER_PAGE);
         return { videos: [], nextPageToken: 'next' };
       });
 
@@ -406,11 +423,51 @@ describe('syncAllChannels', () => {
        * and the invocation would have been killed long before finishing.
        */
       expect(fetchUploadsPage).toHaveBeenCalledTimes(4);
-      // 120s here against the 210s a fresh budget per channel produced.
-      expect(Date.now() - started).toBe(120_000);
+      // Four pages' worth. A fresh budget per channel took seven.
+      expect(Date.now() - started).toBe(MS_PER_PAGE * 4);
     } finally {
       vi.useRealTimers();
       prismaMock.youTubeChannel.findMany.mockResolvedValue([]);
     }
+  });
+});
+
+/*
+ * A stored page token that YouTube later refuses.
+ *
+ * The cursor is kept across failures so a run can resume — which means a token
+ * YouTube rejects would fail the same way every night, forever, with nobody
+ * told. The only exit that needs no human is to drop it and start again.
+ */
+describe('syncChannel with a rejected cursor', () => {
+  beforeEach(() => {
+    prismaMock.youTubeChannel.findUnique.mockResolvedValue({ ...CHANNEL, importCursor: 'stale' });
+  });
+
+  it('drops a token YouTube rejects, so the backfill restarts instead of deadlocking', async () => {
+    fetchUploadsPage.mockImplementation(async (_playlist: string, token?: string) => {
+      if (token === 'stale') throw new YouTubeApiError('invalid pageToken', 400, false);
+      return { videos: [upload('vid1', 'Newest')], nextPageToken: undefined };
+    });
+
+    const result = await syncChannel('chan-1');
+
+    // The run still succeeds: the newest page was imported.
+    expect(result.ok).toBe(true);
+    expect(db.videos.size).toBe(1);
+    expect(lastChannelUpdate().importCursor).toBeNull();
+  });
+
+  it('keeps the cursor when the failure says nothing about the token', async () => {
+    fetchUploadsPage.mockImplementation(async (_playlist: string, token?: string) => {
+      if (token === 'stale') throw new YouTubeApiError('quotaExceeded', 403, false);
+      return { videos: [upload('vid1', 'Newest')], nextPageToken: undefined };
+    });
+
+    const result = await syncChannel('chan-1');
+
+    expect(result.ok).toBe(false);
+    // A bad night must not throw away a large catalogue's progress.
+    expect(lastChannelUpdate()).not.toHaveProperty('importCursor');
   });
 });
