@@ -21,7 +21,6 @@ import {
 import { pageSizes } from '@/config/app.config';
 import { deleteSongAction } from '@/features/songs/actions';
 import { listPlatforms, listSongsForAdmin, mediaUrl } from '@/features/songs/queries';
-import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -103,7 +102,6 @@ export default async function SongsAdminPage({ searchParams }: { searchParams: S
                       <TableHead className="w-16">Cover</TableHead>
                       <TableHead>Title</TableHead>
                       <TableHead>Artist</TableHead>
-                      <TableHead>Released</TableHead>
                       <TableHead className="text-center">Links</TableHead>
                       <TableHead className="text-center">Visible</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -134,10 +132,6 @@ export default async function SongsAdminPage({ searchParams }: { searchParams: S
 
                         <TableCell className="text-muted-foreground">
                           {song.artist ?? '—'}
-                        </TableCell>
-
-                        <TableCell className="whitespace-nowrap text-muted-foreground">
-                          {song.releasedAt ? formatDate(song.releasedAt) : '—'}
                         </TableCell>
 
                         <TableCell className="text-center tabular-nums text-muted-foreground">

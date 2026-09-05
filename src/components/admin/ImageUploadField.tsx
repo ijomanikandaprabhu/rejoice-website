@@ -1,10 +1,10 @@
 'use client';
 
-import { ImageIcon, Loader2 } from 'lucide-react';
+import { ImagePlus, Loader2, RotateCcw, Trash2 } from 'lucide-react';
 import { useRef, useState, type ChangeEvent } from 'react';
 
 import { FieldError } from '@/components/admin/ActionForm';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { downscale } from '@/lib/images/downscale';
 
 /**
@@ -12,26 +12,28 @@ import { downscale } from '@/lib/images/downscale';
  *
  * The resize is not a nicety. A 3000x3000 cover is several megabytes and
  * neither Vercel (about 4.5MB per request) nor Next (1MB per server action)
- * will carry it. What leaves this component is a WebP of roughly 150KB.
+ * will carry it. What leaves this component is a WebP of roughly 70KB.
  *
- * The chosen file is deliberately NOT what gets submitted: the visible input
+ * The chosen file is deliberately NOT what gets submitted: the file input
  * carries no name, and the downscaled result is written into hidden inputs
  * alongside its dimensions. Submitting the original would defeat the whole
  * point and fail on a size limit the administrator cannot see.
  *
- * `sizes` may ask for more than one copy — a song cover is stored large for its
- * own page and small for the grid — and each gets its own trio of hidden
- * fields.
+ * THE PICTURE ITSELF IS THE CONTROL. There is no "Choose file" button — the
+ * frame is a button, so the thing you click is the thing you are replacing.
+ *
+ * `sizes` may ask for more than one copy, and each gets its own trio of hidden
+ * fields. Today every caller asks for one.
  */
 export function ImageUploadField({
   name,
   sizes,
-  label = 'Choose an image',
+  label = 'Image',
   hint,
   currentUrl,
   square = false,
 }: {
-  /** Base field name. With one size the fields are `<name>`, `<name>.width`… */
+  /** Base field name. Each size posts `<size>`, `<size>.width`, `<size>.height`. */
   name: string;
   /** Field name → longest side in pixels. */
   sizes: Record<string, number>;
@@ -41,10 +43,13 @@ export function ImageUploadField({
   currentUrl?: string;
   square?: boolean;
 }) {
-  const [preview, setPreview] = useState<string | null>(currentUrl ?? null);
+  /** The newly picked image, if any. Null means "whatever was already there". */
+  const [picked, setPicked] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+
+  const picker = useRef<HTMLInputElement>(null);
 
   /*
    * The hidden file inputs are driven through a DataTransfer, which is the only
@@ -52,6 +57,22 @@ export function ImageUploadField({
    */
   const holders = useRef<Record<string, HTMLInputElement | null>>({});
   const dimensions = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const shown = picked ?? currentUrl ?? null;
+
+  function clear() {
+    for (const field of Object.keys(sizes)) {
+      const holder = holders.current[field];
+      if (holder) holder.value = '';
+      const width = dimensions.current[`${field}.width`];
+      const height = dimensions.current[`${field}.height`];
+      if (width) width.value = '';
+      if (height) height.value = '';
+    }
+    setPicked(null);
+    setInfo(null);
+    setError(null);
+  }
 
   async function onPick(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -79,7 +100,7 @@ export function ImageUploadField({
         if (height) height.value = String(result.height);
 
         largest = Math.max(largest, result.blob.size);
-        if (field === Object.keys(sizes)[0]) setPreview(URL.createObjectURL(result.blob));
+        if (field === Object.keys(sizes)[0]) setPicked(URL.createObjectURL(result.blob));
       }
 
       setInfo(`Ready to upload — about ${Math.max(1, Math.round(largest / 1024))}KB.`);
@@ -97,36 +118,87 @@ export function ImageUploadField({
     <div className="grid content-start gap-2">
       <span className="text-sm font-medium leading-none">{label}</span>
 
-      <div className="flex items-start gap-4">
-        <div
-          className={`grid shrink-0 place-items-center overflow-hidden rounded-md border bg-muted ${
-            square ? 'size-24' : 'h-16 w-28'
-          }`}
-        >
-          {busy ? (
-            <Loader2 aria-hidden className="size-5 animate-spin text-muted-foreground" />
-          ) : preview ? (
-            // A plain <img>: this is a blob: URL for a file that has not been
-            // uploaded yet, which next/image cannot take.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={preview} alt="" className="size-full object-contain" />
-          ) : (
-            <ImageIcon aria-hidden className="size-5 text-muted-foreground" />
-          )}
-        </div>
+      <button
+        /*
+         * `type="button"`: inside a form a bare <button> defaults to submit, so
+         * opening the file picker would post the form instead.
+         */
+        type="button"
+        onClick={() => picker.current?.click()}
+        aria-label={shown ? `Replace ${label.toLowerCase()}` : `Add ${label.toLowerCase()}`}
+        className={`group relative grid w-full place-items-center overflow-hidden rounded-lg border border-dashed border-input bg-muted/40 transition-colors hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${
+          square ? 'aspect-square max-w-[240px]' : 'h-28 max-w-[240px]'
+        }`}
+      >
+        {busy ? (
+          <Loader2 aria-hidden className="size-6 animate-spin text-muted-foreground" />
+        ) : shown ? (
+          // A plain <img>: a blob: URL for a file that has not been uploaded yet
+          // is not something next/image can take.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={shown}
+            alt=""
+            className={`size-full ${square ? 'object-cover' : 'object-contain'}`}
+          />
+        ) : (
+          <span className="grid place-items-center gap-1.5 p-4 text-center">
+            <ImagePlus aria-hidden className="size-6 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Click to upload</span>
+          </span>
+        )}
+      </button>
 
-        <div className="grid flex-1 gap-2">
-          <Input type="file" accept="image/png,image/jpeg,image/webp" onChange={onPick} />
-          {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
-          {info ? <p className="text-xs text-muted-foreground">{info}</p> : null}
-          {error ? (
-            <p role="alert" className="text-xs font-medium text-destructive">
-              {error}
-            </p>
+      {shown && !busy ? (
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => picker.current?.click()}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <RotateCcw className="size-3.5" />
+            Replace
+          </Button>
+
+          {/*
+            * Only offered once something has been picked. On an existing song
+            * this undoes the new choice and leaves the stored artwork alone — a
+            * song cannot exist without a cover, so there is nothing here that
+            * would remove one.
+            */}
+          {picked ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={clear}
+              className="text-muted-foreground hover:text-destructive"
+            >
+              <Trash2 className="size-3.5" />
+              Remove
+            </Button>
           ) : null}
-          <FieldError name={name} />
         </div>
-      </div>
+      ) : null}
+
+      {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+      {info ? <p className="text-xs text-muted-foreground">{info}</p> : null}
+      {error ? (
+        <p role="alert" className="text-xs font-medium text-destructive">
+          {error}
+        </p>
+      ) : null}
+      <FieldError name={name} />
+
+      <input
+        ref={picker}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        onChange={onPick}
+        hidden
+      />
 
       {Object.keys(sizes).map((field) => (
         <div key={field} hidden>

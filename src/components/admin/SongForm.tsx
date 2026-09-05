@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
 import { addSongAction, updateSongAction } from '@/features/songs/actions';
 import { COVER_SIZE } from '@/lib/images/downscale';
 
@@ -23,11 +22,6 @@ export type SongFormValues = {
   coverId: string;
   links: Array<{ platformId: string; url: string }>;
 };
-
-/** `<input type="date">` wants exactly YYYY-MM-DD, in the UTC day it was stored as. */
-function dateInputValue(date: Date | null | undefined): string {
-  return date ? date.toISOString().slice(0, 10) : '';
-}
 
 /**
  * Add or edit a song. ONE component for both, so the two forms cannot drift
@@ -63,7 +57,25 @@ export function SongForm({
           <CardTitle>Details</CardTitle>
         </CardHeader>
 
-        <CardContent className="grid gap-6 lg:grid-cols-2">
+        {/*
+          * Cover on the left, the words on the right. The artwork is what
+          * identifies a release, so it leads rather than sitting off to one
+          * side of a form.
+          *
+          * A fixed column for the cover rather than an even split: it is a
+          * 240px square and a half-width column would leave it stranded in
+          * whitespace on a wide screen.
+          */}
+        <CardContent className="grid gap-6 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start">
+          <ImageUploadField
+            name="cover"
+            label="Cover art"
+            square
+            currentUrl={song ? `/api/media/${song.coverId}` : undefined}
+            hint="Square artwork. Any size — a 3000×3000 master is fine."
+            sizes={{ cover: COVER_SIZE }}
+          />
+
           <div className="grid content-start gap-4">
             <Field label="Title" htmlFor="title">
               <Input id="title" name="title" defaultValue={song?.title ?? ''} required />
@@ -80,16 +92,6 @@ export function SongForm({
               <FieldError name="artist" />
             </Field>
 
-            <Field label="Release date" htmlFor="releasedAt">
-              <Input
-                id="releasedAt"
-                name="releasedAt"
-                type="date"
-                defaultValue={dateInputValue(song?.releasedAt)}
-              />
-              <FieldError name="releasedAt" />
-            </Field>
-
             {editing ? (
               <Field label="Show on the website" htmlFor="isVisible">
                 <div className="flex items-center gap-3">
@@ -100,31 +102,6 @@ export function SongForm({
                 </div>
               </Field>
             ) : null}
-          </div>
-
-          <div className="grid content-start gap-4">
-            <ImageUploadField
-              name="cover"
-              label="Cover art"
-              square
-              currentUrl={song ? `/api/media/${song.coverId}` : undefined}
-              hint={
-                editing
-                  ? 'Leave this alone to keep the current artwork.'
-                  : 'Square artwork. Any size — a 3000×3000 master is fine, it is resized here before uploading.'
-              }
-              sizes={{ cover: COVER_SIZE }}
-            />
-
-            <Field label="Description" htmlFor="description">
-              <Textarea
-                id="description"
-                name="description"
-                rows={4}
-                defaultValue={song?.description ?? ''}
-              />
-              <FieldError name="description" />
-            </Field>
           </div>
         </CardContent>
       </Card>

@@ -82,6 +82,20 @@ async function storeImage(
   return asset;
 }
 
+/**
+ * A form value as the schema wants it.
+ *
+ * `formData.get` returns NULL for a field the form does not render, and zod's
+ * `.optional()` accepts undefined but not null — so a field removed from the
+ * form fails validation with a message about the field the administrator can no
+ * longer see. Release date and description are exactly that case: both columns
+ * still exist, neither is on the form any more.
+ */
+function optionalText(formData: FormData, name: string): string | undefined {
+  const value = formData.get(name);
+  return typeof value === 'string' ? value : undefined;
+}
+
 /** Pull one `<name>` file plus its `<name>.width` / `.height` from a form. */
 function imageFrom(formData: FormData, name: string) {
   const file = formData.get(name);
@@ -240,9 +254,9 @@ export async function addSongAction(_prev: ActionState, formData: FormData): Pro
 
   const parsed = songSchema.safeParse({
     title: formData.get('title'),
-    artist: formData.get('artist'),
-    description: formData.get('description'),
-    releasedAt: formData.get('releasedAt'),
+    artist: optionalText(formData, 'artist'),
+    description: optionalText(formData, 'description'),
+    releasedAt: optionalText(formData, 'releasedAt'),
   });
   if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
 
@@ -301,9 +315,9 @@ export async function updateSongAction(
 
   const parsed = songSchema.safeParse({
     title: formData.get('title'),
-    artist: formData.get('artist'),
-    description: formData.get('description'),
-    releasedAt: formData.get('releasedAt'),
+    artist: optionalText(formData, 'artist'),
+    description: optionalText(formData, 'description'),
+    releasedAt: optionalText(formData, 'releasedAt'),
   });
   if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
 
@@ -328,6 +342,17 @@ export async function updateSongAction(
 
   const { title, artist, description, releasedAt } = parsed.data;
 
+  /*
+   * Absent, not empty. Release date and description are no longer on the form,
+   * so they arrive as undefined — and a song that has one must keep it rather
+   * than being quietly cleared by a screen that cannot show it.
+   */
+  const keepDescription = description === undefined ? {} : { description: description || null };
+  const keepReleasedAt =
+    releasedAt === undefined
+      ? {}
+      : { releasedAt: releasedAt ? new Date(`${releasedAt}T00:00:00Z`) : null };
+
   await prisma.$transaction([
     // Replace the links wholesale. They are a short list edited as one thing,
     // so working out which rows changed would be effort spent on nothing.
@@ -337,8 +362,8 @@ export async function updateSongAction(
       data: {
         title,
         artist: artist || null,
-        description: description || null,
-        releasedAt: releasedAt ? new Date(`${releasedAt}T00:00:00Z`) : null,
+        ...keepDescription,
+        ...keepReleasedAt,
         isVisible: formData.get('isVisible') === 'on',
         coverId,
         links: { create: rows },
