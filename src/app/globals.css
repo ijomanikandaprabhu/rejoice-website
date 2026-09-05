@@ -906,13 +906,38 @@
     mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent);
   }
 
-  /* The oversized wordmark behind everything: outlined, fading downward. */
+  /*
+   * The oversized wordmark behind everything: SOLID letters, lit from above.
+   *
+   * It used to be a hollow outline — a 1px stroke at 0.07 white with a fill
+   * that faded to fully transparent by 60% of the letter height. The bottom
+   * half of every letter was therefore nothing but a hairline, and the whole
+   * word read as scaffolding rather than as type.
+   *
+   * The fade is the point and it is kept: light from above, falling down the
+   * letters. What changed is what it fades TO. It now lands on a dark grey
+   * rather than on nothing — 0.14 white at the top (#242424 on this page) down
+   * to 0.05 at the baseline (#0d0d0d) — so the letters stay letters all the
+   * way down instead of dissolving into outlines halfway.
+   *
+   * NO STROKE. An outline on top of a fill draws an edge around each letter
+   * and is what made the old version look like a wireframe.
+   *
+   * These values are a ceiling, not a preference. The social buttons, the
+   * copyright line and the Privacy/Terms links all sit ON TOP of this word, so
+   * it has to stay a texture. At 0.14 the brightest part measures 1.24:1
+   * against the page — the same weight the site's own cards carry, and still
+   * far below anything that competes with the small text over it.
+   */
   .footer-giant-text {
     line-height: 0.75;
     letter-spacing: -0.05em;
     color: transparent;
-    -webkit-text-stroke: 1px rgba(255, 255, 255, 0.07);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.09) 0%, transparent 60%);
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.14) 0%,
+      rgba(255, 255, 255, 0.05) 100%
+    );
     -webkit-background-clip: text;
     background-clip: text;
   }
