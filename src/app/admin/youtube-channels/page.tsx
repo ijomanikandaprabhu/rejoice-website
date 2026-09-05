@@ -30,6 +30,16 @@ import { listChannelsForAdmin } from '@/services/youtube/channelService';
 export const dynamic = 'force-dynamic';
 
 /*
+ * Server actions invoked from this page run in this route's function, and the
+ * deep import behind "Add channel" and "Sync now" is the longest-running work
+ * in the admin. Without this they inherit the platform default, which is far
+ * below the sync's own 40-second budget — the run would be killed mid-import.
+ * Kept in step with `syncTimeBudgetMs` in youtube.config.ts and with the cron
+ * route's own `maxDuration`.
+ */
+export const maxDuration = 60;
+
+/*
  * The form opens on "Automatically show".
  *
  * It used to open on "Review first (recommended)", which no one ever chose:
@@ -139,13 +149,30 @@ export default async function ChannelsAdminPage() {
                     {channel.lastSyncError ? (
                       <Badge variant="destructive">Last sync failed</Badge>
                     ) : null}
+                    {/*
+                      * A channel too large to import inside one run. Shown so a
+                      * part-imported catalogue is visible rather than looking
+                      * like a finished import that lost videos. It clears
+                      * itself once the last page is read.
+                      */}
+                    {channel.importCursor ? (
+                      <Badge variant="outline">Still importing…</Badge>
+                    ) : null}
                   </div>
 
                   <dl className="mt-2 grid gap-x-8 gap-y-1 text-sm text-muted-foreground sm:grid-cols-2">
                     <div className="flex gap-2">
                       <dt>Imported:</dt>
                       <dd className="font-medium tabular-nums text-foreground">
-                        {channel._count.videos.toLocaleString()}
+                        {/*
+                          * "1,200 of 5,000" only while an import is unfinished.
+                          * `videoCount` is YouTube's own total, so the two
+                          * rarely match exactly even when complete — showing
+                          * the comparison permanently would read as a fault.
+                          */}
+                        {channel.importCursor && channel.videoCount
+                          ? `${channel._count.videos.toLocaleString()} of ${channel.videoCount.toLocaleString()}`
+                          : channel._count.videos.toLocaleString()}
                       </dd>
                     </div>
                     <div className="flex gap-2">

@@ -58,6 +58,14 @@ model YouTubeChannel {
 
   lastSyncedAt  DateTime?
   lastSyncError String?
+  /// Where the deep import of this channel's back catalogue got to.
+  ///
+  /// A YouTube page token, set when a sync run hit its time budget before
+  /// reaching the end of the uploads playlist, and cleared the moment the last
+  /// page is read. Non-null therefore means "still importing" — the next run
+  /// resumes from here rather than starting again at the newest video, which is
+  /// what lets a channel of any size finish unattended over several runs.
+  importCursor  String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

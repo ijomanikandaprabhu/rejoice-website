@@ -70,14 +70,22 @@ const prismaMock = {
   $transaction: vi.fn(async (operations: Array<Promise<unknown>>) => Promise.all(operations)),
 };
 
-const fetchUploads = vi.fn();
+const fetchUploadsPage = vi.fn();
 
 vi.mock('@/lib/db/prisma', () => ({ prisma: prismaMock }));
 vi.mock('@/services/youtube/youtubeClient', () => ({
-  fetchUploads: (...args: unknown[]) => fetchUploads(...args),
+  fetchUploadsPage: (...args: unknown[]) => fetchUploadsPage(...args),
   fetchVideosByIds: vi.fn(),
   YouTubeNotConfiguredError: class extends Error {},
 }));
+
+/**
+ * A single, final page — the shape almost every test below wants. Omitting
+ * `nextPageToken` is what tells the sync the catalogue is complete.
+ */
+function onePage(videos: unknown[]) {
+  return { videos, nextPageToken: undefined };
+}
 
 const { syncChannel } = await import('@/services/youtube/videoSyncService');
 
@@ -87,7 +95,16 @@ const CHANNEL = {
   uploadsPlaylistId: 'UU123',
   isActive: true,
   defaultVideoVisibility: 'REVIEW_FIRST' as const,
+  /** Null = no import in progress, the state of a fully imported channel. */
+  importCursor: null as string | null,
 };
+
+/** The `data` of the last `youTubeChannel.update` the sync issued. */
+function lastChannelUpdate() {
+  return (
+    prismaMock.youTubeChannel.update.mock.calls.at(-1)?.[0] as { data: Record<string, unknown> }
+  ).data;
+}
 
 function upload(videoId: string, title: string) {
   return {
@@ -114,7 +131,7 @@ beforeEach(() => {
 
 describe('syncChannel', () => {
   it('imports new videos', async () => {
-    fetchUploads.mockResolvedValue([upload('vid1', 'Worship Song'), upload('vid2', 'Gospel Release')]);
+    fetchUploadsPage.mockResolvedValue(onePage([upload('vid1', 'Worship Song'), upload('vid2', 'Gospel Release')]));
 
     const result = await syncChannel('chan-1');
 
@@ -125,7 +142,7 @@ describe('syncChannel', () => {
 
   it('does not import the same video twice', async () => {
     const uploads = [upload('vid1', 'Worship Song')];
-    fetchUploads.mockResolvedValue(uploads);
+    fetchUploadsPage.mockResolvedValue(onePage(uploads));
 
     const first = await syncChannel('chan-1');
     const second = await syncChannel('chan-1');
@@ -143,14 +160,14 @@ describe('syncChannel', () => {
    * gap, and 603 of the catalogue's 1,748 videos are Shorts.
    */
   it('keeps the stored shape when a sync does not learn one', async () => {
-    fetchUploads.mockResolvedValue([{ ...upload('vid1', 'A Short'), isShort: true }]);
+    fetchUploadsPage.mockResolvedValue(onePage([{ ...upload('vid1', 'A Short'), isShort: true }]));
     await syncChannel('chan-1');
     expect(db.videos.get('vid1')?.isShort).toBe(true);
 
     // Second pass: the detail lookup missed this video.
-    fetchUploads.mockResolvedValue([
+    fetchUploadsPage.mockResolvedValue(onePage([
       { ...upload('vid1', 'A Short'), isShort: null, durationSeconds: null },
-    ]);
+    ]));
     await syncChannel('chan-1');
 
     expect(db.videos.get('vid1')?.isShort).toBe(true);
@@ -158,17 +175,17 @@ describe('syncChannel', () => {
   });
 
   it('still refreshes the shape when a sync does learn one', async () => {
-    fetchUploads.mockResolvedValue([{ ...upload('vid1', 'Clip'), isShort: false }]);
+    fetchUploadsPage.mockResolvedValue(onePage([{ ...upload('vid1', 'Clip'), isShort: false }]));
     await syncChannel('chan-1');
 
-    fetchUploads.mockResolvedValue([{ ...upload('vid1', 'Clip'), isShort: true }]);
+    fetchUploadsPage.mockResolvedValue(onePage([{ ...upload('vid1', 'Clip'), isShort: true }]));
     await syncChannel('chan-1');
 
     expect(db.videos.get('vid1')?.isShort).toBe(true);
   });
 
   it('starts videos hidden when the channel default is Review First', async () => {
-    fetchUploads.mockResolvedValue([upload('vid1', 'Worship Song')]);
+    fetchUploadsPage.mockResolvedValue(onePage([upload('vid1', 'Worship Song')]));
 
     await syncChannel('chan-1');
 
@@ -180,7 +197,7 @@ describe('syncChannel', () => {
       ...CHANNEL,
       defaultVideoVisibility: 'AUTO_SHOW',
     });
-    fetchUploads.mockResolvedValue([upload('vid1', 'Worship Song')]);
+    fetchUploadsPage.mockResolvedValue(onePage([upload('vid1', 'Worship Song')]));
 
     await syncChannel('chan-1');
 
@@ -188,7 +205,7 @@ describe('syncChannel', () => {
   });
 
   it('refreshes the YouTube title but preserves the website override (Rule 7)', async () => {
-    fetchUploads.mockResolvedValue([upload('vid1', 'ORIGINAL YOUTUBE TITLE')]);
+    fetchUploadsPage.mockResolvedValue(onePage([upload('vid1', 'ORIGINAL YOUTUBE TITLE')]));
     await syncChannel('chan-1');
 
     // The administrator customises the record and publishes it.
@@ -203,7 +220,7 @@ describe('syncChannel', () => {
     });
 
     // YouTube's title later changes and a sync runs again.
-    fetchUploads.mockResolvedValue([upload('vid1', 'RENAMED ON YOUTUBE')]);
+    fetchUploadsPage.mockResolvedValue(onePage([upload('vid1', 'RENAMED ON YOUTUBE')]));
     await syncChannel('chan-1');
 
     const stored = db.videos.get('vid1')!;
@@ -216,7 +233,7 @@ describe('syncChannel', () => {
   });
 
   it('reports a failure instead of throwing, and does not stamp lastSyncedAt', async () => {
-    fetchUploads.mockRejectedValue(new Error('quotaExceeded'));
+    fetchUploadsPage.mockRejectedValue(new Error('quotaExceeded'));
 
     const result = await syncChannel('chan-1');
 
@@ -236,6 +253,105 @@ describe('syncChannel', () => {
     const result = await syncChannel('chan-1');
 
     expect(result.skipped).toBe(1);
-    expect(fetchUploads).not.toHaveBeenCalled();
+    expect(fetchUploadsPage).not.toHaveBeenCalled();
+  });
+});
+
+/*
+ * Resumable deep import.
+ *
+ * A fixed 40-page cap used to bound this, silently truncating any channel past
+ * 2,000 videos while still reporting success. It now walks until YouTube stops
+ * offering a page — and because that can outlast a serverless invocation, a run
+ * that hits its time budget stores where it got to and the next one continues.
+ */
+describe('syncChannel deep import', () => {
+  /** Pages served in order, each advancing the clock by `msPerPage`. */
+  function servePages(pages: Array<{ videos: unknown[]; nextPageToken?: string }>, msPerPage = 0) {
+    let call = 0;
+    fetchUploadsPage.mockImplementation(async () => {
+      const page = pages[Math.min(call, pages.length - 1)];
+      call++;
+      if (msPerPage) vi.advanceTimersByTime(msPerPage);
+      return page;
+    });
+  }
+
+  it('keeps paging until YouTube stops offering one, past the old 2,000 limit', async () => {
+    // 45 pages of 50 = 2,250 videos: more than the removed cap allowed.
+    const pages = Array.from({ length: 45 }, (_, p) => ({
+      videos: Array.from({ length: 50 }, (_, i) => upload(`p${p}v${i}`, 'Song')),
+      nextPageToken: p === 44 ? undefined : `tok${p + 1}`,
+    }));
+    servePages(pages);
+
+    const result = await syncChannel('chan-1', true);
+
+    expect(result.imported).toBe(2250);
+    expect(db.videos.size).toBe(2250);
+    expect(result.importing).toBe(false);
+    expect(lastChannelUpdate().importCursor).toBeNull();
+  });
+
+  it('stores its place when the time budget runs out, and reports it as unfinished', async () => {
+    vi.useFakeTimers();
+    try {
+      // 30 seconds a page against a 40-second budget: stops after page two.
+      servePages(
+        [
+          { videos: [upload('vid1', 'One')], nextPageToken: 'tok1' },
+          { videos: [upload('vid2', 'Two')], nextPageToken: 'tok2' },
+          { videos: [upload('vid3', 'Three')], nextPageToken: 'tok3' },
+        ],
+        30_000,
+      );
+
+      const result = await syncChannel('chan-1', true);
+
+      expect(result.ok).toBe(true);
+      expect(result.importing).toBe(true);
+      // Both fetched pages were saved — an interrupted run keeps its work.
+      expect(db.videos.size).toBe(2);
+      expect(lastChannelUpdate().importCursor).toBe('tok2');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('resumes from the stored cursor rather than starting again at the newest', async () => {
+    prismaMock.youTubeChannel.findUnique.mockResolvedValue({ ...CHANNEL, importCursor: 'tok2' });
+    servePages([{ videos: [upload('vid9', 'Old')], nextPageToken: undefined }]);
+
+    await syncChannel('chan-1');
+
+    const tokens = fetchUploadsPage.mock.calls.map((c) => c[1]);
+    // The newest page first so fresh uploads are not held up behind the
+    // backlog, then the backfill continues from where it stopped.
+    expect(tokens).toEqual([undefined, 'tok2']);
+    expect(lastChannelUpdate().importCursor).toBeNull();
+  });
+
+  it('leaves the cursor alone when a run fails, so the catalogue is not restarted', async () => {
+    prismaMock.youTubeChannel.findUnique.mockResolvedValue({ ...CHANNEL, importCursor: 'tok2' });
+    fetchUploadsPage.mockRejectedValue(new Error('quotaExceeded'));
+
+    const result = await syncChannel('chan-1');
+
+    expect(result.ok).toBe(false);
+    expect(lastChannelUpdate()).not.toHaveProperty('importCursor');
+  });
+
+  it('stops instead of looping when YouTube hands back the same page token', async () => {
+    fetchUploadsPage.mockResolvedValue({
+      videos: [upload('vid1', 'Song')],
+      nextPageToken: 'stuck',
+    });
+    prismaMock.youTubeChannel.findUnique.mockResolvedValue({ ...CHANNEL, importCursor: 'stuck' });
+
+    const result = await syncChannel('chan-1');
+
+    expect(result.ok).toBe(true);
+    // Not declared complete: there may genuinely be more behind that token.
+    expect(lastChannelUpdate().importCursor).toBe('stuck');
   });
 });

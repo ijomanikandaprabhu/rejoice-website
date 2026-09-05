@@ -7,7 +7,7 @@ import { prisma } from '@/lib/db/prisma';
 import { createLogger } from '@/lib/logger';
 import {
   YouTubeNotConfiguredError,
-  fetchUploads,
+  fetchUploadsPage,
   fetchVideosByIds,
   type YouTubeVideoInfo,
 } from './youtubeClient';
@@ -36,6 +36,8 @@ export type SyncResult = {
   skipped: number;
   ok: boolean;
   error?: string;
+  /** True when this channel's back catalogue is only partly imported so far. */
+  importing?: boolean;
 };
 
 /**
@@ -164,11 +166,72 @@ async function importVideos(
 }
 
 /**
+ * Walk the uploads playlist, importing each page as it arrives.
+ *
+ * Returns where it stopped: `nextPageToken` is undefined only when the last
+ * page of the playlist was read, so the caller can tell "finished" from "ran
+ * out of time" — the two look identical from the outside otherwise.
+ *
+ * Importing page by page rather than collecting everything first is what makes
+ * an interrupted run useful: whatever was fetched is already in the database.
+ */
+async function importPages(
+  channel: YouTubeChannel,
+  startToken: string | undefined,
+  maxPages: number,
+  deadline: number,
+): Promise<{ imported: number; updated: number; nextPageToken?: string }> {
+  let pageToken = startToken;
+  let imported = 0;
+  let updated = 0;
+
+  for (let page = 0; page < maxPages; page++) {
+    const result = await fetchUploadsPage(channel.uploadsPlaylistId, pageToken);
+    const counts = await importVideos(channel, result.videos);
+    imported += counts.imported;
+    updated += counts.updated;
+
+    // End of the playlist. This is the only place a channel is declared
+    // complete, and it is why the token is returned rather than a page count.
+    if (!result.nextPageToken) return { imported, updated, nextPageToken: undefined };
+
+    /*
+     * A token that hands back itself would loop forever. Treating it as the
+     * end is wrong — there may genuinely be more — so it stops and keeps the
+     * token, which leaves the channel marked as still importing rather than
+     * silently declaring it done.
+     */
+    if (result.nextPageToken === pageToken) {
+      log.warn(`${channel.name}: YouTube repeated a page token, stopping this run`);
+      return { imported, updated, nextPageToken: result.nextPageToken };
+    }
+
+    pageToken = result.nextPageToken;
+
+    // Checked AFTER a page is safely stored, so the budget can only cost us
+    // the next request, never work already done.
+    if (Date.now() >= deadline) {
+      log.info(`${channel.name}: time budget reached after ${page + 1} pages, will resume`);
+      return { imported, updated, nextPageToken: pageToken };
+    }
+  }
+
+  return { imported, updated, nextPageToken: pageToken };
+}
+
+/**
  * Synchronize one channel.
  *
- * `full` does a deeper sweep and is used for the first import after connecting a
- * channel and for a manual "Sync Now"; the scheduled run only needs the newest
- * page or two.
+ * `full` asks for the whole back catalogue — used by the first import after
+ * connecting a channel and by a manual "Sync Now". It is bounded by time, not
+ * by a page count: if the catalogue is too large to finish inside one
+ * serverless invocation, the run stores its place in `importCursor` and the
+ * next run picks up from there. Nothing is lost and nothing needs a number
+ * chosen in advance, so a channel of any size eventually imports in full.
+ *
+ * The scheduled run only needs the newest page or two — except while a
+ * catalogue is still being backfilled, when it does both: the newest pages so
+ * fresh uploads are not held up behind the backlog, then more of the backlog.
  */
 export async function syncChannel(channelDbId: string, full = false): Promise<SyncResult> {
   const channel = await prisma.youTubeChannel.findUnique({ where: { id: channelDbId } });
@@ -187,24 +250,55 @@ export async function syncChannel(channelDbId: string, full = false): Promise<Sy
     return { ...base, skipped: 1 };
   }
 
+  const deadline = Date.now() + youtubeConfig.syncTimeBudgetMs;
+
   try {
-    const maxPages = full ? youtubeConfig.maxPagesPerFullSync : youtubeConfig.maxPagesPerSync;
-    const videos = await fetchUploads(channel.uploadsPlaylistId, maxPages);
-    const { imported, updated } = await importVideos(channel, videos);
+    let imported = 0;
+    let updated = 0;
+    let cursor = channel.importCursor;
+
+    if (cursor === null && full) {
+      // Fresh deep import: from the newest video to the end of the catalogue.
+      const run = await importPages(channel, undefined, youtubeConfig.maxPagesPerRun, deadline);
+      imported += run.imported;
+      updated += run.updated;
+      cursor = run.nextPageToken ?? null;
+    } else {
+      // The newest pages, always — a backfill in progress must not delay a
+      // video published this morning.
+      const head = await importPages(channel, undefined, youtubeConfig.maxPagesPerSync, deadline);
+      imported += head.imported;
+      updated += head.updated;
+
+      if (cursor !== null) {
+        const rest = await importPages(channel, cursor, youtubeConfig.maxPagesPerRun, deadline);
+        imported += rest.imported;
+        updated += rest.updated;
+        cursor = rest.nextPageToken ?? null;
+      }
+    }
 
     // lastSyncedAt is only stamped on success, so the admin screen never claims a
     // sync that failed (section 36).
     await prisma.youTubeChannel.update({
       where: { id: channel.id },
-      data: { lastSyncedAt: new Date(), lastSyncError: null },
+      data: { lastSyncedAt: new Date(), lastSyncError: null, importCursor: cursor },
     });
 
-    log.info(`Synced ${channel.name}: ${imported} new, ${updated} refreshed`);
-    return { ...base, imported, updated };
+    log.info(
+      `Synced ${channel.name}: ${imported} new, ${updated} refreshed` +
+        (cursor ? ' (back catalogue still importing)' : ''),
+    );
+    return { ...base, imported, updated, importing: cursor !== null };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown synchronization error';
     log.error(`Sync failed for ${channel.name}`, message);
 
+    /*
+     * `importCursor` is deliberately NOT written here. A failed run leaves it
+     * exactly as it was, so the next attempt resumes from the last page that
+     * actually landed rather than restarting the whole catalogue.
+     */
     await prisma.youTubeChannel.update({
       where: { id: channel.id },
       data: { lastSyncError: message.slice(0, 500) },

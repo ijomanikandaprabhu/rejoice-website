@@ -344,62 +344,68 @@ type PlaylistItemsResponse = {
   }>;
 };
 
+export type UploadsPage = {
+  videos: YouTubeVideoInfo[];
+  /**
+   * Where the next page starts, or `undefined` when this was the last page of
+   * the playlist — which is the ONLY signal that a channel has been imported
+   * in full. The caller stores it so a run that stops early can resume.
+   */
+  nextPageToken?: string;
+};
+
 /**
- * Newest-first uploads for a channel.
+ * One page of a channel's uploads, newest first.
  *
- * `maxPages` bounds the request count so a sync can never run away with the
- * daily API quota (section 36).
+ * Deliberately one page per call rather than a loop that returns everything:
+ * the caller persists each page as it arrives and records where it got to, so
+ * an import interrupted by the serverless time limit keeps what it fetched
+ * instead of discarding the lot. See `syncChannel`.
  */
-export async function fetchUploads(
+export async function fetchUploadsPage(
   uploadsPlaylistId: string,
-  maxPages: number,
-): Promise<YouTubeVideoInfo[]> {
+  pageToken?: string,
+): Promise<UploadsPage> {
   const videos: YouTubeVideoInfo[] = [];
-  let pageToken: string | undefined;
 
-  for (let page = 0; page < maxPages; page++) {
-    const params: Record<string, string> = {
-      part: 'snippet,contentDetails',
-      playlistId: uploadsPlaylistId,
-      maxResults: String(youtubeConfig.itemsPerPage),
-    };
-    if (pageToken) params.pageToken = pageToken;
+  const params: Record<string, string> = {
+    part: 'snippet,contentDetails',
+    playlistId: uploadsPlaylistId,
+    maxResults: String(youtubeConfig.itemsPerPage),
+  };
+  if (pageToken) params.pageToken = pageToken;
 
-    const data = await request<PlaylistItemsResponse>('playlistItems', params);
+  const data = await request<PlaylistItemsResponse>('playlistItems', params);
 
-    for (const item of data.items ?? []) {
-      const videoId = item.contentDetails?.videoId ?? item.snippet?.resourceId?.videoId;
-      if (!videoId) continue;
+  for (const item of data.items ?? []) {
+    const videoId = item.contentDetails?.videoId ?? item.snippet?.resourceId?.videoId;
+    if (!videoId) continue;
 
-      // Deleted or private videos still appear in the playlist; skip them.
-      const title = item.snippet?.title ?? '';
-      if (title === 'Private video' || title === 'Deleted video') continue;
+    // Deleted or private videos still appear in the playlist; skip them.
+    const title = item.snippet?.title ?? '';
+    if (title === 'Private video' || title === 'Deleted video') continue;
 
-      const publishedRaw =
-        item.contentDetails?.videoPublishedAt ??
-        item.snippet?.publishedAt ??
-        new Date().toISOString();
+    const publishedRaw =
+      item.contentDetails?.videoPublishedAt ??
+      item.snippet?.publishedAt ??
+      new Date().toISOString();
 
-      videos.push({
-        videoId,
-        channelId: item.snippet?.channelId ?? '',
-        title,
-        description: item.snippet?.description ?? '',
-        thumbnail: bestThumbnail(item.snippet?.thumbnails),
-        publishedAt: new Date(publishedRaw),
-        url: `https://www.youtube.com/watch?v=${videoId}`,
-        // Filled in by the hydration pass below — `playlistItems` reports
-        // neither of these.
-        durationSeconds: null,
-        isShort: null,
-        viewCount: null,
-        likeCount: null,
-        commentCount: null,
-      });
-    }
-
-    pageToken = data.nextPageToken;
-    if (!pageToken) break;
+    videos.push({
+      videoId,
+      channelId: item.snippet?.channelId ?? '',
+      title,
+      description: item.snippet?.description ?? '',
+      thumbnail: bestThumbnail(item.snippet?.thumbnails),
+      publishedAt: new Date(publishedRaw),
+      url: `https://www.youtube.com/watch?v=${videoId}`,
+      // Filled in by the hydration pass below — `playlistItems` reports
+      // neither of these.
+      durationSeconds: null,
+      isShort: null,
+      viewCount: null,
+      likeCount: null,
+      commentCount: null,
+    });
   }
 
   /*
@@ -415,7 +421,7 @@ export async function fetchUploads(
   const details = await fetchVideosByIds(videos.map((v) => v.videoId));
   const byId = new Map(details.map((d) => [d.videoId, d]));
 
-  return videos.map((video) => {
+  const hydrated = videos.map((video) => {
     const detail = byId.get(video.videoId);
     if (!detail) return video;
     return {
@@ -427,6 +433,8 @@ export async function fetchUploads(
       commentCount: detail.commentCount,
     };
   });
+
+  return { videos: hydrated, nextPageToken: data.nextPageToken };
 }
 
 type VideosResponse = {

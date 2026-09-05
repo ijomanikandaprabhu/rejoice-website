@@ -19,11 +19,38 @@ export const youtubeConfig = {
   maxPagesPerSync: 6,
 
   /**
-   * Deeper sweep used by a manual "Sync Now" and by the very first import after
-   * connecting a channel. 40 pages = 2000 videos, enough to pull the whole back
-   * catalogue of the Rejoice channels in one go (the largest has ~1,650).
+   * A deep import (the first sync after connecting a channel, and a manual
+   * "Sync Now") is NOT bounded by a page count. It walks the uploads playlist
+   * until YouTube stops offering another page, so a channel of any size is
+   * imported in full without a number here having to be guessed and maintained.
+   *
+   * A fixed 40-page cap used to stand here, silently truncating any channel
+   * past 2,000 videos: the import reported success, the missing videos never
+   * appeared anywhere, and pressing "Sync Now" walked the same 2,000 again.
+   *
+   * The two values below are what replaced it.
    */
-  maxPagesPerFullSync: 40,
+
+  /**
+   * How long one sync run may spend fetching before it stops and saves its
+   * place. The real constraint is the serverless function ceiling — the sync
+   * route sets `maxDuration = 60`, and a run killed at that limit loses the
+   * page it was mid-way through with nothing recorded.
+   *
+   * 40s leaves a comfortable margin for the final database writes and the
+   * response. When the budget runs out the run is NOT a failure: it stores the
+   * next page token on the channel and the following run continues from there,
+   * so a very large back catalogue completes over a few runs unattended.
+   */
+  syncTimeBudgetMs: 40_000,
+
+  /**
+   * Runaway guard, not a limit anyone is expected to reach. 500 pages is
+   * 25,000 videos — far past any real channel. It exists so a bug on YouTube's
+   * side handing back the same `nextPageToken` forever cannot spin until the
+   * function is killed. (A token repeating itself is caught directly as well.)
+   */
+  maxPagesPerRun: 500,
 
   itemsPerPage: 50,
 
