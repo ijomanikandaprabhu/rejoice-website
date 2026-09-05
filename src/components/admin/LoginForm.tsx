@@ -1,13 +1,13 @@
 'use client';
 
-import { Eye, EyeOff } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { loginAction, type ActionState } from '@/features/auth/actions';
 
 const initialState: ActionState = { ok: false };
@@ -40,7 +40,6 @@ function Submit() {
 
 export function LoginForm({ from }: { from?: string }) {
   const [state, formAction] = useFormState(loginAction, initialState);
-  const [showPassword, setShowPassword] = useState(false);
 
   /*
    * Sign-in failures surface as a toast, matching every other admin action.
@@ -96,45 +95,27 @@ export function LoginForm({ from }: { from?: string }) {
         >
           Password
         </Label>
-        {/*
-         * The reveal button sits INSIDE the field's box rather than beside it,
-         * so both inputs stay the same width and the form does not go ragged.
-         * `pr-11` reserves the space, or a long password runs under the icon.
-         */}
-        <div className="relative">
-          <Input
-            id="password"
-            name="password"
-            type={showPassword ? 'text' : 'password'}
-            autoComplete="current-password"
-            required
-            className={`${inputClass} pr-12`}
-          />
-          <button
-            /*
-             * `type="button"`, emphatically: inside a form a bare <button>
-             * defaults to submit, so revealing the password would post the form
-             * instead of showing it.
-             */
-            type="button"
-            onClick={() => setShowPassword((shown) => !shown)}
-            /*
-             * The label says what the button DOES and `aria-pressed` carries the
-             * state, so a screen reader hears "Show password, not pressed"
-             * rather than inferring it from a name that changes under them.
-             */
-            aria-label="Show password"
-            aria-pressed={showPassword}
-            aria-controls="password"
-            className="absolute inset-y-0 right-0 grid w-12 place-items-center rounded-r-input text-panel-muted transition-colors hover:text-panel-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-panel-accent"
-          >
-            {showPassword ? (
-              <EyeOff aria-hidden="true" className="size-4" />
-            ) : (
-              <Eye aria-hidden="true" className="size-4" />
-            )}
-          </button>
-        </div>
+        <PasswordInput
+          id="password"
+          name="password"
+          autoComplete="current-password"
+          required
+          /*
+           * The panel's own skin, which is why PasswordInput takes overrides:
+           * `pr-12` for the taller 48px button this field uses, and the panel
+           * colours in place of the admin form's muted grey.
+           */
+          className={`${inputClass} pr-12`}
+          /*
+           * `!rounded-r-input`, with the important modifier, because
+           * tailwind-merge does not know these two radius utilities conflict —
+           * it keeps BOTH `rounded-r-md` and `rounded-r-input`, and the winner
+           * is then decided by which rule Tailwind happens to emit last. It
+           * emits `rounded-r-md` later, so without this the panel's 8px corner
+           * quietly became 6px.
+           */
+          toggleClassName="w-12 !rounded-r-input text-panel-muted hover:text-panel-fg focus-visible:ring-panel-accent"
+        />
         {state.errors?.password ? (
           <p role="alert" className="text-xs text-panel-negative">
             {state.errors.password}

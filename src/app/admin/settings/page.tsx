@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -552,10 +553,9 @@ export default async function SettingsPage({
               </Field>
 
               <Field label="Current password" htmlFor="email-password">
-                <Input
+                <PasswordInput
                   id="email-password"
                   name="currentPassword"
-                  type="password"
                   autoComplete="current-password"
                 />
                 <FieldError name="currentPassword" />
@@ -589,10 +589,9 @@ export default async function SettingsPage({
               </Field>
 
               <Field label="Current password" htmlFor="user-id-password">
-                <Input
+                <PasswordInput
                   id="user-id-password"
                   name="currentPassword"
-                  type="password"
                   autoComplete="current-password"
                 />
                 <FieldError name="currentPassword" />
@@ -606,10 +605,9 @@ export default async function SettingsPage({
             <h3 className="text-sm font-semibold">Change password</h3>
 
             <Field label="Current password" htmlFor="current-password">
-              <Input
+              <PasswordInput
                 id="current-password"
                 name="currentPassword"
-                type="password"
                 autoComplete="current-password"
               />
               <FieldError name="currentPassword" />
@@ -620,20 +618,18 @@ export default async function SettingsPage({
               htmlFor="new-password"
               hint="At least 10 characters, with upper case, lower case and a number."
             >
-              <Input
+              <PasswordInput
                 id="new-password"
                 name="newPassword"
-                type="password"
                 autoComplete="new-password"
               />
               <FieldError name="newPassword" />
             </Field>
 
             <Field label="Confirm new password" htmlFor="confirm-password">
-              <Input
+              <PasswordInput
                 id="confirm-password"
                 name="confirmPassword"
-                type="password"
                 autoComplete="new-password"
               />
               <FieldError name="confirmPassword" />
