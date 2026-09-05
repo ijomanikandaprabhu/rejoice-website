@@ -163,6 +163,57 @@ export const adminPasswordSchema = z
     path: ['confirmPassword'],
   });
 
+/*
+ * Songs, and the streaming platforms they can be heard on.
+ */
+
+/**
+ * What may be stored as an uploaded image, and how big.
+ *
+ * The browser downscales before uploading, so a real cover arrives around
+ * 150KB. The ceiling is generous next to that on purpose — it is here to catch
+ * a file that skipped the resize entirely, not to second-guess the encoder.
+ */
+export const IMAGE_MIME_TYPES = ['image/webp', 'image/png', 'image/jpeg'] as const;
+export const MAX_IMAGE_BYTES = 2_000_000;
+
+/** A link has to be somewhere a listener can actually go. */
+const httpsUrl = z
+  .string()
+  .trim()
+  .min(1, 'Enter the link')
+  .max(500)
+  .regex(/^https:\/\//i, 'Enter a full address starting with https://');
+
+export const platformSchema = z.object({
+  name: z.string().trim().min(1, 'Enter the platform name').max(60),
+});
+
+export const songSchema = z.object({
+  title: z.string().trim().min(1, 'Enter the song title').max(200),
+  artist: z.string().trim().max(200).optional().or(z.literal('')),
+  description: z.string().trim().max(2000).optional().or(z.literal('')),
+  /** `<input type="date">` gives an empty string when it is left blank. */
+  releasedAt: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use the date picker')
+    .optional()
+    .or(z.literal('')),
+});
+
+/**
+ * One row of the "where to hear it" list.
+ *
+ * A row with no platform chosen is an empty row the administrator left alone,
+ * not an error — the caller drops those. A row WITH a platform and no link is
+ * an error, because it says something was meant and left unfinished.
+ */
+export const songLinkSchema = z.object({
+  platformId: z.string().min(1),
+  url: httpsUrl,
+});
+
 /** Flatten a ZodError into a simple field -> message map for form rendering. */
 export function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};

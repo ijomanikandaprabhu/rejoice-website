@@ -50,6 +50,7 @@ export const adminNav: readonly NavItem[] = [
   { label: 'Dashboard', href: '/admin' },
   { label: 'YouTube Channels', href: '/admin/youtube-channels' },
   { label: 'YouTube Content', href: '/admin/youtube-content' },
+  { label: 'Songs', href: '/admin/songs' },
   { label: 'Enquiries', href: '/admin/enquiries' },
   { label: 'Settings', href: '/admin/settings' },
 ] as const;

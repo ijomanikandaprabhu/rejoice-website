@@ -1,8 +1,10 @@
 import Image from 'next/image';
+import Link from 'next/link';
 
 import { CtaPanel } from '@/components/site/CtaPanel';
-import { PlatformGrid } from '@/components/site/PlatformGrid';
-import { ctaPanels, musicPage, platforms } from '@/config/content.config';
+import { SongGrid } from '@/components/site/SongGrid';
+import { ctaPanels, musicPage } from '@/config/content.config';
+import { listPublicSongs } from '@/features/songs/queries';
 import { buildMetadata } from '@/lib/seo';
 
 export const revalidate = 300;
@@ -15,13 +17,19 @@ export const metadata = buildMetadata({
 });
 
 /**
- * Where to listen.
+ * The releases.
  *
- * This page used to be the video catalogue — filters, grid, pagination. It is
- * now a directory of streaming platforms: the videos live on the Channels page
- * and on their own `/songs/[id]` pages, which are untouched.
+ * This page has had three lives: the video catalogue, then a directory of
+ * streaming-platform logos, and now the songs themselves. The middle one was
+ * replaced because none of its ten logos ever had a link behind them — a
+ * visitor who wanted to hear a track had nowhere to go. The links now live on
+ * each song, which is where someone actually looks for them.
+ *
+ * The hero is unchanged; only the section below it is new.
  */
-export default function MusicPage() {
+export default async function MusicPage() {
+  const songs = await listPublicSongs();
+
   return (
     <>
       {/*
@@ -132,7 +140,22 @@ export default function MusicPage() {
         <h2 className="t-h2">{musicPage.gridHeading}</h2>
 
         <div className="mt-10">
-          <PlatformGrid platforms={platforms} />
+          {songs.length === 0 ? (
+            /*
+             * Said plainly rather than dressed up. An empty grid with a
+             * heading over it reads as a page that failed to load; this reads
+             * as a page waiting for its first release.
+             */
+            <p className="text-body leading-[1.7] text-site-muted">
+              The releases are on their way. In the meantime, every video is on the{' '}
+              <Link href="/creations" className="text-site-accent underline underline-offset-4">
+                Creations
+              </Link>{' '}
+              page.
+            </p>
+          ) : (
+            <SongGrid songs={songs} />
+          )}
         </div>
 
         <div className="mt-12 max-w-2xl">

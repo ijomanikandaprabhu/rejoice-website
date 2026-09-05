@@ -253,3 +253,96 @@ model SiteSetting {
   value     Json
   updatedAt DateTime @updatedAt
 }
+
+/// An uploaded image, stored as bytes in this database.
+///
+/// Deliberately not a file on disk: the site runs on Vercel, where the
+/// filesystem is read-only at runtime, and deliberately not a hosted blob
+/// service, which would be another metered account — two Vercel meters have
+/// already run out on this project.
+///
+/// Nothing here is a master copy. A 3000x3000 cover is downscaled in the
+/// browser before it is ever uploaded, so what is stored is web-sized and the
+/// original stays with Rejoice.
+model MediaAsset {
+  id        String   @id @default(cuid())
+  /// Checked against an allow-list on upload; also sent back as the
+  /// Content-Type, so it must never be taken from the client unvalidated.
+  mimeType  String
+  bytes     Bytes
+  width     Int
+  height    Int
+  byteSize  Int
+  createdAt DateTime @default(now())
+
+  /// Back-references, so an asset knows whether anything still points at it.
+  platformLogo Platform?
+  songCover    Song?     @relation("SongCover")
+  songThumb    Song?     @relation("SongThumb")
+}
+
+/// A streaming service a song can be listened on — Spotify, Apple Music, and so
+/// on. Registered once with its logo, then offered when adding a song.
+model Platform {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  /// Derived from the name. Not currently in a URL, but it is what any future
+  /// per-platform page would use, and deriving it once is cheaper than
+  /// backfilling later.
+  slug      String     @unique
+  logoId    String     @unique
+  logo      MediaAsset @relation(fields: [logoId], references: [id])
+  /// Display order on the song page. Lower first.
+  sortOrder Int        @default(0)
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  links SongLink[]
+
+  @@index([isActive, sortOrder])
+}
+
+/// A released track, with its cover art and where to hear it.
+model Song {
+  id          String    @id @default(cuid())
+  /// The public address: /songs/<slug>.
+  slug        String    @unique
+  title       String
+  artist      String?
+  releasedAt  DateTime?
+  description String?
+
+  /// Two sizes, both stored. The grid would otherwise download a page full of
+  /// 1200px covers to draw them at 400.
+  coverId String     @unique
+  cover   MediaAsset @relation("SongCover", fields: [coverId], references: [id])
+  thumbId String     @unique
+  thumb   MediaAsset @relation("SongThumb", fields: [thumbId], references: [id])
+
+  /// Hidden songs stay in the admin and vanish from the public site, matching
+  /// how a video's visibility works.
+  isVisible Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  links SongLink[]
+
+  @@index([isVisible, releasedAt])
+}
+
+/// Where one song can be heard on one platform.
+model SongLink {
+  id         String   @id @default(cuid())
+  songId     String
+  song       Song     @relation(fields: [songId], references: [id], onDelete: Cascade)
+  platformId String
+  platform   Platform @relation(fields: [platformId], references: [id])
+  url        String
+
+  /// One entry per platform per song — this is what stops a song listing
+  /// Spotify twice.
+  @@unique([songId, platformId])
+  @@index([songId])
+}

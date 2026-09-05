@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next';
 
 import { publicNav } from '@/config/app.config';
+import { listPublicSongs } from '@/features/songs/queries';
 import { getPublicVideoIds } from '@/features/youtube/queries';
 import { absoluteUrl } from '@/lib/seo';
 
@@ -70,6 +71,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: now,
       changeFrequency: 'yearly',
       priority: 0.3,
+    });
+  }
+
+  /*
+   * Songs. Each has its own page with its cover art and streaming links, so
+   * they are pages worth indexing in their own right — and the same trap as
+   * /shorts applies: /songs is in `publicNav` but the songs beneath it are not,
+   * so they only appear here because they are added deliberately.
+   */
+  const songs = await listPublicSongs();
+
+  for (const song of songs) {
+    pages.push({
+      url: absoluteUrl(`/songs/${song.slug}`),
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.7,
     });
   }
 
