@@ -3,6 +3,7 @@ import Link from 'next/link';
 
 import { RecordDisc } from '@/components/site/RecordDisc';
 import { mediaUrl } from '@/features/songs/queries';
+import { cn } from '@/lib/utils';
 
 export type SongCard = {
   id: string;
@@ -24,7 +25,21 @@ export type SongCard = {
  * box. `sizes` still tells the browser how wide the tile really is, which is
  * what keeps the layout honest even though only one file exists.
  */
-export function SongGrid({ songs }: { songs: readonly SongCard[] }) {
+export function SongGrid({
+  songs,
+  twoRows = false,
+}: {
+  songs: readonly SongCard[];
+  /**
+   * Clip the grid to exactly two rows at every width — for the homepage band,
+   * which must keep its shape rather than growing to five rows on a phone.
+   *
+   * Done in CSS rather than by fetching different counts, because the number
+   * that fits a row is decided by the breakpoint and the server does not know
+   * which one is in force. Pass 10 songs and each width takes what it needs.
+   */
+  twoRows?: boolean;
+}) {
   return (
     /*
      * Five across on desktop, not four. The counts then land evenly — 30 fills
@@ -39,10 +54,23 @@ export function SongGrid({ songs }: { songs: readonly SongCard[] }) {
      * counts are duplicated there and must be kept in step.
      */
     <ul className="song-card-grid grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-5">
-      {songs.map((song) => (
+      {songs.map((song, i) => (
         // Hovering lifts the card over its neighbours, so the record passes in
         // front of the next cover rather than behind it.
-        <li key={song.id} className="relative hover:z-20">
+        <li
+          key={song.id}
+          className={cn(
+            'relative hover:z-20',
+            /*
+             * THESE INDICES AND THE COLUMN COUNTS ABOVE ARE ONE SET. Two rows
+             * is 4 covers at 2 across, 6 at 3 across and 10 at 5 across, so the
+             * cut-offs fall at 4 and 6 — change `grid-cols-*` without moving
+             * these and the band quietly grows a third row.
+             */
+            twoRows && i >= 4 && i < 6 && 'hidden sm:list-item',
+            twoRows && i >= 6 && 'hidden lg:list-item',
+          )}
+        >
           <Link
             href={`/songs/${song.slug}`}
             className="group block rounded-[16px] border border-white/10 bg-site-surface p-3 transition-colors duration-300 hover:border-site-accent/50"

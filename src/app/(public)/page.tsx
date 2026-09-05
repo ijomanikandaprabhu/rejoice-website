@@ -3,6 +3,7 @@ import { ctaPanels } from '@/config/content.config';
 import { CtaPanel } from '@/components/site/CtaPanel';
 
 import { ChannelRails } from '@/components/site/ChannelRails';
+import { HomeSongs } from '@/components/site/HomeSongs';
 import { ChannelSpotlight } from '@/components/site/ChannelSpotlight';
 import { ShortsRail } from '@/components/site/ShortsRail';
 import { TextHoverEffect } from '@/components/ui/text-hover-effect';
@@ -13,6 +14,7 @@ import { HeroRecord } from '@/components/site/HeroRecord';
 import { HeroVideo } from '@/components/site/HeroVideo';
 import { VideoGrid } from '@/components/youtube/VideoCard';
 import { bentoCards, getContactDetails, homeContent, platforms } from '@/features/content/queries';
+import { listPublicSongsPage } from '@/features/songs/queries';
 import { getChannelsWithVideos, getShortsVideos } from '@/features/youtube/queries';
 import { buildMetadata, organizationJsonLd } from '@/lib/seo';
 
@@ -25,7 +27,7 @@ export default async function HomePage() {
   // channels' full libraries.
   const content = homeContent;
 
-  const [contact, channels, shorts] = await Promise.all([
+  const [contact, channels, shorts, latestSongs] = await Promise.all([
     getContactDetails(),
     /*
      * 50 per rail.
@@ -39,6 +41,15 @@ export default async function HomePage() {
     getChannelsWithVideos(50),
     // 50 here too, on the same reasoning (`videos.length * 7s` in ShortsRail).
     getShortsVideos(50),
+    /*
+     * Ten covers, which is two rows at five across. Narrower screens hide the
+     * overflow rather than fetching less — see `twoRows` in `SongGrid`.
+     *
+     * In this `Promise.all` rather than awaited after it: the homepage already
+     * makes three round trips and there is no reason for a fourth to wait on
+     * them.
+     */
+    listPublicSongsPage({ take: 10 }),
   ]);
 
   const socials = contact.socials.map((s) => s.href);
@@ -195,6 +206,16 @@ export default async function HomePage() {
           heading={content.platformsHeading}
         />
       ) : null}
+
+      {/*
+       * The newest releases, above Services — the first place on this page the
+       * music is actually shown rather than described.
+       */}
+      <HomeSongs
+        songs={latestSongs.rows}
+        eyebrow={content.songsEyebrow}
+        heading={content.songsHeading}
+      />
 
       {/*
        * Services bento. The only services block on this page — the older

@@ -47,6 +47,12 @@ export type HomeContent = {
   platformsEyebrow: string;
   platformsHeading: string;
   /** Eyebrow and heading for the services bento. Empty heading hides the section. */
+  /**
+   * The band of newest song covers, above the services bento. Empty hides the
+   * section, as the others do.
+   */
+  songsEyebrow: string;
+  songsHeading: string;
   servicesBentoEyebrow: string;
   servicesBentoHeading: string;
 };
@@ -137,6 +143,13 @@ export const homeContent: HomeContent = {
   // The `\n` keeps this as two deliberate lines inside the ring rather than
   // letting it wrap wherever the circle happens to be narrowest.
   platformsHeading: 'Your Favourite Songs,\nWherever You Are',
+  /*
+   * NOT "New Releases" — `spotlightHeading` above already carries that, over
+   * the channel spotlight, and two sections on one page under the same words
+   * would read as the same thing shown twice.
+   */
+  songsEyebrow: 'New music',
+  songsHeading: 'Songs We Just Released',
   servicesBentoEyebrow: 'Rejoice services',
   servicesBentoHeading: 'From Vision to Meaningful Creation',
 };
