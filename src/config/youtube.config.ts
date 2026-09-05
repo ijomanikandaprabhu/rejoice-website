@@ -37,10 +37,14 @@ export const youtubeConfig = {
    * route sets `maxDuration = 60`, and a run killed at that limit loses the
    * page it was mid-way through with nothing recorded.
    *
-   * 40s leaves a comfortable margin for the final database writes and the
-   * response. When the budget runs out the run is NOT a failure: it stores the
-   * next page token on the channel and the following run continues from there,
-   * so a very large back catalogue completes over a few runs unattended.
+   * This is the budget for a WHOLE run, shared by every channel in it — the
+   * scheduled sync walks all five inside one invocation, and the statistics
+   * upkeep that follows runs there too. 40s of the 60 leaves margin for both,
+   * plus the final database writes and the response.
+   *
+   * When the budget runs out the run is NOT a failure: it stores the next page
+   * token on each channel and the following run continues from there, so a
+   * very large back catalogue completes over a few runs unattended.
    */
   syncTimeBudgetMs: 40_000,
 

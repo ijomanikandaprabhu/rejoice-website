@@ -233,7 +233,16 @@ async function importPages(
  * catalogue is still being backfilled, when it does both: the newest pages so
  * fresh uploads are not held up behind the backlog, then more of the backlog.
  */
-export async function syncChannel(channelDbId: string, full = false): Promise<SyncResult> {
+export async function syncChannel(
+  channelDbId: string,
+  full = false,
+  /**
+   * When this run must stop fetching. Defaults to a budget of its own for a
+   * single-channel sync, but `syncAllChannels` passes ONE deadline shared by
+   * every channel — see there for why.
+   */
+  deadline = Date.now() + youtubeConfig.syncTimeBudgetMs,
+): Promise<SyncResult> {
   const channel = await prisma.youTubeChannel.findUnique({ where: { id: channelDbId } });
   if (!channel) throw new Error(`Channel ${channelDbId} not found`);
 
@@ -249,8 +258,6 @@ export async function syncChannel(channelDbId: string, full = false): Promise<Sy
   if (!channel.isActive) {
     return { ...base, skipped: 1 };
   }
-
-  const deadline = Date.now() + youtubeConfig.syncTimeBudgetMs;
 
   try {
     let imported = 0;
@@ -270,7 +277,14 @@ export async function syncChannel(channelDbId: string, full = false): Promise<Sy
       imported += head.imported;
       updated += head.updated;
 
-      if (cursor !== null) {
+      /*
+       * The backfill is skipped once the run is out of time. The head pass
+       * above is always allowed its page — a video published this morning must
+       * not wait behind a backlog — but the backlog itself has no such claim,
+       * and starting a pass that is guaranteed to stop after one page is how a
+       * shared budget would still overrun across several channels.
+       */
+      if (cursor !== null && Date.now() < deadline) {
         const rest = await importPages(channel, cursor, youtubeConfig.maxPagesPerRun, deadline);
         imported += rest.imported;
         updated += rest.updated;
@@ -321,11 +335,28 @@ export async function syncAllChannels(full = false): Promise<SyncResult[]> {
     select: { id: true },
   });
 
+  /*
+   * ONE deadline for the whole run, not one per channel.
+   *
+   * The budget exists to stay inside a single serverless invocation, and the
+   * channels are synced one after another inside that same invocation. Giving
+   * each its own fresh budget would let two backfilling channels spend 80
+   * seconds against a 60-second ceiling — the run would be killed part way,
+   * losing the channels it had not reached yet and the `recordSyncRun` stamp
+   * with them. Sharing it means a long backfill simply yields to the next
+   * channel and resumes tomorrow.
+   *
+   * Every channel still gets its newest page regardless of the clock:
+   * `importPages` checks the deadline only after a page has been stored, so a
+   * video published this morning is never starved by a backlog elsewhere.
+   */
+  const deadline = Date.now() + youtubeConfig.syncTimeBudgetMs;
+
   const results: SyncResult[] = [];
 
   for (const { id } of channels) {
     try {
-      results.push(await syncChannel(id, full));
+      results.push(await syncChannel(id, full, deadline));
     } catch (error) {
       if (error instanceof YouTubeNotConfiguredError) throw error;
       const message = error instanceof Error ? error.message : 'Unknown error';

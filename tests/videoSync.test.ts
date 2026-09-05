@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { youtubeConfig } from '@/config/youtube.config';
+
 /**
  * Section 36, Rule 7 — synchronization must never overwrite administrator
  * overrides, and must never import the same video twice.
@@ -87,7 +89,7 @@ function onePage(videos: unknown[]) {
   return { videos, nextPageToken: undefined };
 }
 
-const { syncChannel } = await import('@/services/youtube/videoSyncService');
+const { syncChannel, syncAllChannels } = await import('@/services/youtube/videoSyncService');
 
 const CHANNEL = {
   id: 'chan-1',
@@ -353,5 +355,62 @@ describe('syncChannel deep import', () => {
     expect(result.ok).toBe(true);
     // Not declared complete: there may genuinely be more behind that token.
     expect(lastChannelUpdate().importCursor).toBe('stuck');
+  });
+});
+
+/*
+ * The time budget belongs to the RUN, not to each channel.
+ *
+ * The scheduled sync walks every channel inside one serverless invocation, so
+ * a fresh budget per channel let five backfilling channels spend 200 seconds
+ * against a 60-second ceiling. The run would be killed part way through,
+ * losing the channels it had not reached and the sync record with them.
+ */
+describe('syncAllChannels', () => {
+  it('shares one time budget across every channel', async () => {
+    vi.useFakeTimers();
+    try {
+      prismaMock.youTubeChannel.findMany.mockResolvedValue([
+        { id: 'chan-1' },
+        { id: 'chan-2' },
+        { id: 'chan-3' },
+      ]);
+      prismaMock.youTubeChannel.findUnique.mockImplementation(
+        async ({ where }: { where: { id: string } }) => ({
+          ...CHANNEL,
+          id: where.id,
+          name: where.id,
+          // All three are mid-backfill, the case that used to overrun.
+          importCursor: `tok-${where.id}`,
+        }),
+      );
+
+      const started = Date.now();
+
+      // 30 seconds a page against the run's 40-second budget.
+      fetchUploadsPage.mockImplementation(async () => {
+        vi.advanceTimersByTime(30_000);
+        return { videos: [], nextPageToken: 'next' };
+      });
+
+      await syncAllChannels(false);
+
+      /*
+       * Four fetches: the first channel spends the run's whole budget on two
+       * pages, then each remaining channel still gets its newest page — always
+       * allowed, so a video published this morning is never starved by a
+       * backlog — and their backfills are left for tomorrow rather than
+       * started.
+       *
+       * With a budget each, all three would have run their backfills as well
+       * and the invocation would have been killed long before finishing.
+       */
+      expect(fetchUploadsPage).toHaveBeenCalledTimes(4);
+      // 120s here against the 210s a fresh budget per channel produced.
+      expect(Date.now() - started).toBe(120_000);
+    } finally {
+      vi.useRealTimers();
+      prismaMock.youTubeChannel.findMany.mockResolvedValue([]);
+    }
   });
 });
