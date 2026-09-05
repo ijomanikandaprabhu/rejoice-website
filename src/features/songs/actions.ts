@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 
 import { requireAdmin } from '@/lib/auth/guard';
+import { absoluteUrl } from '@/lib/seo';
 import { prisma } from '@/lib/db/prisma';
 import { createLogger } from '@/lib/logger';
 import { slugify } from '@/lib/utils';
@@ -388,4 +389,94 @@ export async function deleteSongAction(
   revalidateSongs();
 
   return { ok: true, message: `${song.title} deleted.` };
+}
+
+/* ------------------------------------------------- the ten already shipped */
+
+/**
+ * The platform logos that ship with this site, and the names they go by.
+ *
+ * These files predate the registry — `/songs` used to be a static grid of them
+ * — so an empty registry can be filled without hunting down ten logo files.
+ */
+const BUILT_IN = [
+  ['Spotify', 'spotify.png'],
+  ['Apple Music', 'apple-music.png'],
+  ['iTunes', 'itunes.png'],
+  ['Amazon Music', 'amazon-music.png'],
+  ['JioSaavn', 'jiosaavn.png'],
+  ['Gaana', 'gaana.png'],
+  ['Raaga', 'raaga.png'],
+  ['Resso', 'resso.png'],
+  ['Wynk', 'wynk.png'],
+  ['YouTube Music', 'youtube-music.png'],
+] as const;
+
+/** Width and height live at fixed offsets in a PNG's IHDR chunk. */
+function pngSize(bytes: Buffer) {
+  return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
+}
+
+/**
+ * Register the ten platforms whose logos are already part of this site.
+ *
+ * Exists as a button rather than a script because the production database is
+ * not reachable from a developer's machine — it is only reachable from the
+ * deployed site — and asking a non-technical owner to run a terminal command
+ * against a live database is the wrong shape of answer.
+ *
+ * The logos are fetched over HTTP from this site's own `/brand/platforms/`
+ * rather than read off disk: `public/` is served statically and reading it back
+ * through the filesystem is not dependable inside a serverless function.
+ *
+ * Idempotent, keyed on name. Pressing it twice adds nothing.
+ */
+export async function seedBuiltInPlatformsAction(
+  _prev: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  await requireAdmin();
+
+  let added = 0;
+  const failed: string[] = [];
+
+  for (const [index, [name, file]] of BUILT_IN.entries()) {
+    if (await prisma.platform.findFirst({ where: { name }, select: { id: true } })) continue;
+
+    const response = await fetch(absoluteUrl(`/brand/platforms/${file}`)).catch(() => null);
+    if (!response?.ok) {
+      failed.push(name);
+      continue;
+    }
+
+    const bytes = Buffer.from(await response.arrayBuffer());
+    const { width, height } = pngSize(bytes);
+
+    const asset = await prisma.mediaAsset.create({
+      data: { mimeType: 'image/png', bytes, width, height, byteSize: bytes.length },
+      select: { id: true },
+    });
+
+    await prisma.platform.create({
+      data: { name, slug: slugify(name), logoId: asset.id, sortOrder: index },
+    });
+
+    added++;
+  }
+
+  log.info(`Seeded ${added} built-in platforms`);
+  revalidateSongs();
+
+  if (added === 0 && failed.length === 0) {
+    return { ok: true, message: 'They are all registered already — nothing to add.' };
+  }
+
+  if (failed.length > 0) {
+    return {
+      ok: false,
+      message: `Added ${added}. These could not be read: ${failed.join(', ')}.`,
+    };
+  }
+
+  return { ok: true, message: `Added ${added} platforms.` };
 }

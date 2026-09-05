@@ -22,6 +22,7 @@ import {
   addSongAction,
   deletePlatformAction,
   deleteSongAction,
+  seedBuiltInPlatformsAction,
 } from '@/features/songs/actions';
 import { listPlatforms, listSongsForAdmin, mediaUrl } from '@/features/songs/queries';
 import { COVER_SIZES, LOGO_SIZE } from '@/lib/images/downscale';
@@ -139,6 +140,27 @@ export default async function SongsAdminPage() {
           </ActionForm>
 
           <Separator />
+
+          {platforms.length === 0 ? (
+            /*
+             * Ten logos already ship with this site, from when /songs was a
+             * static grid of them. Offering them here means the registry does
+             * not start empty and nobody has to find ten logo files again.
+             *
+             * A button rather than a script because the production database is
+             * only reachable from the deployed site.
+             */
+            <ActionForm action={seedBuiltInPlatformsAction}>
+              <p className="text-sm text-muted-foreground">
+                No platforms registered yet. Rejoice already has logos for Spotify, Apple
+                Music, iTunes, Amazon Music, JioSaavn, Gaana, Raaga, Resso, Wynk and YouTube
+                Music.
+              </p>
+              <SubmitButton variant="outline" pendingLabel="Adding…">
+                Add those ten
+              </SubmitButton>
+            </ActionForm>
+          ) : null}
 
           <ul className="grid gap-2 sm:grid-cols-2">
             {platforms.map((platform) => (
