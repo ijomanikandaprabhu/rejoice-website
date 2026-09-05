@@ -1,8 +1,9 @@
-import Image from 'next/image';
 import { notFound, permanentRedirect } from 'next/navigation';
 
+import { BackButton } from '@/components/site/Section';
 import { CtaPanel } from '@/components/site/CtaPanel';
 import { PlatformGrid } from '@/components/site/PlatformGrid';
+import { VinylCover } from '@/components/site/VinylCover';
 import { ctaPanels } from '@/config/content.config';
 import { getPublicSong, mediaUrl } from '@/features/songs/queries';
 import { getPublicVideoBySlug } from '@/features/youtube/queries';
@@ -67,18 +68,20 @@ export default async function SongPage({ params }: Params) {
 
   return (
     <>
-      <section className="container-page pb-16 pt-10 sm:pb-20 sm:pt-14">
-        <div className="grid gap-10 lg:grid-cols-[minmax(0,26rem)_1fr] lg:gap-14">
+      <section className="container-page pb-16 pt-8 sm:pb-20 sm:pt-10">
+        {/* Labelled rather than a bare arrow: it stands alone at the top of the
+            page, so it should say where it goes — the same reasoning as the
+            video page's. */}
+        <BackButton href="/songs" label="Songs" ariaLabel="Back to songs" />
+
+        {/*
+         * The media column is wider than the sleeve on purpose: the record
+         * emerges to the right of it, and a column sized to the square would
+         * push the disc under the title.
+         */}
+        <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,34rem)_1fr] lg:gap-14">
           <div>
-            <Image
-              src={mediaUrl(song.coverId)}
-              alt={`${song.title} cover art`}
-              width={1200}
-              height={1200}
-              priority
-              sizes="(min-width: 1024px) 26rem, 100vw"
-              className="aspect-square w-full rounded-[18px] border border-white/10 object-cover"
-            />
+            <VinylCover src={mediaUrl(song.coverId)} alt={`${song.title} cover art`} />
           </div>
 
           <div className="flex flex-col justify-center">

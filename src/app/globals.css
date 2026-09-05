@@ -748,6 +748,70 @@
     filter: blur(48px);
   }
 
+  /*
+   * The record on a song page (`VinylCover`).
+   *
+   * Named `song-vinyl`, NOT `vinyl-disc`: that name is already taken by the
+   * homepage hero's SVG record, and reusing it would have applied that rule's
+   * SVG `transform-box` to this one.
+   *
+   * Drawn rather than photographed — one element, two gradients, and nothing to
+   * download for what is essentially concentric circles. Every stop is a
+   * percentage of the disc, so the grooves stay the same weight at any size.
+   *
+   * WHAT MAKES THE SPIN VISIBLE is the label, because it carries the artwork.
+   * `VinylDisc` learned this the hard way and says so: a disc of concentric
+   * rings is rotationally symmetric, so without one asymmetric feature the
+   * rotation reads as a shimmer and the whole thing looks broken.
+   */
+  .song-vinyl {
+    background-image:
+      repeating-radial-gradient(
+        circle at 50% 50%,
+        rgba(255, 255, 255, 0.05) 0 0.35%,
+        rgba(0, 0, 0, 0) 0.35% 1.75%
+      ),
+      radial-gradient(circle at 50% 50%, #17171a 0%, #0b0b0d 62%, #050506 100%);
+    box-shadow:
+      0 18px 45px -18px rgba(0, 0, 0, 0.95),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+
+    /*
+     * 24 seconds a turn — slow enough that you notice only if you look, which
+     * is the difference between a record turning and a loading spinner.
+     *
+     * `transform` alone, so it stays on the compositor. The global
+     * `prefers-reduced-motion` rule at the end of this file removes it
+     * entirely, which is why the disc must be drawn correctly at rest.
+     */
+    animation: songVinylSpin 24s linear infinite;
+    will-change: transform;
+  }
+
+  /*
+   * The highlight does NOT turn with the record.
+   *
+   * It is light falling on the disc, and light does not travel with the
+   * groove. Kept on a static sibling so the moving grooves pass beneath a
+   * fixed sheen, which is what the eye expects and is also a second cue that
+   * the thing is rotating at all.
+   */
+  .song-vinyl-sheen {
+    background-image: radial-gradient(
+      ellipse 70% 55% at 32% 26%,
+      rgba(255, 255, 255, 0.14) 0%,
+      rgba(255, 255, 255, 0.035) 42%,
+      rgba(255, 255, 255, 0) 68%
+    );
+  }
+
+  @keyframes songVinylSpin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+
   /* Faint rule grid, faded out top and bottom. */
   .footer-bg-grid {
     background-size: 60px 60px;
