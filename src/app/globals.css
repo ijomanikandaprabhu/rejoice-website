@@ -35,8 +35,19 @@
     --popover-foreground: 60 8% 95%;
     --primary: 73 100% 62%;
     --primary-foreground: 240 4% 5%;
-    --secondary: 240 2% 11%;
-    --secondary-foreground: 60 8% 95%;
+    /*
+     * #683FFF. Bare HSL because tailwind.config.ts wraps these as
+     * `hsl(var(--token))`, and these exact decimals because rounding to
+     * `253 100% 62%` renders #673DFF instead — close enough to look right and
+     * wrong enough to fail a colour check.
+     *
+     * ADMIN-ONLY IN EFFECT, though it sits on `:root`. Only shadcn's `Button`
+     * and `Badge` secondary variants read these, and nothing under
+     * `app/(public)` or `components/site` imports either — the public site's
+     * `.btn-secondary` is a separate class further down this file.
+     */
+    --secondary: 252.8 100% 62.35%;
+    --secondary-foreground: 0 0% 100%;
     --muted: 240 2% 11%;
     --muted-foreground: 0 0% 60%;
     --accent: 240 2% 14%;
@@ -48,9 +59,13 @@
     --ring: 73 100% 62%;
     --radius: 0.75rem;
 
-    /* Charts: neutral bars, with chart-1 reserved for the single accent peak. */
+    /*
+     * Charts: chart-1 is the accent peak, chart-2 the violet second place, the
+     * rest neutral. The admin's own charts use the `panel` scale directly
+     * rather than these, so this is here to keep the two palettes agreeing.
+     */
     --chart-1: 73 100% 62%;
-    --chart-2: 0 0% 38%;
+    --chart-2: 252.8 100% 62.35%;
     --chart-3: 0 0% 30%;
     --chart-4: 0 0% 24%;
     --chart-5: 0 0% 45%;

@@ -30,11 +30,16 @@ const LABELS: Record<string, string> = {
 };
 
 /*
- * Neutral greys stepping down, with the accent reserved for the largest source
- * — the same rationing the rest of the admin uses, so lime keeps meaning
- * "look here" rather than becoming decoration.
+ * Ranked, not decorated: lime for the largest source, violet for the second,
+ * then neutral greys stepping down. That is the admin's two-colour rule — lime
+ * is the peak, violet is the runner-up — and it is what stops either reading as
+ * decoration.
+ *
+ * Both are fills with no text on them, which is the only way the violet may be
+ * used: it measures 3.0-3.5:1 against these panels, enough for a shape and not
+ * enough for type.
  */
-const FILLS = ['#D6FF3F', '#4A4A4C', '#3A3A3C', '#2E2E2F', '#252526'];
+const FILLS = ['#D6FF3F', '#683FFF', '#3A3A3C', '#2E2E2F', '#252526'];
 
 export function TrafficSources({ sources }: { sources: TrafficSource[] }) {
   const total = sources.reduce((n, s) => n + s.views, 0);

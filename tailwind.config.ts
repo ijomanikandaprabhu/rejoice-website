@@ -7,7 +7,7 @@ import type { Config } from 'tailwindcss';
  *             cards, pill buttons. Set in Inter Tight.
  *
  *   `panel` — the admin portal. Near-black panel layout, lime accent used
- *             sparingly. Set in Manrope.
+ *             sparingly, violet behind it as the secondary. Set in Manrope.
  *
  * The admin also consumes shadcn's token set, mapped to the panel palette in
  * globals.css and scoped to `.admin-theme` so the two never collide.
@@ -39,6 +39,19 @@ const config: Config = {
           DEFAULT: '#151515',
           alt: '#1C1C1D',
           accent: '#D6FF3F',
+          /*
+           * The second colour, and the rule for choosing between the two:
+           * LIME is the primary action and the peak value — the one thing on a
+           * screen worth looking at first. VIOLET is the runner-up: a secondary
+           * button, a state badge, second place in a chart.
+           *
+           * A FILL, NEVER TEXT. Measured against the panel backgrounds it comes
+           * to 3.0-3.5:1, which is fine for a bar or a chip (3:1) and below the
+           * 4.5:1 small text needs. White on it is 5.61:1, so every use paints
+           * it behind `secondary-fg` or draws it as a shape.
+           */
+          secondary: '#683FFF',
+          'secondary-fg': '#FFFFFF',
           muted: '#9A9A9A',
           fg: '#F4F4F2',
           negative: '#FF6B5E',
