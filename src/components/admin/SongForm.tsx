@@ -160,14 +160,19 @@ export function SongForm({
         </CardContent>
       </Card>
 
-      <div className="flex items-center gap-3">
-        <SubmitButton pendingLabel={editing ? 'Saving…' : 'Adding…'}>
-          {editing ? 'Save song' : 'Add song'}
-        </SubmitButton>
-
+      {/*
+        * Right-aligned, with Cancel first so the confirming button is furthest
+        * right — where the eye finishes, and where the next thing to press
+        * after filling a form down the page is expected to be.
+        */}
+      <div className="flex items-center justify-end gap-3">
         <Button asChild variant="ghost">
           <Link href="/admin/songs">Cancel</Link>
         </Button>
+
+        <SubmitButton pendingLabel={editing ? 'Saving…' : 'Adding…'}>
+          {editing ? 'Save song' : 'Add song'}
+        </SubmitButton>
       </div>
     </ActionForm>
   );
