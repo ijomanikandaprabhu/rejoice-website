@@ -914,19 +914,37 @@
    * half of every letter was therefore nothing but a hairline, and the whole
    * word read as scaffolding rather than as type.
    *
-   * The fade is the point and it is kept: light from above, falling down the
-   * letters. What changed is what it fades TO. It now lands on a dark grey
-   * rather than on nothing — 0.14 white at the top (#242424 on this page) down
-   * to 0.05 at the baseline (#0d0d0d) — so the letters stay letters all the
-   * way down instead of dissolving into outlines halfway.
+   * The fade is the point: light from above, the letters dissolving into the
+   * page as they leave it.
+   *
+   * THE STOPS ARE POSITIONED, NOT 0% AND 100%, and that is the whole reason
+   * this reads as a fade at all. The gradient is painted over the text's LINE
+   * BOX, and the letters do not fill it. Measured at 1340x1274, font 348px in
+   * a 261px box, the glyphs run from 13% to 115% of that box — while the page
+   * edge, which clips everything below it, is at 100%.
+   *
+   * So a gradient written 0% -> 100% only ever shows its middle. The previous
+   * one declared 0.14 -> 0.05 and rendered 0.132 -> 0.05: the bright end fell
+   * on empty leading above the type, the dark end was cut off below the page,
+   * and what was left was a flat slab of grey with no fade in it.
+   *
+   * Anchoring the bright stop at 13% puts it on the top edge of the letters,
+   * and taking the dark stop to fully transparent at 100% lands true black
+   * exactly at the page edge. Both the box and the glyphs scale with the font
+   * size, so these percentages hold at every window size.
+   *
+   * `no-repeat` is not cosmetic. The default is `repeat`, so past 100% the
+   * gradient RESTARTS AT ITS BRIGHTEST — a bright line along the bottom of the
+   * letters, the exact opposite of this effect. Today that strip is clipped by
+   * the page edge and invisible; it is one layout change away from not being.
    *
    * NO STROKE. An outline on top of a fill draws an edge around each letter
    * and is what made the old version look like a wireframe.
    *
-   * These values are a ceiling, not a preference. The social buttons, the
+   * The top value is a ceiling, not a preference. The social buttons, the
    * copyright line and the Privacy/Terms links all sit ON TOP of this word, so
-   * it has to stay a texture. At 0.14 the brightest part measures 1.24:1
-   * against the page — the same weight the site's own cards carry, and still
+   * it has to stay a texture. At 0.16 the brightest part measures 1.28:1
+   * against the page — about the weight the site's own cards carry, and still
    * far below anything that competes with the small text over it.
    */
   .footer-giant-text {
@@ -935,9 +953,10 @@
     color: transparent;
     background: linear-gradient(
       180deg,
-      rgba(255, 255, 255, 0.14) 0%,
-      rgba(255, 255, 255, 0.05) 100%
+      rgba(255, 255, 255, 0.16) 13%,
+      rgba(255, 255, 255, 0) 100%
     );
+    background-repeat: no-repeat;
     -webkit-background-clip: text;
     background-clip: text;
   }
