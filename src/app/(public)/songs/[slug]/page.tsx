@@ -82,11 +82,26 @@ export default async function SongPage({ params }: Params) {
           </div>
 
           <div className="flex flex-col justify-center">
-            <p className="t-label text-site-muted">
-              {song.releasedAt ? formatDate(song.releasedAt) : 'Rejoice Gospel Communications'}
-            </p>
+            {/*
+              * The release date, or nothing at all.
+              *
+              * This used to fall back to "Rejoice Gospel Communications" when a
+              * song had no date. That was written while the form still had a
+              * date field; once the field was removed, no song has one, so
+              * every page announced the label's own name to visitors already on
+              * the label's website. An empty line says less and means more.
+              */}
+            {/*
+              * The gap belongs to the DATE, not to the title. As `mt-5` on the
+              * heading it survived the eyebrow being absent and left a stray
+              * 20px above the title on every song without a release date —
+              * which, since the form has no date field, is all of them.
+              */}
+            {song.releasedAt ? (
+              <p className="t-label mb-5 text-site-muted">{formatDate(song.releasedAt)}</p>
+            ) : null}
 
-            <h1 className="t-h1 mt-5">{song.title}</h1>
+            <h1 className="t-h1">{song.title}</h1>
 
             {song.artist ? (
               <p className="mt-4 text-body leading-[1.7] text-site-fg">{song.artist}</p>
