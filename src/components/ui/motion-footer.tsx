@@ -337,7 +337,7 @@ export function CinematicFooter({
            * to 68%, and on any window taller than it is wide `26vw` governs and
            * this term never applies.
            */
-          className="footer-giant-text pointer-events-none absolute bottom-0 left-1/2 z-0 -translate-x-1/2 select-none whitespace-nowrap text-[min(26vw,40vh)] font-black"
+          className="footer-giant-text pointer-events-none absolute left-1/2 z-0 -translate-x-1/2 select-none whitespace-nowrap text-[min(26vw,40vh)] font-black"
         >
           REJOICE
         </div>

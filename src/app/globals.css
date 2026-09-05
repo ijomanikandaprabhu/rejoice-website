@@ -951,6 +951,12 @@
     line-height: 0.75;
     letter-spacing: -0.05em;
     color: transparent;
+
+    /*
+     * Sits on the bottom edge of the footer on a phone. On anything wider it
+     * sinks further, and the media query below explains why.
+     */
+    bottom: 0;
     background: linear-gradient(
       180deg,
       rgba(255, 255, 255, 0.16) 13%,
@@ -959,6 +965,47 @@
     background-repeat: no-repeat;
     -webkit-background-clip: text;
     background-clip: text;
+  }
+
+  /*
+   * HOW DEEPLY THE WORD IS CROPPED, and it is keyed to the VIEWPORT'S HEIGHT
+   * rather than to the word, which looks wrong until you see the measurements.
+   *
+   * The word used to run behind the email and phone buttons on a short window.
+   * The word is not what changes — measured on the real page:
+   *
+   *   window        word visible    room below buttons    overlap
+   *   1340 x 1274      219px              425px             none
+   *   1280 x  800      205px              188px             17px
+   *   1600 x  700      183px              138px             45px
+   *   1400 x  620      162px              112px             50px
+   *
+   * The word's height moves 57px across that whole range. The ROOM collapses
+   * by 313px, because the footer's content is a fixed stack of rows that keeps
+   * its height as the window shortens — so the buttons descend onto type that
+   * has barely moved. The shortfall comes from the viewport's height, so the
+   * correction has to as well.
+   *
+   * Sinking the word crops it from the bottom rather than shrinking it, which
+   * is the trade Rejoice chose: full-width type, more of it off the page.
+   *
+   *   height   shift   word visible   room
+   *   1274px     0        219px       425px
+   *    800px    50px      155px       188px
+   *    700px    60px      123px       138px
+   *    620px    68px       94px       112px
+   *
+   * `min()` with a positive branch is what makes this safe: above ~1300px tall
+   * the expression is positive, `min` picks 0, and a tall window is untouched.
+   *
+   * PHONES ARE EXCLUDED ON PURPOSE. At 375px the type is 98px with ~64px of
+   * visible letters and 197px of room — it never overlaps, and this shift
+   * would crop it to a 15px sliver.
+   */
+  @media (min-width: 640px) {
+    .footer-giant-text {
+      bottom: min(0px, calc(10vh - 130px));
+    }
   }
 
   /* Metallic sheen on the closing heading. */
