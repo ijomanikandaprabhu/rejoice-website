@@ -4,7 +4,7 @@ import Credentials from 'next-auth/providers/credentials';
 import { SESSION_MAX_AGE_SECONDS } from '@/config/app.config';
 import { prisma } from '@/lib/db/prisma';
 import { verifyPassword } from '@/lib/auth/password';
-import { loginSchema } from '@/lib/validation';
+import { IDENTIFIER_IS_USER_ID, loginSchema } from '@/lib/validation';
 
 declare module 'next-auth' {
   interface Session {
@@ -24,17 +24,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
   providers: [
     Credentials({
-      credentials: { email: {}, password: {} },
+      credentials: { identifier: {}, password: {} },
       async authorize(raw) {
         const parsed = loginSchema.safeParse(raw);
         if (!parsed.success) return null;
 
-        const admin = await prisma.admin.findUnique({
-          where: { email: parsed.data.email.toLowerCase() },
-        });
+        const { identifier } = parsed.data;
 
-        // Compare against a dummy hash when the account is missing so that a
-        // wrong email and a wrong password take the same amount of time.
+        /*
+         * Digits mean a User ID, anything else an email address. The same test
+         * lives in `loginSchema`, which is why it is exported rather than
+         * written twice — two copies would disagree and the disagreement would
+         * look like a wrong password.
+         */
+        const admin = IDENTIFIER_IS_USER_ID.test(identifier)
+          ? await prisma.admin.findUnique({ where: { userId: Number(identifier) } })
+          : await prisma.admin.findUnique({ where: { email: identifier.toLowerCase() } });
+
+        // Compare against a dummy hash when the account is missing so that an
+        // unknown email, an unknown User ID and a wrong password all take the
+        // same amount of time.
         const hash = admin?.passwordHash ?? '$2a$12$invalidinvalidinvalidinvalidinvalidinvalidinvalidinva';
         const ok = await verifyPassword(parsed.data.password, hash);
         if (!admin || !ok) return null;

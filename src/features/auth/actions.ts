@@ -30,7 +30,7 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
   }
 
   const parsed = loginSchema.safeParse({
-    email: formData.get('email'),
+    identifier: formData.get('identifier'),
     password: formData.get('password'),
   });
 
@@ -44,8 +44,9 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
     await signIn('credentials', { ...parsed.data, redirect: false });
   } catch (error) {
     if (error instanceof AuthError) {
-      // Deliberately vague: do not reveal whether the email exists.
-      return { ok: false, message: 'Incorrect email or password.' };
+      // Deliberately vague: do not reveal whether the account exists, for
+      // either kind of identifier.
+      return { ok: false, message: 'Incorrect email, User ID or password.' };
     }
     throw error;
   }

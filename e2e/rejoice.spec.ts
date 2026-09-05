@@ -22,16 +22,26 @@ import {
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'admin@rejoice.local';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? 'RejoiceAdmin2026';
+/** The short identifier that signs in as an alternative to the email address. */
+const ADMIN_USER_ID = process.env.ADMIN_USER_ID ?? '1975';
 const CHANNEL_URL = process.env.E2E_CHANNEL_URL ?? '';
 
-async function login(page: Page) {
+/**
+ * Sign in with either identifier — the field takes an email address or a User
+ * ID, and both must keep working.
+ */
+async function login(page: Page, identifier: string = ADMIN_EMAIL) {
   await page.goto('/admin/login');
-  await page.getByLabel('Email').fill(ADMIN_EMAIL);
   /*
-   * `exact`, because `getByLabel` matches on a SUBSTRING. The password field's
-   * reveal button is named "Show password", so a loose match resolves to two
-   * elements and fails as ambiguous. The input's label is exactly "Password".
+   * `exact` on BOTH fields, because `getByLabel` matches on a SUBSTRING.
+   *
+   * The password field's reveal button is named "Show password", so a loose
+   * match there resolves to two elements and fails as ambiguous. The sign-in
+   * field is the subtler trap: it used to be labelled "Email", and a loose
+   * match for that still finds "Email or User ID" — so this helper would have
+   * gone on passing while testing a label that no longer exists.
    */
+  await page.getByLabel('Email or User ID', { exact: true }).fill(identifier);
   await page.getByLabel('Password', { exact: true }).fill(ADMIN_PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
   // Generous: the first sign-in of a run pays for the dev server compiling the
@@ -132,11 +142,26 @@ test.describe('Administrator authentication', () => {
 
   test('wrong credentials are rejected without saying which field was wrong', async ({ page }) => {
     await page.goto('/admin/login');
-    await page.getByLabel('Email').fill(ADMIN_EMAIL);
+    await page.getByLabel('Email or User ID', { exact: true }).fill(ADMIN_EMAIL);
     await page.getByLabel('Password', { exact: true }).fill('definitely-not-the-password');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page.getByText('Incorrect email or password.')).toBeVisible();
+    await expect(page.getByText('Incorrect email, User ID or password.')).toBeVisible();
+  });
+
+  test('an unknown User ID is refused in exactly the same words', async ({ page }) => {
+    await page.goto('/admin/login');
+    await page.getByLabel('Email or User ID', { exact: true }).fill('999999');
+    await page.getByLabel('Password', { exact: true }).fill(ADMIN_PASSWORD);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+
+    // Identical to the wrong-password message above: whether the account
+    // exists must not be readable from the response.
+    await expect(page.getByText('Incorrect email, User ID or password.')).toBeVisible();
+  });
+
+  test('the User ID signs in just as the email does', async ({ page }) => {
+    await login(page, ADMIN_USER_ID);
   });
 
   test('login then logout', async ({ page }) => {

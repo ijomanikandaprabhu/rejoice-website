@@ -2,8 +2,27 @@ import { z } from 'zod';
 
 /** All request/form validation lives here so rules are defined once (section 3.2). */
 
+/**
+ * What may be typed into the sign-in field: an email address OR a User ID.
+ *
+ * Two shapes rather than a free string, so a typo is caught here with a clear
+ * message instead of becoming a database lookup that finds nothing and reports
+ * the deliberately vague "incorrect" from the login action.
+ *
+ * A User ID is digits only. `authorize` decides which column to look in using
+ * the same test, so the two must not drift apart.
+ */
+export const IDENTIFIER_IS_USER_ID = /^\d+$/;
+
 export const loginSchema = z.object({
-  email: z.string().trim().min(1, 'Email is required').email('Enter a valid email address'),
+  identifier: z
+    .string()
+    .trim()
+    .min(1, 'Enter your email address or User ID')
+    .refine(
+      (value) => IDENTIFIER_IS_USER_ID.test(value) || z.string().email().safeParse(value).success,
+      'Enter a valid email address or User ID',
+    ),
   password: z.string().min(1, 'Password is required'),
 });
 export type LoginInput = z.infer<typeof loginSchema>;

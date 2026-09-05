@@ -23,6 +23,13 @@ datasource db {
 model Admin {
   id           String    @id @default(cuid())
   email        String    @unique
+  /// Short number that signs in as an alternative to the email address.
+  ///
+  /// An identifier, NOT a secret — it does the job the email does, and the
+  /// password remains the only thing that grants access. Nullable because the
+  /// column has to exist before a row can be given a value; the migration that
+  /// adds it fills in the one administrator.
+  userId       Int?      @unique
   name         String?
   passwordHash String
   lastLoginAt  DateTime?

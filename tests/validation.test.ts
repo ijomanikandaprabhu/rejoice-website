@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import { parseChannelUrl, parseIsoDuration } from '@/services/youtube/youtubeClient';
 import { rateLimit, resetRateLimit } from '@/lib/utils/rateLimit';
-import { adminPasswordSchema, contactSchema, updateVideoSchema } from '@/lib/validation';
+import {
+  adminPasswordSchema,
+  contactSchema,
+  loginSchema,
+  updateVideoSchema,
+} from '@/lib/validation';
 
 describe('contactSchema', () => {
   const valid = {
@@ -42,6 +47,42 @@ describe('contactSchema', () => {
   it('allows phone and subject to be omitted', () => {
     const result = contactSchema.safeParse(valid);
     expect(result.success).toBe(true);
+  });
+});
+
+/*
+ * Sign-in takes an email address OR a short User ID, so that reaching the admin
+ * on a phone does not mean typing a long address. Both are identifiers; the
+ * password is still the only thing that grants access.
+ */
+describe('loginSchema', () => {
+  const check = (identifier: string) =>
+    loginSchema.safeParse({ identifier, password: 'a-real-password' });
+
+  it('accepts an email address', () => {
+    expect(check('rejoicegospelcommunications@gmail.com').success).toBe(true);
+  });
+
+  it('accepts a User ID', () => {
+    expect(check('1975').success).toBe(true);
+  });
+
+  it('trims surrounding space rather than rejecting it', () => {
+    const result = check('  1975  ');
+    expect(result.success).toBe(true);
+    expect(result.success && result.data.identifier).toBe('1975');
+  });
+
+  const rejected = ['', '   ', 'abc', '19 75', '19-75', 'not@an', '1975@'];
+
+  for (const value of rejected) {
+    it(`rejects ${JSON.stringify(value)}`, () => {
+      expect(check(value).success).toBe(false);
+    });
+  }
+
+  it('still requires a password', () => {
+    expect(loginSchema.safeParse({ identifier: '1975', password: '' }).success).toBe(false);
   });
 });
 

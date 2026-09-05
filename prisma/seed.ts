@@ -36,19 +36,37 @@ async function main() {
     throw new Error('ADMIN_PASSWORD must be at least 10 characters.');
   }
 
+  /*
+   * The short identifier that signs in as an alternative to the email address.
+   * Defaulted so a database built from scratch matches production, where the
+   * migration set the same number.
+   */
+  const userId = Number(process.env.ADMIN_USER_ID ?? 1975);
+  if (!Number.isInteger(userId) || userId <= 0) {
+    throw new Error('ADMIN_USER_ID must be a positive whole number.');
+  }
+
   const existing = await prisma.admin.findUnique({ where: { email } });
 
   if (existing) {
     console.log(`Administrator ${email} already exists — password left unchanged.`);
+
+    // Backfill only. An administrator who already carries an id keeps it —
+    // overwriting one would take away a way of signing in that is in use.
+    if (existing.userId === null) {
+      await prisma.admin.update({ where: { id: existing.id }, data: { userId } });
+      console.log(`Gave ${email} User ID ${userId}`);
+    }
   } else {
     await prisma.admin.create({
       data: {
         email,
+        userId,
         name: 'Rejoice Administrator',
         passwordHash: await bcrypt.hash(password, 12),
       },
     });
-    console.log(`Created administrator ${email}`);
+    console.log(`Created administrator ${email} with User ID ${userId}`);
   }
 
 

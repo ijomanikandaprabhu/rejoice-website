@@ -79,7 +79,10 @@ export default async function SettingsPage({
     // From the database, not the session — the JWT keeps the pre-change address
     // until the token expires. Same reasoning as the admin layout.
     session?.user?.id
-      ? prisma.admin.findUnique({ where: { id: session.user.id }, select: { email: true } })
+      ? prisma.admin.findUnique({
+          where: { id: session.user.id },
+          select: { email: true, userId: true },
+        })
       : null,
       getConnections(),
       // The analytics card lists every channel, connected or not — a channel
@@ -127,6 +130,7 @@ export default async function SettingsPage({
   })();
 
   const adminEmail = admin?.email ?? session?.user?.email ?? '';
+  const adminUserId = admin?.userId ?? null;
   const socialRows = social.links;
 
   /*
@@ -510,8 +514,17 @@ export default async function SettingsPage({
         <CardHeader>
           <CardTitle>Administrator</CardTitle>
           <CardDescription>
-            Signed in as <strong>{adminEmail}</strong>. This is the only account — there
-            is no registration.
+            Signed in as <strong>{adminEmail}</strong>
+            {adminUserId === null ? null : (
+              <>
+                {' '}
+                {/* Where to find the answer to "what is my User ID?" — beside
+                    the account it belongs to, rather than only in whatever
+                    conversation set it up. */}
+                , or with User ID <strong>{adminUserId}</strong>
+              </>
+            )}
+            . This is the only account — there is no registration.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-8 lg:grid-cols-2">

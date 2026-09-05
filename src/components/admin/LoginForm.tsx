@@ -44,9 +44,9 @@ export function LoginForm({ from }: { from?: string }) {
 
   /*
    * Sign-in failures surface as a toast, matching every other admin action.
-   * Deliberately vague by design — `loginAction` never reveals whether it was
-   * the email or the password that was wrong, so there is no field to attach
-   * this to and a toast is the honest place for it.
+   * Deliberately vague by design — `loginAction` never reveals which of the
+   * identifier and the password was wrong, so there is no field to attach this
+   * to and a toast is the honest place for it.
    */
   useEffect(() => {
     if (state.message) toast.error(state.message, { duration: 8000 });
@@ -57,21 +57,34 @@ export function LoginForm({ from }: { from?: string }) {
       <input type="hidden" name="from" value={from ?? ''} />
 
       <div className="grid gap-2">
-        <Label htmlFor="email" className="text-xs font-medium uppercase tracking-[0.06em] text-panel-muted">
-          Email
+        <Label
+          htmlFor="identifier"
+          className="text-xs font-medium uppercase tracking-[0.06em] text-panel-muted"
+        >
+          Email or User ID
         </Label>
+        {/*
+         * `type="text"`, NOT `type="email"`. The browser refuses to submit a
+         * value that is not an address when the type says email, so a User ID
+         * would be rejected before this form was ever posted — and the message
+         * would come from the browser, not from us.
+         *
+         * `autoComplete="username"` is unchanged, so a saved sign-in keeps
+         * filling this field.
+         */}
         <Input
-          id="email"
-          name="email"
-          type="email"
+          id="identifier"
+          name="identifier"
+          type="text"
+          inputMode="text"
           autoComplete="username"
           required
           autoFocus
           className={inputClass}
         />
-        {state.errors?.email ? (
+        {state.errors?.identifier ? (
           <p role="alert" className="text-xs text-panel-negative">
-            {state.errors.email}
+            {state.errors.identifier}
           </p>
         ) : null}
       </div>
