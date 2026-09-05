@@ -165,10 +165,26 @@ export default async function MusicPage() {
           )}
         </div>
 
-        {total > songs.length ? (
+        {/*
+         * Shown whenever there is anything to show, so the full catalogue is a
+         * fixed part of this page rather than a button that appears one day.
+         *
+         * It used to require `total > songs.length` — more songs than the
+         * preview holds — which meant it was invisible at anything under 30 and
+         * Rejoice went looking for it.
+         *
+         * NO COUNT IN THE LABEL. It read "View all {total} songs", which at
+         * today's catalogue of one renders "View all 1 songs". Plain wording is
+         * right at 1, at 30 and at 5,000 and needs no plural handling.
+         *
+         * Zero is still excluded: the grid above is replaced by "the releases
+         * are on their way", and a button to an empty listing under that
+         * sentence would contradict it.
+         */}
+        {total > 0 ? (
           <div className="mt-10">
             <Link href="/songs/all" className="btn-primary">
-              View all {total.toLocaleString()} songs
+              View all songs
             </Link>
           </div>
         ) : null}
