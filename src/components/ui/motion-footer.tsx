@@ -315,19 +315,29 @@ export function CinematicFooter({
           ref={giantRef}
           aria-hidden="true"
           /*
-           * Sized by width AND capped by height.
+           * SIZED BY WIDTH. The `26vw` term is the one doing the work — it is
+           * what makes the word span most of the page and run off the bottom
+           * edge, which is the whole look.
            *
-           * `26vw` alone scales off the viewport's WIDTH, but the room it has
-           * is the footer's HEIGHT — so a wide, short window grew it far past
-           * what fits and it climbed into the contact pills: 520px of type in a
-           * 700px footer at 2000x700, overlapping by 252px.
+           * The `vh` term is only a runaway stop for a very short window, and
+           * it used to be 24vh. That was chosen when this word was a bright-ish
+           * OUTLINE and the rule was that it must never touch the contact
+           * pills. Both halves of that have moved on: the word is now a dim
+           * fill (0.14 white at its strongest, 1.24:1 against the page), the
+           * pills it passes behind carry their own blurred `footer-glass-pill`
+           * background, and 24vh was not actually holding the line anyway —
+           * measured at 1400x620 the word already overlapped the pills by 27px,
+           * because the footer's content wraps taller as the window shortens.
            *
-           * The cap was measured rather than guessed, sweeping candidates over
-           * eight aspect ratios. 28vh still overlapped by 9px at the worst one
-           * and 26vh cleared by only 2px; 24vh is the largest value that keeps
-           * a real margin everywhere (12px at its tightest, 2000x700).
+           * A watermark passing behind a glass pill is not a collision. What
+           * matters is that the text on top stays readable, which is something
+           * to look at rather than a number to compute.
+           *
+           * So the cap is 40vh: at 1400x620 the word goes from 41% of the width
+           * to 68%, and on any window taller than it is wide `26vw` governs and
+           * this term never applies.
            */
-          className="footer-giant-text pointer-events-none absolute bottom-0 left-1/2 z-0 -translate-x-1/2 select-none whitespace-nowrap text-[min(26vw,24vh)] font-black"
+          className="footer-giant-text pointer-events-none absolute bottom-0 left-1/2 z-0 -translate-x-1/2 select-none whitespace-nowrap text-[min(26vw,40vh)] font-black"
         >
           REJOICE
         </div>
