@@ -11,7 +11,13 @@ import { hashPassword, verifyPassword } from '@/lib/auth/password';
 import { requireAdmin } from '@/lib/auth/guard';
 import { prisma } from '@/lib/db/prisma';
 import { clientIpFrom, rateLimit, resetRateLimit } from '@/lib/utils/rateLimit';
-import { adminEmailSchema, adminPasswordSchema, fieldErrors, loginSchema } from '@/lib/validation';
+import {
+  adminEmailSchema,
+  adminPasswordSchema,
+  adminUserIdSchema,
+  fieldErrors,
+  loginSchema,
+} from '@/lib/validation';
 
 export type ActionState = { ok: boolean; message?: string; errors?: Record<string, string> };
 
@@ -121,6 +127,51 @@ export async function changeEmailAction(
   revalidatePath('/admin', 'layout');
 
   return { ok: true, message: 'Email address updated. Use it the next time you sign in.' };
+}
+
+/**
+ * Change the User ID that signs in alongside the email address (section 24).
+ *
+ * Deliberately the same shape as `changeEmailAction` above — same guard, same
+ * password check, same uniqueness check — because it is the same job for the
+ * other identifier, and two different shapes would invite one of them to be
+ * updated without the other.
+ */
+export async function changeUserIdAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireAdmin();
+
+  const blocked = credentialGuard(user.id);
+  if (blocked) return blocked;
+
+  const parsed = adminUserIdSchema.safeParse({
+    userId: formData.get('userId'),
+    currentPassword: formData.get('currentPassword'),
+  });
+  if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
+
+  const admin = await prisma.admin.findUnique({ where: { id: user.id } });
+  if (!admin) return { ok: false, message: 'Account not found.' };
+
+  if (!(await verifyPassword(parsed.data.currentPassword, admin.passwordHash))) {
+    return { ok: false, errors: { currentPassword: 'Incorrect password.' } };
+  }
+
+  const userId = Number(parsed.data.userId);
+
+  const taken = await prisma.admin.findFirst({ where: { userId, NOT: { id: admin.id } } });
+  if (taken) return { ok: false, errors: { userId: 'That User ID is already in use.' } };
+
+  await prisma.admin.update({ where: { id: admin.id }, data: { userId } });
+
+  // The Settings card names the current id, so dropping the cached entry is
+  // enough for the new one to appear. No sign-out: the session token carries
+  // the account's internal id, not this, so it is unaffected.
+  revalidatePath('/admin', 'layout');
+
+  return { ok: true, message: `User ID updated. Sign in with ${userId} from now on.` };
 }
 
 /** Change the administrator password (section 24). */

@@ -119,6 +119,33 @@ export const adminEmailSchema = z.object({
   currentPassword: z.string().min(1, 'Current password is required'),
 });
 
+/**
+ * Changing the User ID that signs in alongside the email address.
+ *
+ * Guarded by the current password, exactly as changing the email is: this
+ * alters how the account is reached, so it belongs behind the same door.
+ */
+export const adminUserIdSchema = z.object({
+  userId: z
+    .string()
+    .trim()
+    .min(1, 'Enter a User ID')
+    /*
+     * Nine digits, because the column is a Postgres INTEGER and stops at
+     * 2147483647. Without this the form would accept a longer number and the
+     * database would reject it, turning a clear message into a server error.
+     */
+    .max(9, 'Use at most 9 digits')
+    .refine((value) => IDENTIFIER_IS_USER_ID.test(value), 'Use digits only')
+    /*
+     * `01975` is stored as the number 1975, so the page would afterwards show
+     * something other than what was typed. Refusing is kinder than silently
+     * changing it.
+     */
+    .refine((value) => !value.startsWith('0'), 'Do not start with a zero'),
+  currentPassword: z.string().min(1, 'Current password is required'),
+});
+
 export const adminPasswordSchema = z
   .object({
     currentPassword: z.string().min(1, 'Current password is required'),

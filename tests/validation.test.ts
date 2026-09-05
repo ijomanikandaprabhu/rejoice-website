@@ -4,6 +4,7 @@ import { parseChannelUrl, parseIsoDuration } from '@/services/youtube/youtubeCli
 import { rateLimit, resetRateLimit } from '@/lib/utils/rateLimit';
 import {
   adminPasswordSchema,
+  adminUserIdSchema,
   contactSchema,
   loginSchema,
   updateVideoSchema,
@@ -107,6 +108,47 @@ describe('updateVideoSchema', () => {
   it('keeps a real override', () => {
     const result = updateVideoSchema.parse({ ...base, displayTitle: 'New Worship Release 2026' });
     expect(result.displayTitle).toBe('New Worship Release 2026');
+  });
+});
+
+/*
+ * Changing the sign-in User ID. Guarded by the current password, like the email
+ * change — this alters how the account is reached.
+ */
+describe('adminUserIdSchema', () => {
+  const check = (userId: string) =>
+    adminUserIdSchema.safeParse({ userId, currentPassword: 'the-current-password' });
+
+  it('accepts a short id', () => {
+    expect(check('1975').success).toBe(true);
+  });
+
+  it('accepts nine digits, the most a Postgres INTEGER holds', () => {
+    expect(check('999999999').success).toBe(true);
+  });
+
+  it('rejects ten digits rather than letting the database reject them', () => {
+    expect(check('1234567890').success).toBe(false);
+  });
+
+  /*
+   * `01975` is stored as the number 1975, so accepting it would show the
+   * administrator something other than what they typed.
+   */
+  it('rejects a leading zero', () => {
+    expect(check('01975').success).toBe(false);
+  });
+
+  for (const value of ['', '   ', 'abc', '19 75', '19-75', '1975a', '-1975']) {
+    it(`rejects ${JSON.stringify(value)}`, () => {
+      expect(check(value).success).toBe(false);
+    });
+  }
+
+  it('requires the current password', () => {
+    expect(adminUserIdSchema.safeParse({ userId: '1975', currentPassword: '' }).success).toBe(
+      false,
+    );
   });
 });
 

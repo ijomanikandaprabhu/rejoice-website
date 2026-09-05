@@ -20,7 +20,11 @@ import {
   isYouTubeConfigured,
   youtubeConfig,
 } from '@/config/youtube.config';
-import { changeEmailAction, changePasswordAction } from '@/features/auth/actions';
+import {
+  changeEmailAction,
+  changePasswordAction,
+  changeUserIdAction,
+} from '@/features/auth/actions';
 import {
   disconnectYouTubeAnalyticsAction,
   saveCarouselSettingsAction,
@@ -528,31 +532,75 @@ export default async function SettingsPage({
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-8 lg:grid-cols-2">
-          <ActionForm action={changeEmailAction}>
-            <h3 className="text-sm font-semibold">Change email</h3>
+          {/*
+            * The two identifier forms share the first column so that the
+            * password form keeps the second. Three children in a two-column
+            * grid would leave one stranded on a row of its own.
+            */}
+          <div className="grid gap-8">
+            <ActionForm action={changeEmailAction}>
+              <h3 className="text-sm font-semibold">Change email</h3>
 
-            <Field label="New email address" htmlFor="new-email">
-              <Input
-                id="new-email"
-                name="email"
-                type="email"
-                defaultValue={adminEmail}
-              />
-              <FieldError name="email" />
-            </Field>
+              <Field label="New email address" htmlFor="new-email">
+                <Input
+                  id="new-email"
+                  name="email"
+                  type="email"
+                  defaultValue={adminEmail}
+                />
+                <FieldError name="email" />
+              </Field>
 
-            <Field label="Current password" htmlFor="email-password">
-              <Input
-                id="email-password"
-                name="currentPassword"
-                type="password"
-                autoComplete="current-password"
-              />
-              <FieldError name="currentPassword" />
-            </Field>
+              <Field label="Current password" htmlFor="email-password">
+                <Input
+                  id="email-password"
+                  name="currentPassword"
+                  type="password"
+                  autoComplete="current-password"
+                />
+                <FieldError name="currentPassword" />
+              </Field>
 
-            <SubmitButton variant="outline">Update email</SubmitButton>
-          </ActionForm>
+              <SubmitButton variant="outline">Update email</SubmitButton>
+            </ActionForm>
+
+            <ActionForm action={changeUserIdAction}>
+              <h3 className="text-sm font-semibold">Change User ID</h3>
+
+              <Field
+                label="New User ID"
+                htmlFor="new-user-id"
+                hint="Digits only. Your email address always signs in as well, so this is a shortcut rather than a replacement."
+              >
+                {/*
+                  * `inputMode="numeric"` raises the number pad on a phone,
+                  * which is where a short id earns its keep. Not
+                  * `type="number"`: that adds spinner arrows and lets a scroll
+                  * wheel change the value by accident.
+                  */}
+                <Input
+                  id="new-user-id"
+                  name="userId"
+                  type="text"
+                  inputMode="numeric"
+                  defaultValue={adminUserId ?? ''}
+                />
+                <FieldError name="userId" />
+              </Field>
+
+              <Field label="Current password" htmlFor="user-id-password">
+                <Input
+                  id="user-id-password"
+                  name="currentPassword"
+                  type="password"
+                  autoComplete="current-password"
+                />
+                <FieldError name="currentPassword" />
+              </Field>
+
+              <SubmitButton variant="outline">Update User ID</SubmitButton>
+            </ActionForm>
+          </div>
 
           <ActionForm action={changePasswordAction}>
             <h3 className="text-sm font-semibold">Change password</h3>
