@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { CatalogueChart } from '@/components/admin/CatalogueChart';
 import { ChannelBreakdown } from '@/components/admin/ChannelBreakdown';
 import { GrowthChart } from '@/components/admin/GrowthChart';
-import { NeedsAttention } from '@/components/admin/NeedsAttention';
 import { ListRow, Panel, PanelHeader, Pill, StatPanel } from '@/components/admin/Panels';
 import { QuerySelect } from '@/components/admin/QuerySelect';
 import { QuickFilters } from '@/components/admin/QuickFilters';
@@ -18,7 +17,6 @@ import {
   getCatalogueTotals,
   getChannelBreakdown,
   getGrowthSeries,
-  getNeedsAttention,
   getTopVideos,
 } from '@/features/dashboard/queries';
 import { prisma } from '@/lib/db/prisma';
@@ -71,7 +69,6 @@ export default async function AdminDashboard({
     growth,
     channels,
     topVideos,
-    attention,
     lastSync,
     analytics,
     recent,
@@ -84,7 +81,6 @@ export default async function AdminDashboard({
       // the page is being narrowed against. It also doubles as the way back.
       getChannelBreakdown(),
       getTopVideos(8, scope),
-      getNeedsAttention(scope),
       getLastSyncRecord(),
       // Scoped: a token speaks for one channel, so the report has to be
             // asked for by channel. `All channels` has no single answer, so it
@@ -309,8 +305,15 @@ export default async function AdminDashboard({
 
       <QuickFilters />
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Panel className="lg:col-span-2">
+      {/*
+       * Views over time, full width.
+       *
+       * It shared a three-column row with a "Needs attention" work queue,
+       * which was removed. Left as `lg:col-span-2` the chart would keep
+       * two-thirds of the row and leave a third of it empty.
+       */}
+      <div>
+        <Panel>
           <PanelHeader
             title="Views over time"
             caption={
@@ -322,11 +325,6 @@ export default async function AdminDashboard({
             }
           />
           <GrowthChart data={growth} />
-        </Panel>
-
-        <Panel>
-          <PanelHeader title="Needs attention" caption="Everything waiting on a decision." />
-          <NeedsAttention items={attention} />
         </Panel>
       </div>
 

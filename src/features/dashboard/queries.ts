@@ -239,55 +239,6 @@ export async function getTopVideos(take = 8, channelId?: ChannelScope): Promise<
   }));
 }
 
-export type AttentionItem = {
-  label: string;
-  count: number;
-  href: string;
-};
-
-/**
- * The dashboard as a work queue.
- *
- * Each row is a real, actionable backlog with a link that lands on exactly
- * those records — not a statistic. Rows with a count of zero are dropped by the
- * caller so the panel shrinks to nothing when there is nothing to do.
- */
-export async function getNeedsAttention(channelId?: ChannelScope): Promise<AttentionItem[]> {
-  const only = scope(channelId);
-
-  const [popularHidden, missingSeo, failedChannels] = await Promise.all([
-    // Hidden despite being among the most-watched: the most likely oversight
-    // in a catalogue where new uploads arrive hidden by default.
-    prisma.youTubeVideo.count({
-      where: { isVisible: false, viewCount: { gte: 10_000 }, ...only },
-    }),
-    prisma.youTubeVideo.count({
-      where: {
-        AND: [publiclyVisible, only, { OR: [{ seoTitle: null }, { seoDescription: null }] }],
-      },
-    }),
-    // Scoped too, so a healthy channel shows no row rather than pointing at
-    // another channel's failure.
-    prisma.youTubeChannel.count({
-      where: { lastSyncError: { not: null }, ...(channelId ? { id: channelId } : {}) },
-    }),
-  ]);
-
-  return [
-    {
-      label: 'Popular but hidden',
-      count: popularHidden,
-      href: '/admin/youtube-content?filter=hidden',
-    },
-    {
-      label: 'Public, missing SEO text',
-      count: missingSeo,
-      href: '/admin/youtube-content?filter=visible',
-    },
-    { label: 'Channels with a sync error', count: failedChannels, href: '/admin/youtube-channels' },
-  ];
-}
-
 export type GrowthPoint = { date: string; views: number; subscribers: number };
 
 /**
