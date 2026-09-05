@@ -81,6 +81,10 @@ export const pageSizes = {
   music: 12,
   /** Dedicated channel page: three columns by ten rows. */
   channel: 30,
+  /** The newest songs shown on /songs, above the "View all" link. */
+  songsPreview: 30,
+  /** The full listing at /songs/all. */
+  songsAll: 60,
   adminVideos: 25,
   adminSongs: 25,
   adminEnquiries: 25,

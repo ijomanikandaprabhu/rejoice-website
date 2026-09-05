@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { CtaPanel } from '@/components/site/CtaPanel';
 import { SongGrid } from '@/components/site/SongGrid';
 import { ctaPanels, musicPage } from '@/config/content.config';
-import { listPublicSongs } from '@/features/songs/queries';
+import { pageSizes } from '@/config/app.config';
+import { listPublicSongsPage } from '@/features/songs/queries';
 import { buildMetadata } from '@/lib/seo';
 
 export const revalidate = 300;
@@ -28,7 +29,13 @@ export const metadata = buildMetadata({
  * The hero is unchanged; only the section below it is new.
  */
 export default async function MusicPage() {
-  const songs = await listPublicSongs();
+  /*
+   * The newest thirty, not everything. Drawing the whole catalogue here would
+   * grow this page without limit and give no way to find anything — that is
+   * what /songs/all is for, and the link below only appears once there is more
+   * to see than this.
+   */
+  const { rows: songs, total } = await listPublicSongsPage({ take: pageSizes.songsPreview });
 
   return (
     <>
@@ -157,6 +164,14 @@ export default async function MusicPage() {
             <SongGrid songs={songs} />
           )}
         </div>
+
+        {total > songs.length ? (
+          <div className="mt-10">
+            <Link href="/songs/all" className="btn-primary">
+              View all {total.toLocaleString()} songs
+            </Link>
+          </div>
+        ) : null}
 
         <div className="mt-12 max-w-2xl">
           <p className="text-body leading-[1.7] text-site-fg">{musicPage.closing}</p>

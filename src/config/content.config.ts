@@ -685,7 +685,7 @@ export const musicPage = {
   eyebrow: 'Listen to Rejoice',
   heading: 'Your Favourite Songs. Your Favourite Platform.',
   text: 'Listen to Rejoice Gospel Communications wherever you enjoy music. Choose your preferred platform below and continue listening there.',
-  gridHeading: 'Available On',
-  closing: 'Choose a platform and continue your journey with Rejoice.',
+  gridHeading: 'Latest Releases',
+  closing: 'Open any release to find it on your platform of choice.',
   line: 'Songs that inspire faith, bring hope, and give every heart a reason to Rejoice.',
 } as const;

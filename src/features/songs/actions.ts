@@ -231,12 +231,25 @@ function linksFrom(formData: FormData) {
   return { rows, errors };
 }
 
+/**
+ * Addresses under /songs that are pages, not songs.
+ *
+ * A song called "All" slugs to `all`, and Next gives a static route segment
+ * priority over a dynamic one — so `/songs/all` would serve the listing page
+ * and that song would have no reachable address at all. Refusing the word here
+ * costs one suffix; discovering it later means a song that silently cannot be
+ * opened.
+ */
+const RESERVED_SLUGS = new Set(['all']);
+
 /** A slug that is not already taken, without silently overwriting a song. */
 async function uniqueSlug(title: string, exceptId?: string): Promise<string> {
   const base = slugify(title) || 'song';
 
   for (let attempt = 0; attempt < 50; attempt++) {
     const slug = attempt === 0 ? base : `${base}-${attempt + 1}`;
+    if (RESERVED_SLUGS.has(slug)) continue;
+
     const taken = await prisma.song.findFirst({
       where: { slug, ...(exceptId ? { NOT: { id: exceptId } } : {}) },
       select: { id: true },

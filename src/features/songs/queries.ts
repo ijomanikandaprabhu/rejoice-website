@@ -99,7 +99,57 @@ export async function listSongsForAdmin({
   return { rows, total };
 }
 
-/** The public list: visible songs only. */
+/**
+ * One page of visible songs, searchable — the public counterpart to
+ * `listSongsForAdmin`.
+ *
+ * `q` matches the title or the artist, and the count comes back with the rows
+ * so the page can size its pagination from the database rather than from what
+ * it happens to be holding.
+ */
+export async function listPublicSongsPage({
+  q,
+  skip = 0,
+  take = 60,
+}: {
+  q?: string;
+  skip?: number;
+  take?: number;
+}) {
+  const search = q?.trim();
+
+  const where = {
+    isVisible: true,
+    ...(search
+      ? {
+          OR: [
+            { title: { contains: search, mode: 'insensitive' as const } },
+            { artist: { contains: search, mode: 'insensitive' as const } },
+          ],
+        }
+      : {}),
+  };
+
+  const [rows, total] = await Promise.all([
+    prisma.song.findMany({
+      where,
+      orderBy: [{ releasedAt: 'desc' }, { createdAt: 'desc' }],
+      skip,
+      take,
+      select: songCard,
+    }),
+    prisma.song.count({ where }),
+  ]);
+
+  return { rows, total };
+}
+
+/**
+ * Every visible song.
+ *
+ * Kept unpaged for the SITEMAP, which needs every slug rather than a page.
+ * Pages use `listPublicSongsPage`.
+ */
 export async function listPublicSongs() {
   return prisma.song.findMany({
     where: { isVisible: true },

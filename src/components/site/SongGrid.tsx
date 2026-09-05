@@ -25,7 +25,14 @@ export type SongCard = {
  */
 export function SongGrid({ songs }: { songs: readonly SongCard[] }) {
   return (
-    <ul className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
+    /*
+     * Five across on desktop, not four. The counts then land evenly — 30 fills
+     * exactly six rows and 60 exactly twelve, where four across left the
+     * preview ending on a half row with three gaps beside the last two covers.
+     * `PlatformGrid` already uses five at this breakpoint, so it is a width
+     * this site keeps rather than a new one.
+     */
+    <ul className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-5">
       {songs.map((song) => (
         <li key={song.id}>
           <Link

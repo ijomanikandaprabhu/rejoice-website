@@ -82,6 +82,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
    */
   const songs = await listPublicSongs();
 
+  /*
+   * The full listing. `/songs` is in `publicNav` and each song is added below,
+   * but the page between them is neither — the same trap as /shorts.
+   */
+  pages.push({
+    url: absoluteUrl('/songs/all'),
+    lastModified: now,
+    changeFrequency: 'weekly',
+    priority: 0.6,
+  });
+
   for (const song of songs) {
     pages.push({
       url: absoluteUrl(`/songs/${song.slug}`),

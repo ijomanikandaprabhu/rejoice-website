@@ -1,15 +1,14 @@
 'use client';
 
-import { Search, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import * as React from 'react';
 
 import { YouTubeIcon } from '@/components/common/YouTubeIcon';
 import { ChannelDetailsDialog } from '@/components/site/ChannelDetailsDialog';
 import { Pagination } from '@/components/site/Pagination';
 import { BackButton, EmptyPanel } from '@/components/site/Section';
+import { SiteSearchField } from '@/components/site/SiteSearchField';
 import { VideoTile } from '@/components/site/VideoTile';
 import type { VideoCardData } from '@/features/youtube/queries';
 import { cn } from '@/lib/utils';
@@ -61,9 +60,6 @@ type Props = {
  * page 12 of the previous query means nothing for the new one.
  */
 
-/** Pause after typing stops before the URL is rewritten. */
-const SEARCH_DEBOUNCE_MS = 350;
-
 export function ChannelPageBody({
   channel,
   slug,
@@ -73,49 +69,8 @@ export function ChannelPageBody({
   page,
   pageCount,
 }: Props) {
-  const router = useRouter();
-  const inputRef = React.useRef<HTMLInputElement>(null);
-
-  /*
-   * The box is local so typing stays instant; the URL is the source of truth
-   * and catches up after the debounce. `applied` tracks what the URL already
-   * says so we never navigate to where we already are.
-   */
-  const [value, setValue] = React.useState(query);
-  const applied = React.useRef(query);
-
-  // The URL can change from elsewhere — Clear, or a paginated link. Follow it.
-  React.useEffect(() => {
-    applied.current = query;
-    setValue(query);
-  }, [query]);
-
-  const push = React.useCallback(
-    (next: string) => {
-      if (next === applied.current) return;
-      applied.current = next;
-      const params = new URLSearchParams();
-      if (next) params.set('q', next);
-      // `page` deliberately dropped: a new query has its own page count.
-      const qs = params.toString();
-      router.replace(`/creations/${slug}${qs ? `?${qs}` : ''}`, { scroll: false });
-    },
-    [router, slug],
-  );
-
-  React.useEffect(() => {
-    const timer = setTimeout(() => push(value.trim()), SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [value, push]);
-
   const searching = query.length > 0;
   const results = videos;
-
-  const clear = () => {
-    setValue('');
-    push('');
-    inputRef.current?.focus();
-  };
 
   return (
     <>
@@ -169,46 +124,15 @@ export function ChannelPageBody({
             WITH a label, since there it stands alone. */}
         <BackButton href="/creations" ariaLabel="Back to creations" className="order-1 lg:order-1" />
 
-        <div className="relative order-3 w-full lg:order-2 lg:max-w-xl lg:flex-1">
-          <label htmlFor="channel-search" className="sr-only">
-            Search this channel
-          </label>
-          <Search
-            aria-hidden="true"
-            className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-site-muted"
-          />
-          <input
-            id="channel-search"
-            ref={inputRef}
-            type="search"
-            value={value}
-            onChange={(event) => setValue(event.target.value)}
-            placeholder="Search this channel"
-            // Tells a screen reader which region updates as the value changes.
-            aria-controls="channel-results"
-            className={cn(
-              'h-11 w-full rounded-pill border border-white/10 bg-site-surface pl-11 pr-11 text-sm text-site-fg',
-              // Focus is a soft accent edge with a diffuse warm glow. A full-strength
-              // border AND a 1px accent ring used to stack here — two solid orange
-              // lines with no gap between them, which read as one thick stroke.
-              // The global `body :focus-visible` outline is untouched, so keyboard
-              // focus still gets the site's standard indicator.
-              'placeholder:text-site-muted focus:border-site-accent/60 focus:shadow-[0_0_0_4px_rgba(255,109,41,0.12)] focus:outline-none',
-              // The browser's own search clear button would sit beside ours.
-              '[&::-webkit-search-cancel-button]:hidden',
-            )}
-          />
-          {value.length > 0 ? (
-            <button
-              type="button"
-              onClick={clear}
-              className="absolute right-3 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-pill text-site-muted transition-colors hover:text-site-fg"
-            >
-              <X aria-hidden="true" className="size-4" />
-              <span className="sr-only">Clear search</span>
-            </button>
-          ) : null}
-        </div>
+        <SiteSearchField
+          id="channel-search"
+          query={query}
+          basePath={`/creations/${slug}`}
+          label="Search this channel"
+          placeholder="Search this channel"
+          controls="channel-results"
+          className="order-3 w-full lg:order-2 lg:max-w-xl lg:flex-1"
+        />
 
         {/* One main action and one secondary, rather than two identical
             outlines: `btn-primary` is the filled accent, so the outbound link
@@ -242,13 +166,17 @@ export function ChannelPageBody({
           searching ? (
             <p className="py-10 text-center text-sm text-site-muted">
               Nothing matches that.{' '}
-              <button
-                type="button"
-                onClick={clear}
+              {/*
+                * A link rather than a button now that the search box owns its
+                * own state: navigating to the page without `?q=` IS clearing
+                * the search, and the box follows the URL.
+                */}
+              <Link
+                href={`/creations/${slug}`}
                 className="text-site-accent underline underline-offset-4"
               >
                 Clear the search
-              </button>{' '}
+              </Link>{' '}
               to see everything.
             </p>
           ) : (
