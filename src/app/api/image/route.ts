@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { AVATAR_SIZES, VIDEO_VARIANTS } from '@/lib/images/youtubeLoader';
+import { ACCEPTED_VARIANTS, AVATAR_SIZES } from '@/lib/images/youtubeLoader';
 import { rateLimit } from '@/lib/utils/rateLimit';
 
 /**
@@ -49,20 +49,26 @@ const ALLOWED_HOSTS = new Set([
  * CDN for a year, which is a few CPU-minutes in total.
  */
 const VIDEO_ID = /^[\w-]{11}$/;
-const VARIANT_NAMES = new Set(VIDEO_VARIANTS.map((v) => v.name));
+const VARIANT_NAMES = new Set(ACCEPTED_VARIANTS);
 
 /** `=s176-c-k-...`, the size segment `youtubeLoader` rewrites on an avatar. */
 const AVATAR_SIZE_SEGMENT = /=s(\d+)-/;
 
+/**
+ * `/vi/<id>/<variant>.jpg` or `/vi_webp/<id>/<variant>.webp` — exactly three
+ * path segments, a real video id, and a variant name YouTube publishes.
+ */
 function isImageWeServe(target: URL): boolean {
   if (target.hostname === 'i.ytimg.com') {
-    // /vi/<id>/<variant>.jpg — exactly three segments, nothing else.
     const parts = target.pathname.split('/');
-    if (parts.length !== 4 || parts[0] !== '' || parts[1] !== 'vi') return false;
+    if (parts.length !== 4 || parts[0] !== '') return false;
 
-    const [, , id, file] = parts;
-    if (!VIDEO_ID.test(id) || !file.endsWith('.jpg')) return false;
-    return VARIANT_NAMES.has(file.slice(0, -'.jpg'.length));
+    const [, dir, id, file] = parts;
+    if (!VIDEO_ID.test(id)) return false;
+
+    const extension = dir === 'vi_webp' ? '.webp' : dir === 'vi' ? '.jpg' : null;
+    if (extension === null || !file.endsWith(extension)) return false;
+    return VARIANT_NAMES.has(file.slice(0, -extension.length));
   }
 
   // A channel avatar, which must carry a size this loader would have asked for.
@@ -97,6 +103,38 @@ const RATE_LIMIT = { requests: 300, windowMs: 60_000 };
  */
 const CACHE_CONTROL = 'public, max-age=31536000, s-maxage=31536000, immutable';
 
+/** One upstream request, carrying nothing about the visitor it is made for. */
+function fetchOnce(target: URL) {
+  return fetch(target, {
+    // No cookies, no referrer: this request must carry nothing about the
+    // visitor it is being made for.
+    credentials: 'omit',
+    referrerPolicy: 'no-referrer',
+    headers: { accept: 'image/*' },
+    cache: 'force-cache',
+  }).catch(() => null);
+}
+
+/**
+ * Fetch the image, falling back from the WebP copy to the JPEG.
+ *
+ * The loader asks for `vi_webp` because it is about half the size, but YouTube
+ * has not generated one for every video — older uploads in particular. Without
+ * this fallback those would render as broken images, which is exactly the
+ * failure this whole route was built to end.
+ *
+ * The second request only ever happens on the miss, and the answer is then
+ * cached for a year like any other.
+ */
+async function fetchImage(target: URL): Promise<Response | null> {
+  const first = await fetchOnce(target);
+  if (first?.ok || target.pathname.split('/')[1] !== 'vi_webp') return first;
+
+  const [, , id, file] = target.pathname.split('/');
+  const jpeg = new URL(`https://i.ytimg.com/vi/${id}/${file.replace(/\.webp$/, '.jpg')}`);
+  return fetchOnce(jpeg);
+}
+
 export async function GET(request: Request) {
   const raw = new URL(request.url).searchParams.get('u');
   if (!raw) return new NextResponse('Missing image', { status: 400 });
@@ -129,14 +167,7 @@ export async function GET(request: Request) {
     });
   }
 
-  const upstream = await fetch(target, {
-    // No cookies, no referrer: this request must carry nothing about the
-    // visitor it is being made for.
-    credentials: 'omit',
-    referrerPolicy: 'no-referrer',
-    headers: { accept: 'image/*' },
-    cache: 'force-cache',
-  }).catch(() => null);
+  const upstream = await fetchImage(target);
 
   if (!upstream?.ok) {
     /*

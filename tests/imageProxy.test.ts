@@ -14,7 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  *     metered function time this whole change was made to protect.
  */
 
-import loader, { AVATAR_SIZES, VIDEO_VARIANTS } from '@/lib/images/youtubeLoader';
+import loader, { ACCEPTED_VARIANTS, AVATAR_SIZES, VIDEO_VARIANTS } from '@/lib/images/youtubeLoader';
 import { resetRateLimit } from '@/lib/utils/rateLimit';
 
 const { GET } = await import('@/app/api/image/route');
@@ -61,7 +61,9 @@ describe('the loader and the route agree', () => {
   it('accepts every thumbnail variant the loader can ask for', async () => {
     for (const variant of VIDEO_VARIANTS) {
       const target = targetFor(THUMBNAIL, variant.width);
-      expect(target, `width ${variant.width}`).toContain(`/${variant.name}.jpg`);
+      // The extension depends on whether a WebP copy is asked for; the variant
+      // name is the part that must survive.
+      expect(target, `width ${variant.width}`).toContain(`/${variant.name}.`);
       expect((await call(target)).status, target).toBe(200);
     }
   });
@@ -71,6 +73,26 @@ describe('the loader and the route agree', () => {
       const target = targetFor(AVATAR, size);
       expect(target, `size ${size}`).toContain(`=s${size}-`);
       expect((await call(target)).status, target).toBe(200);
+    }
+  });
+
+  /*
+   * The bug this guards against: `hqdefault` is 480x360 \u2014 4:3, with black bars
+   * baked into the picture \u2014 and the site frames thumbnails in 16:9 boxes.
+   * Offering it put dark pillars down both sides of every card in the
+   * coverflow carousel.
+   */
+  it('never asks for a 4:3 variant, whatever width is requested', () => {
+    for (let width = 16; width <= 4000; width += 16) {
+      const emitted = loader({ src: THUMBNAIL, width });
+      expect(emitted, `width ${width}`).not.toMatch(/hqdefault|sddefault|\/default\.jpg/);
+    }
+  });
+
+  it('still serves the 4:3 variants a stale page may already reference', async () => {
+    for (const name of ACCEPTED_VARIANTS) {
+      const target = `https://i.ytimg.com/vi/0Qj2AIw8o3E/${name}.jpg`;
+      expect((await call(target)).status, name).toBe(200);
     }
   });
 
@@ -84,7 +106,10 @@ describe('the route refuses everything else, without fetching', () => {
     ['another host entirely', 'https://evil.example.com/x.jpg'],
     ['a lookalike host', 'https://i.ytimg.com.evil.example.com/vi/0Qj2AIw8o3E/hqdefault.jpg'],
     ['plain http', 'http://i.ytimg.com/vi/0Qj2AIw8o3E/hqdefault.jpg'],
-    ['a variant name we never ask for', 'https://i.ytimg.com/vi/0Qj2AIw8o3E/oardefault.jpg'],
+    ['a variant name YouTube does not publish', 'https://i.ytimg.com/vi/0Qj2AIw8o3E/oardefault.jpg'],
+    ['a webp under the jpeg directory', 'https://i.ytimg.com/vi/0Qj2AIw8o3E/maxresdefault.webp'],
+    ['a jpeg under the webp directory', 'https://i.ytimg.com/vi_webp/0Qj2AIw8o3E/maxresdefault.jpg'],
+    ['an invented directory', 'https://i.ytimg.com/vi_raw/0Qj2AIw8o3E/maxresdefault.jpg'],
     ['an id of the wrong length', 'https://i.ytimg.com/vi/0Qj2AIw8o3/hqdefault.jpg'],
     ['a deeper path', 'https://i.ytimg.com/vi/0Qj2AIw8o3E/extra/hqdefault.jpg'],
     ['path traversal', 'https://i.ytimg.com/vi/0Qj2AIw8o3E/../../etc/passwd'],
@@ -137,5 +162,42 @@ describe('the route protects itself from a flood', () => {
     );
 
     expect((await call(targetFor(THUMBNAIL, 480))).status).toBe(502);
+  });
+});
+
+/*
+ * WebP halves the bytes — 135KB becomes 68KB on this catalogue — but YouTube
+ * has not generated one for every video, and a miss must not become a broken
+ * image on the page.
+ */
+describe('the WebP copy, and what happens when there is not one', () => {
+  it('asks for WebP at the large size and plain JPEG at the small one', () => {
+    expect(loader({ src: THUMBNAIL, width: 1280 })).toContain('vi_webp');
+    expect(loader({ src: THUMBNAIL, width: 1280 })).toContain('.webp');
+    // mqdefault's WebP is BIGGER than its JPEG, so it stays a JPEG.
+    expect(loader({ src: THUMBNAIL, width: 320 })).toContain('mqdefault.jpg');
+  });
+
+  it('falls back to the JPEG when the WebP is missing', async () => {
+    vi.stubGlobal('fetch', async (input: URL | string) => {
+      const url = String(input);
+      fetched.push(url);
+      if (url.includes('vi_webp')) return new Response('nope', { status: 404 });
+      return new Response(new Uint8Array([1]), {
+        status: 200,
+        headers: { 'content-type': 'image/jpeg' },
+      });
+    });
+
+    const response = await call(targetFor(THUMBNAIL, 1280));
+
+    expect(response.status).toBe(200);
+    expect(fetched[0]).toContain('vi_webp');
+    expect(fetched[1]).toContain('/vi/0Qj2AIw8o3E/maxresdefault.jpg');
+  });
+
+  it('does not make a second request when the WebP is there', async () => {
+    await call(targetFor(THUMBNAIL, 1280));
+    expect(fetched).toHaveLength(1);
   });
 });

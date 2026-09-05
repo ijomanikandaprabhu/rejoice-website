@@ -422,9 +422,14 @@ export function CoverflowCarousel({
               >
                 {/*
                  * `object-contain`, not cover: the whole thumbnail has to be
-                 * visible. For a standard 16:9 maxresdefault in a 16:9 box the
-                 * two are identical — no bars — but the occasional 4:3
-                 * `sddefault` would have its top and bottom cropped by cover.
+                 * visible, and a video that is not 16:9 must not have its top
+                 * and bottom cropped away.
+                 *
+                 * This depends on the image ARRIVING as 16:9, which is why
+                 * `youtubeLoader` only ever asks for the 16:9 variants. When it
+                 * briefly offered 4:3 sizes as well, every card here gained
+                 * dark pillars — `contain` was doing its job, on the wrong
+                 * shape of file.
                  */}
                 <Image
                   src={slide.src}

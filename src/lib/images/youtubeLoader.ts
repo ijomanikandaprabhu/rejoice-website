@@ -23,18 +23,43 @@
  */
 
 /**
- * Thumbnail variants YouTube publishes, smallest first, with their widths.
+ * Thumbnail variants this loader will ask for, smallest first.
  *
- * Exported because `/api/image` validates against exactly these names. Two
- * copies of the list would drift, and the drift would show up as images that
- * silently stop loading.
+ * ONLY THE 16:9 ONES. YouTube publishes five sizes but they are not all the
+ * same shape: `default` (120x90), `hqdefault` (480x360) and `sddefault`
+ * (640x480) are 4:3, with black bars baked into the picture, while
+ * `mqdefault` (320x180) and `maxresdefault` (1280x720) are true 16:9.
+ *
+ * The site frames thumbnails in 16:9 boxes, so a 4:3 file arrives with bars
+ * down each side. That is exactly what happened when this loader first
+ * shipped: cards in the coverflow carousel picked up `hqdefault` and every one
+ * of them gained dark pillars. Mixing shapes in one list looks like a size
+ * choice and is really a cropping decision, so the 4:3 sizes are simply not
+ * offered.
+ *
+ * Exported because `/api/image` needs to know what a legitimate request looks
+ * like; two copies of this list would drift.
  */
 export const VIDEO_VARIANTS: ReadonlyArray<{ name: string; width: number }> = [
-  { name: 'default', width: 120 },
   { name: 'mqdefault', width: 320 },
-  { name: 'hqdefault', width: 480 },
-  { name: 'sddefault', width: 640 },
   { name: 'maxresdefault', width: 1280 },
+];
+
+/**
+ * Every variant name YouTube publishes — what the route ACCEPTS, as opposed to
+ * what this loader asks for.
+ *
+ * Wider than the list above on purpose. A browser holding a page from before
+ * the 4:3 sizes were dropped still asks for them, and refusing those would
+ * turn a stale tab into a wall of broken images. They are all real YouTube
+ * addresses; serving one is harmless.
+ */
+export const ACCEPTED_VARIANTS: readonly string[] = [
+  'default',
+  'mqdefault',
+  'hqdefault',
+  'sddefault',
+  'maxresdefault',
 ];
 
 /**
@@ -70,6 +95,20 @@ function avatarSize(width: number): number {
   return AVATAR_SIZES[AVATAR_SIZES.length - 1];
 }
 
+/**
+ * YouTube publishes a WebP copy of the large thumbnail alongside the JPEG, and
+ * it is roughly half the size — measured on this catalogue, 135KB becomes 68KB
+ * and 91KB becomes 37KB. Worth having, because without Vercel's optimizer
+ * nothing else is compressing these.
+ *
+ * Only for the large variant. `mqdefault` is already tiny and its WebP is
+ * actually BIGGER (9KB against 10.5KB), so asking for it would cost bytes.
+ *
+ * Not every video has one, so `/api/image` falls back to the JPEG when the
+ * WebP is missing rather than showing a broken image.
+ */
+const WEBP_VARIANTS = new Set(['maxresdefault']);
+
 export default function youtubeImageLoader({ src, width }: { src: string; width: number }): string {
   // Files served from this site already — logos, artwork in /public. They are
   // small and static, so they are returned untouched rather than proxied.
@@ -79,7 +118,10 @@ export default function youtubeImageLoader({ src, width }: { src: string; width:
 
   const video = VIDEO_THUMBNAIL.exec(src);
   if (video) {
-    target = `https://i.ytimg.com/vi/${video[1]}/${variantFor(width)}.jpg`;
+    const variant = variantFor(width);
+    target = WEBP_VARIANTS.has(variant)
+      ? `https://i.ytimg.com/vi_webp/${video[1]}/${variant}.webp`
+      : `https://i.ytimg.com/vi/${video[1]}/${variant}.jpg`;
   } else if (AVATAR_SIZE.test(src)) {
     target = src.replace(AVATAR_SIZE, `=s${avatarSize(width)}-`);
   }
