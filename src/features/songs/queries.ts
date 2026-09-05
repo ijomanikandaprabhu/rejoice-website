@@ -45,22 +45,58 @@ const songCard = {
   artist: true,
   releasedAt: true,
   isVisible: true,
-  thumbId: true,
   coverId: true,
 } as const;
 
-/** Every song, newest release first, for the admin list. */
-export async function listSongsForAdmin() {
-  return prisma.song.findMany({
-    orderBy: [{ releasedAt: 'desc' }, { createdAt: 'desc' }],
-    select: {
-      ...songCard,
-      description: true,
-      links: {
-        select: { id: true, url: true, platform: { select: { id: true, name: true } } },
+/**
+ * One page of songs for the admin table, plus the total.
+ *
+ * PAGED, emphatically. This used to return every row, which was fine for the
+ * handful added so far and would have fetched thousands once the catalogue went
+ * in — the page would have loaded every cover id, every link and every title on
+ * every visit.
+ *
+ * `q` matches the title or the artist. It is a `contains` scan, as the video
+ * table's search is: at a few thousand rows that is quick, and if it ever stops
+ * being quick the answer is an index, not a different screen.
+ */
+export async function listSongsForAdmin({
+  q,
+  skip = 0,
+  take = 25,
+}: {
+  q?: string;
+  skip?: number;
+  take?: number;
+}) {
+  const search = q?.trim();
+
+  const where = search
+    ? {
+        OR: [
+          { title: { contains: search, mode: 'insensitive' as const } },
+          { artist: { contains: search, mode: 'insensitive' as const } },
+        ],
+      }
+    : {};
+
+  const [rows, total] = await Promise.all([
+    prisma.song.findMany({
+      where,
+      orderBy: [{ releasedAt: 'desc' }, { createdAt: 'desc' }],
+      skip,
+      take,
+      select: {
+        ...songCard,
+        // Only the count is drawn in the table, so the links themselves are not
+        // fetched — 25 rows would otherwise pull every URL on the page.
+        _count: { select: { links: true } },
       },
-    },
-  });
+    }),
+    prisma.song.count({ where }),
+  ]);
+
+  return { rows, total };
 }
 
 /** The public list: visible songs only. */

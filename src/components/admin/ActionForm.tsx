@@ -98,11 +98,21 @@ export function ActionForm({
   confirm,
   confirmTitle = 'Are you sure?',
   confirmLabel = 'Continue',
+  onSuccess,
 }: {
   action: FormAction;
   children: ReactNode;
   className?: string;
   hiddenFields?: Record<string, string>;
+  /**
+   * Called once, when the action comes back successful. For a form inside a
+   * dialog, which has to close itself afterwards.
+   *
+   * The result is already tracked here for the toast, so this is a handful of
+   * lines; the alternative is a second `useFormState` in every such dialog,
+   * which is how two copies of this logic start.
+   */
+  onSuccess?: () => void;
   /**
    * Guard the submit behind a confirmation dialog. For actions whose effect is
    * larger than the button implies — anything that deletes records the operator
@@ -158,11 +168,15 @@ export function ActionForm({
     }
     if (state.ok) {
       toast.success(state.message);
+      onSuccess?.();
     } else {
       // Failures outlive successes: something the operator has to read and act
       // on should not vanish at the same speed as "Saved".
       toast.error(state.message, { duration: 8000 });
     }
+  // `onSuccess` is deliberately not a dependency: a caller passing an inline
+  // arrow would otherwise re-run this on every render and fire repeatedly.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
   return (

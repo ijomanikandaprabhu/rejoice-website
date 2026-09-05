@@ -9,7 +9,7 @@ export type SongCard = {
   title: string;
   artist: string | null;
   releasedAt: Date | null;
-  thumbId: string;
+  coverId: string;
 };
 
 /**
@@ -19,8 +19,9 @@ export type SongCard = {
  * the card and cropping it to a 16:9 tile would throw away the part people
  * recognise.
  *
- * Uses the stored THUMB, not the full cover: a page of these at 1200px would
- * download several megabytes to draw them at 300.
+ * There is one stored size now — 800px — so the grid draws it into a smaller
+ * box. `sizes` still tells the browser how wide the tile really is, which is
+ * what keeps the layout honest even though only one file exists.
  */
 export function SongGrid({ songs }: { songs: readonly SongCard[] }) {
   return (
@@ -33,7 +34,7 @@ export function SongGrid({ songs }: { songs: readonly SongCard[] }) {
           >
             <span className="block overflow-hidden rounded-[10px]">
               <Image
-                src={mediaUrl(song.thumbId)}
+                src={mediaUrl(song.coverId)}
                 alt={`${song.title} cover art`}
                 width={400}
                 height={400}

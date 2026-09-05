@@ -111,13 +111,21 @@ export async function downscale(file: File, max: number): Promise<Downscaled> {
 }
 
 /**
- * The two sizes a song cover is stored at.
+ * The one size a song cover is stored at.
  *
- * A listing of fifty songs drawing 1200px covers into 400px boxes would
- * download several megabytes to show thumbnails, so the small one exists for
- * the grid and the large one for the song's own page.
+ * It was two — 1200px for the song page and 400px for the grid — until the real
+ * catalogue size came up. At roughly 175KB a song, 5,000 songs is about 854MB
+ * of images against a 512MB database. One 800px cover is about 70KB, which puts
+ * the same catalogue near 350MB and inside the free tier.
+ *
+ * The grid pays for that by drawing an 800px image into a 400px box. On a
+ * retina screen that is exactly right; elsewhere it is a few tens of kilobytes
+ * of waste, which is a far better trade than running out of storage.
+ *
+ * 800 rather than 1200 costs a little sharpness on a large desktop song page
+ * and nothing at all on a phone.
  */
-export const COVER_SIZES = { full: 1200, thumb: 400 } as const;
+export const COVER_SIZE = 800;
 
 /** One size for a platform logo — they are small wherever they appear. */
 export const LOGO_SIZE = 512;

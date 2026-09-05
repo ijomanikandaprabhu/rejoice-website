@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 
 import { requireAdmin } from '@/lib/auth/guard';
 import { absoluteUrl } from '@/lib/seo';
@@ -171,7 +172,18 @@ export async function deletePlatformAction(
 
 /* ------------------------------------------------------------------- songs */
 
-/** Read the repeatable platform/URL rows out of a song form. */
+/**
+ * Read the platform/URL pairs out of a song form.
+ *
+ * The form renders one row per REGISTERED PLATFORM, each carrying its id in a
+ * hidden field beside its URL box, so these two lists line up by position. A
+ * row with an empty URL means "not on this platform" and is simply dropped —
+ * that is what lets the form offer twelve platforms for a song that uses two.
+ *
+ * Errors are keyed by platform id rather than by row number. The rows are
+ * generated from the registry, so a platform removed in another tab would shift
+ * every position after it and pin the message to the wrong line.
+ */
 function linksFrom(formData: FormData) {
   const platformIds = formData.getAll('link.platformId').map(String);
   const urls = formData.getAll('link.url').map(String);
@@ -183,24 +195,18 @@ function linksFrom(formData: FormData) {
   for (const [index, platformId] of platformIds.entries()) {
     const url = (urls[index] ?? '').trim();
 
-    // An untouched row. Not an error — the form always offers a spare.
-    if (!platformId && !url) continue;
-
-    if (!platformId) {
-      errors[`link.${index}.platformId`] = 'Choose a platform, or clear the link.';
-      continue;
-    }
+    if (!url || !platformId) continue;
 
     const parsed = songLinkSchema.safeParse({ platformId, url });
     if (!parsed.success) {
-      errors[`link.${index}.url`] = fieldErrors(parsed.error).url ?? 'Check this link.';
+      errors[`link.${platformId}.url`] = fieldErrors(parsed.error).url ?? 'Check this link.';
       continue;
     }
 
     // The database would reject this too, but a plain sentence beats a
     // constraint violation surfacing as "something went wrong".
     if (seen.has(platformId)) {
-      errors[`link.${index}.platformId`] = 'That platform is already listed for this song.';
+      errors[`link.${platformId}.url`] = 'This platform is listed twice.';
       continue;
     }
 
@@ -244,19 +250,10 @@ export async function addSongAction(_prev: ActionState, formData: FormData): Pro
   if (Object.keys(linkErrors).length > 0) return { ok: false, errors: linkErrors };
 
   const cover = imageFrom(formData, 'cover');
-  const thumb = imageFrom(formData, 'thumb');
-  if (!cover.file || !thumb.file) return { ok: false, errors: { cover: 'Choose a cover image.' } };
+  if (!cover.file) return { ok: false, errors: { cover: 'Choose a cover image.' } };
 
   const storedCover = await storeImage(cover.file, cover.width, cover.height);
   if (typeof storedCover === 'string') return { ok: false, errors: { cover: storedCover } };
-
-  const storedThumb = await storeImage(thumb.file, thumb.width, thumb.height);
-  if (typeof storedThumb === 'string') {
-    // The large one already landed. Drop it rather than leaving an asset no
-    // song points at.
-    await prisma.mediaAsset.delete({ where: { id: storedCover.id } });
-    return { ok: false, errors: { cover: storedThumb } };
-  }
 
   const { title, artist, description, releasedAt } = parsed.data;
 
@@ -270,7 +267,6 @@ export async function addSongAction(_prev: ActionState, formData: FormData): Pro
       // the server's timezone shift it would show the day before in India.
       releasedAt: releasedAt ? new Date(`${releasedAt}T00:00:00Z`) : null,
       coverId: storedCover.id,
-      thumbId: storedThumb.id,
       links: { create: rows },
     },
     select: { id: true, title: true },
@@ -279,7 +275,15 @@ export async function addSongAction(_prev: ActionState, formData: FormData): Pro
   log.info(`Added song ${song.title}`);
   revalidateSongs();
 
-  return { ok: true, message: `${song.title} added.` };
+  /*
+   * Back to the table, where the new row is at the top. `redirect` works by
+   * THROWING, so it must be the last thing here and must never sit inside a
+   * try/catch — caught, it silently does nothing and the form appears to hang.
+   *
+   * The success toast is lost to the navigation. The row being there is the
+   * confirmation.
+   */
+  redirect('/admin/songs');
 }
 
 export async function updateSongAction(
@@ -291,7 +295,7 @@ export async function updateSongAction(
   const id = String(formData.get('id') ?? '');
   const existing = await prisma.song.findUnique({
     where: { id },
-    select: { id: true, coverId: true, thumbId: true, slug: true },
+    select: { id: true, coverId: true, slug: true },
   });
   if (!existing) return { ok: false, message: 'That song is no longer there.' };
 
@@ -312,24 +316,14 @@ export async function updateSongAction(
    * page showing different pictures.
    */
   const cover = imageFrom(formData, 'cover');
-  const thumb = imageFrom(formData, 'thumb');
-  const replacing = Boolean(cover.file?.size && thumb.file?.size);
+  const replacing = Boolean(cover.file?.size);
 
   let coverId = existing.coverId;
-  let thumbId = existing.thumbId;
 
   if (replacing) {
     const storedCover = await storeImage(cover.file!, cover.width, cover.height);
     if (typeof storedCover === 'string') return { ok: false, errors: { cover: storedCover } };
-
-    const storedThumb = await storeImage(thumb.file!, thumb.width, thumb.height);
-    if (typeof storedThumb === 'string') {
-      await prisma.mediaAsset.delete({ where: { id: storedCover.id } });
-      return { ok: false, errors: { cover: storedThumb } };
-    }
-
     coverId = storedCover.id;
-    thumbId = storedThumb.id;
   }
 
   const { title, artist, description, releasedAt } = parsed.data;
@@ -347,24 +341,21 @@ export async function updateSongAction(
         releasedAt: releasedAt ? new Date(`${releasedAt}T00:00:00Z`) : null,
         isVisible: formData.get('isVisible') === 'on',
         coverId,
-        thumbId,
         links: { create: rows },
       },
     }),
   ]);
 
-  // Only once the song no longer points at them, or the delete would be
-  // refused by the foreign key.
+  // Only once the song no longer points at it, or the delete would be refused
+  // by the foreign key.
   if (replacing) {
-    await prisma.mediaAsset.deleteMany({
-      where: { id: { in: [existing.coverId, existing.thumbId] } },
-    });
+    await prisma.mediaAsset.delete({ where: { id: existing.coverId } });
   }
 
   revalidateSongs();
   revalidatePath(`/songs/${existing.slug}`);
 
-  return { ok: true, message: 'Song saved.' };
+  redirect('/admin/songs');
 }
 
 export async function deleteSongAction(
@@ -376,14 +367,14 @@ export async function deleteSongAction(
   const id = String(formData.get('id') ?? '');
   const song = await prisma.song.findUnique({
     where: { id },
-    select: { title: true, coverId: true, thumbId: true },
+    select: { title: true, coverId: true },
   });
   if (!song) return { ok: false, message: 'That song is no longer there.' };
 
-  // Links cascade with the song; the two images do not, so they are removed
-  // here rather than left behind occupying database space forever.
+  // Links cascade with the song; the cover does not, so it is removed here
+  // rather than left behind occupying database space forever.
   await prisma.song.delete({ where: { id } });
-  await prisma.mediaAsset.deleteMany({ where: { id: { in: [song.coverId, song.thumbId] } } });
+  await prisma.mediaAsset.delete({ where: { id: song.coverId } });
 
   log.info(`Deleted song ${song.title}`);
   revalidateSongs();

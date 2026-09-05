@@ -278,7 +278,6 @@ model MediaAsset {
   /// Back-references, so an asset knows whether anything still points at it.
   platformLogo Platform?
   songCover    Song?     @relation("SongCover")
-  songThumb    Song?     @relation("SongThumb")
 }
 
 /// A streaming service a song can be listened on — Spotify, Apple Music, and so
@@ -313,12 +312,10 @@ model Song {
   releasedAt  DateTime?
   description String?
 
-  /// Two sizes, both stored. The grid would otherwise download a page full of
-  /// 1200px covers to draw them at 400.
+  /// One image, at 800px. Two were stored until the catalogue's real size came
+  /// up: 5,000 songs at 175KB each is more than the database holds.
   coverId String     @unique
   cover   MediaAsset @relation("SongCover", fields: [coverId], references: [id])
-  thumbId String     @unique
-  thumb   MediaAsset @relation("SongThumb", fields: [thumbId], references: [id])
 
   /// Hidden songs stay in the admin and vanish from the public site, matching
   /// how a video's visibility works.

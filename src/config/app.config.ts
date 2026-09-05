@@ -82,5 +82,6 @@ export const pageSizes = {
   /** Dedicated channel page: three columns by ten rows. */
   channel: 30,
   adminVideos: 25,
+  adminSongs: 25,
   adminEnquiries: 25,
 } as const;
