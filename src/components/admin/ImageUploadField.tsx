@@ -32,6 +32,7 @@ export function ImageUploadField({
   hint,
   currentUrl,
   square = false,
+  plate = false,
 }: {
   /** Base field name. Each size posts `<size>`, `<size>.width`, `<size>.height`. */
   name: string;
@@ -42,6 +43,18 @@ export function ImageUploadField({
   /** An existing image, shown until a new one is picked. */
   currentUrl?: string;
   square?: boolean;
+  /**
+   * Preview the image on white rather than on the admin's dark surface.
+   *
+   * For brand logos, which are often near-black wordmarks — without this the
+   * preview is an empty box at exactly the moment someone is checking they
+   * picked the right file. Cover art does not want it: a photograph needs no
+   * plate, and a white box behind one would just be a border.
+   *
+   * Explicit rather than inferred from `square`. Logos happen to be wide and
+   * covers square, but that is a coincidence, not the reason.
+   */
+  plate?: boolean;
 }) {
   /** The newly picked image, if any. Null means "whatever was already there". */
   const [picked, setPicked] = useState<string | null>(null);
@@ -126,9 +139,9 @@ export function ImageUploadField({
         type="button"
         onClick={() => picker.current?.click()}
         aria-label={shown ? `Replace ${label.toLowerCase()}` : `Add ${label.toLowerCase()}`}
-        className={`group relative grid w-full place-items-center overflow-hidden rounded-lg border border-dashed border-input bg-muted/40 transition-colors hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${
+        className={`group relative grid w-full place-items-center overflow-hidden rounded-lg border border-dashed border-input transition-colors hover:border-primary/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${
           square ? 'aspect-square max-w-[240px]' : 'h-28 max-w-[240px]'
-        }`}
+        } ${shown && plate ? 'bg-white p-2' : 'bg-muted/40 hover:bg-muted'}`}
       >
         {busy ? (
           <Loader2 aria-hidden className="size-6 animate-spin text-muted-foreground" />

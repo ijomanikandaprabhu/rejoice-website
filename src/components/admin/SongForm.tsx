@@ -1,8 +1,8 @@
-import Image from 'next/image';
 import Link from 'next/link';
 
 import { ActionForm, Field, FieldError, SubmitButton } from '@/components/admin/ActionForm';
 import { ImageUploadField } from '@/components/admin/ImageUploadField';
+import { PlatformLogo } from '@/components/admin/PlatformLogo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -138,15 +138,7 @@ export function SongForm({
                     htmlFor={`link-${platform.id}`}
                     className="flex items-center gap-2.5 text-sm font-medium"
                   >
-                    <span className="grid h-8 w-12 shrink-0 place-items-center overflow-hidden rounded bg-muted">
-                      <Image
-                        src={`/api/media/${platform.logoId}`}
-                        alt=""
-                        width={48}
-                        height={32}
-                        className="size-full object-contain"
-                      />
-                    </span>
+                    <PlatformLogo logoId={platform.logoId} className="h-8 w-12" />
                     <span className="truncate">{platform.name}</span>
                   </label>
 

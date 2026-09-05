@@ -1,11 +1,11 @@
 'use client';
 
 import { Plus, Trash2 } from 'lucide-react';
-import Image from 'next/image';
 import { useState } from 'react';
 
 import { ActionForm, Field, FieldError, SubmitButton } from '@/components/admin/ActionForm';
 import { ImageUploadField } from '@/components/admin/ImageUploadField';
+import { PlatformLogo } from '@/components/admin/PlatformLogo';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -68,6 +68,7 @@ export function PlatformDialog({ platforms }: { platforms: Platform[] }) {
           <ImageUploadField
             name="logo"
             label="Logo"
+            plate
             hint="PNG, JPEG or WebP. Resized here before uploading."
             sizes={{ logo: LOGO_SIZE }}
           />
@@ -82,15 +83,7 @@ export function PlatformDialog({ platforms }: { platforms: Platform[] }) {
             <ul className="grid gap-2">
               {platforms.map((platform) => (
                 <li key={platform.id} className="flex items-center gap-3 rounded-md border p-2">
-                  <span className="grid h-9 w-14 shrink-0 place-items-center overflow-hidden rounded bg-muted">
-                    <Image
-                      src={`/api/media/${platform.logoId}`}
-                      alt=""
-                      width={56}
-                      height={36}
-                      className="size-full object-contain"
-                    />
-                  </span>
+                  <PlatformLogo logoId={platform.logoId} className="h-9 w-14" />
 
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium">{platform.name}</span>
