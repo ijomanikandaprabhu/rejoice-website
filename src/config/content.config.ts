@@ -463,25 +463,25 @@ export const aboutPage = {
         title: 'Worship & Gospel',
         text: 'Songs, worship projects and live recordings made with artists and ministries.',
         /** Falls back to the isometric scene named by `id`. */
-        image: '/about/worship-gospel.png',
+        image: '/about/worship-gospel.webp',
       },
       {
         id: 'kids',
         title: 'Kids & Stories',
         text: 'Animation and stories that introduce young hearts to faith.',
-        image: '/about/kids-stories.png',
+        image: '/about/kids-stories.webp',
       },
       {
         id: 'film',
         title: 'Film & Video',
         text: 'Music videos, promotional films and story-based production from concept to delivery.',
-        image: '/about/film-video.png',
+        image: '/about/film-video.webp',
       },
       {
         id: 'ai',
         title: 'AI Creativity',
         text: 'New tools for audio and visual creation, with the human vision still at the centre.',
-        image: '/about/ai-creativity.png',
+        image: '/about/ai-creativity.webp',
       },
     ],
   },
@@ -677,11 +677,11 @@ export const musicPage = {
    * background — the light shaft behind it is built in CSS, so a photograph
    * with its own background would cover it.
    *
-   * Drop the file at `public/media/music-hero-hand.png` and put that path here.
+   * Drop the file at `public/media/music-hero-hand.webp` and put that path here.
    * Left empty the hero still reads as finished: the beam and the type carry
    * it, the same way an empty `logo` on a platform falls back to its name.
    */
-  heroImage: '/media/music-hero-hand.png',
+  heroImage: '/media/music-hero-hand.webp',
   eyebrow: 'Listen to Rejoice',
   heading: 'Your Favourite Songs. Your Favourite Platform.',
   text: 'Listen to Rejoice Gospel Communications wherever you enjoy music. Choose your preferred platform below and continue listening there.',

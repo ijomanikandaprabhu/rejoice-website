@@ -1,11 +1,25 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    remotePatterns: [
-      { protocol: 'https', hostname: 'i.ytimg.com' },
-      { protocol: 'https', hostname: 'yt3.ggpht.com' },
-      { protocol: 'https', hostname: 'yt3.googleusercontent.com' },
-    ],
+    /*
+     * Vercel's image optimizer is not used at all.
+     *
+     * It is metered — roughly 1,000 source images a month on this plan — and
+     * the catalogue is about 1,750 videos, so it ran out: every newly imported
+     * video and channel logo came back "402 Payment required" and rendered as
+     * a broken image, while images processed earlier carried on serving from
+     * cache. It would have run out again every month, and sooner each time.
+     *
+     * `youtubeLoader` instead asks YouTube for a size close to the one being
+     * rendered and routes it through `/api/image` on this domain. Nothing in
+     * that path is metered, and the Privacy Policy's claim that thumbnails do
+     * not reach YouTube stays true.
+     *
+     * `remotePatterns` is gone with the optimizer: a custom loader does not
+     * consult it. The allowlist that matters now lives in the route.
+     */
+    loader: 'custom',
+    loaderFile: './src/lib/images/youtubeLoader.ts',
   },
 
   /*

@@ -21,8 +21,13 @@
  *    from Google"         — `next/font/google` in src/app/layout.tsx
  *                           self-hosts the files at build time.
  *   "thumbnails do not
- *    reach YouTube"       — next.config.mjs `images.remotePatterns` makes
- *                           next/image proxy i.ytimg.com through this domain.
+ *    reach YouTube"       — src/app/api/image/route.ts fetches them server
+ *                           side and serves them from this domain; the loader
+ *                           at src/lib/images/youtubeLoader.ts is what points
+ *                           every next/image at that route. (This used to be
+ *                           next/image's own optimizer, which was metered and
+ *                           ran out — the claim is unchanged, the mechanism
+ *                           behind it is not.)
  *   "IP addresses are not
  *    stored"              — src/lib/utils/rateLimit.ts holds them in an
  *                           in-memory Map and never writes them anywhere.
