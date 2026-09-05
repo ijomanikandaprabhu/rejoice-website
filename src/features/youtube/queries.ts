@@ -115,6 +115,22 @@ export async function getShortsVideos(limit = 12): Promise<VideoCardData[]> {
  * NOTE: the page calling this must opt out of caching, or the "random" order is
  * simply frozen for the life of the cached page.
  */
+/**
+ * One Short by its YouTube id, for the feed's `?v=` deep link.
+ *
+ * `getPublicVideoBySlug` cannot serve this: it filters to LANDSCAPE, because a
+ * Short 404s on the video detail page by design. This is the vertical
+ * counterpart, and the visibility rule is spread from `publiclyVisible` so a
+ * hidden Short stays unreachable however it is addressed.
+ */
+export async function getPublicShort(youtubeVideoId: string): Promise<VideoCardData | null> {
+  const row = await prisma.youTubeVideo.findFirst({
+    where: { ...publiclyVisible, isShort: true, youtubeVideoId },
+    select: videoCardSelect,
+  });
+  return row ? toCard(row) : null;
+}
+
 export async function getRandomShorts(limit = 60): Promise<VideoCardData[]> {
   const picked = await prisma.$queryRaw<Array<{ id: string }>>`
     SELECT v."id"

@@ -60,6 +60,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   });
 
   /*
+   * The full listing behind the feed. Same trap as `/songs/all`: it is not in
+   * the nav and it is not one of the items, so nothing else would add it.
+   */
+  pages.push({
+    url: absoluteUrl('/shorts/all'),
+    lastModified: now,
+    changeFrequency: 'weekly',
+    priority: 0.6,
+  });
+
+  /*
    * The legal pages are deliberately absent from `publicNav` — they belong in
    * the footer, not the navigation — so like /shorts they have to be listed
    * here by hand. Low priority and rarely changing, but they must be

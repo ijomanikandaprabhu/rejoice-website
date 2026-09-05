@@ -1,16 +1,21 @@
+import Link from 'next/link';
+
 import { BackButton, EmptyPanel } from '@/components/site/Section';
 import { ShortsFeed } from '@/components/site/ShortsFeed';
-import { getRandomShorts } from '@/features/youtube/queries';
+import { getPublicShort, getShortsVideos } from '@/features/youtube/queries';
 import { buildMetadata } from '@/lib/seo';
 
 /*
- * NOT cached, deliberately.
+ * Cached for five minutes, like every other public page.
  *
- * The feed is reshuffled per visit, and `revalidate` would freeze one shuffle
- * for the life of the cached page — every visitor seeing the same "random"
- * order until it expired. Opting out is what makes the shuffle real.
+ * This used to be `force-dynamic`, and it had to be: the feed was RESHUFFLED
+ * per visit, and caching would have frozen one shuffle for the life of the
+ * page — every visitor seeing the same "random" order. The order is now newest
+ * first, which is stable, so the opt-out is gone with the shuffle that needed
+ * it. A `?v=` request renders per-request anyway, as any page reading
+ * `searchParams` does.
  */
-export const dynamic = 'force-dynamic';
+export const revalidate = 300;
 
 export const metadata = buildMetadata({
   title: 'Short Takes',
@@ -38,20 +43,41 @@ export const metadata = buildMetadata({
  * Presented as a scrolling feed that plays as you go, rather than a grid of
  * links — see `ShortsFeed`, including why the sound starts off.
  *
- * SHUFFLED on every visit, so returning gives a different 60 out of the ~600
- * rather than the same newest ones each time.
+ * NEWEST FIRST, and not shuffled. It was random for a while, so that returning
+ * gave a different sixty out of the six hundred; the cost was that nothing had
+ * a stable position, the page could never be cached, and there was no way to
+ * say "the one I watched yesterday". Newest first is what a feed of releases
+ * should open on, and `/shorts/all` is where the rest now live.
  *
- * That is also why the `page` parameter is gone. It was read but nothing ever
- * linked to it, and "page 2 of a random order" is incoherent — each request
- * reshuffles, so pages would overlap and skip. One random 60 is the honest
- * shape for a feed with no pager.
+ * Sixty, still: a feed and a pager fight each other, and this one has a
+ * searchable, paged listing beside it for the times a pager is what is wanted.
  *
- * Fetched in one page of 60: a feed and a pager fight each other, and only the
- * posters load up front, so the cost is small. Past that many this wants
- * incremental loading instead.
+ * `?v=<youtube id>` OPENS THE FEED AT ONE SHORT, which is how a card in that
+ * listing gets here — Shorts have no page of their own. The named Short is put
+ * at the FRONT of the list rather than the feed being told to scroll to it:
+ * the video may be the four-hundredth newest and so not in this sixty at all,
+ * and prepending needs no state in the player, no scroll-on-mount, and works
+ * the same whether or not it was already here.
  */
-export default async function ShortsPage() {
-  const videos = await getRandomShorts(60);
+export default async function ShortsPage({
+  searchParams,
+}: {
+  searchParams: { v?: string };
+}) {
+  const wanted = (searchParams.v ?? '').trim();
+
+  const [newest, opened] = await Promise.all([
+    getShortsVideos(60),
+    wanted ? getPublicShort(wanted) : Promise.resolve(null),
+  ]);
+
+  /*
+   * De-duplicated, or a Short that IS in the newest sixty would appear twice —
+   * once at the front and again in place, with two players for one video.
+   */
+  const videos = opened
+    ? [opened, ...newest.filter((video) => video.id !== opened.id)]
+    : newest;
 
   return (
     /*
@@ -76,6 +102,19 @@ export default async function ShortsPage() {
       <div className="relative mb-8 flex items-center justify-center">
         <BackButton href="/" ariaLabel="Back to home" className="absolute left-0" />
         <h1 className="t-h2 text-site-fg">Short Takes</h1>
+
+        {/*
+         * The way out to the full listing, mirroring the back button on the
+         * left so the heading keeps the centre. Absolute for the same reason:
+         * in flow it would take width from the row and push the title
+         * off-centre.
+         */}
+        <Link
+          href="/shorts/all"
+          className="absolute right-0 text-sm text-site-muted transition-colors hover:text-site-fg"
+        >
+          All Shorts
+        </Link>
       </div>
 
       {videos.length === 0 ? (

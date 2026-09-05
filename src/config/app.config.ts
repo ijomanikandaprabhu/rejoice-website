@@ -85,6 +85,8 @@ export const pageSizes = {
   songsPreview: 30,
   /** The full listing at /songs/all. */
   songsAll: 60,
+  /** The full listing at /shorts/all. 603 Shorts is about eleven pages. */
+  shortsAll: 60,
   adminVideos: 25,
   adminSongs: 25,
   adminEnquiries: 25,
