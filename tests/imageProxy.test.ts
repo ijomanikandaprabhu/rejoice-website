@@ -201,3 +201,65 @@ describe('the WebP copy, and what happens when there is not one', () => {
     expect(fetched).toHaveLength(1);
   });
 });
+
+/*
+ * Never ask YouTube for a bigger picture than it has.
+ *
+ * 177 of this catalogue's 1,749 videos have no `maxresdefault` — their stored
+ * URL is `sddefault` or `hqdefault`. The loader asked for maxres anyway, got a
+ * 404, and a tenth of the grid rendered as blank grey boxes.
+ */
+describe('videos with no maxresdefault', () => {
+  const NO_MAXRES = 'https://i.ytimg.com/vi/gLhmpUspjjo/sddefault.jpg';
+  const HAS_MAXRES = 'https://i.ytimg.com/vi/0Qj2AIw8o3E/maxresdefault.jpg';
+
+  it('never requests a variant larger than the one stored', () => {
+    for (let width = 16; width <= 4000; width += 16) {
+      expect(loader({ src: NO_MAXRES, width }), `width ${width}`).not.toContain('maxresdefault');
+    }
+  });
+
+  it('falls back to the one size every video has, keeping 16:9', () => {
+    // mqdefault is 320x180. sddefault would be sharper but is 4:3, and that is
+    // what put dark pillars down every card the last time it was offered.
+    expect(loader({ src: NO_MAXRES, width: 1280 })).toContain('mqdefault.jpg');
+  });
+
+  it('leaves the other 90% of the catalogue on the large image', () => {
+    expect(loader({ src: HAS_MAXRES, width: 1280 })).toContain('maxresdefault.webp');
+  });
+
+  it('treats an unrecognised stored variant as no limit rather than as nothing', () => {
+    const odd = loader({ src: 'https://i.ytimg.com/vi/0Qj2AIw8o3E/oardefault.jpg', width: 1280 });
+    expect(odd).toContain('maxresdefault');
+  });
+
+  it('serves mqdefault when the requested variant is missing after all', async () => {
+    vi.stubGlobal('fetch', async (input: URL | string) => {
+      const url = String(input);
+      fetched.push(url);
+      if (!url.includes('mqdefault')) return new Response('nope', { status: 404 });
+      return new Response(new Uint8Array([1]), {
+        status: 200,
+        headers: { 'content-type': 'image/jpeg' },
+      });
+    });
+
+    const response = await call('https://i.ytimg.com/vi_webp/0Qj2AIw8o3E/maxresdefault.webp');
+
+    expect(response.status).toBe(200);
+    expect(fetched.at(-1)).toContain('/vi/0Qj2AIw8o3E/mqdefault.jpg');
+  });
+
+  it('does not loop when mqdefault itself is the thing that failed', async () => {
+    vi.stubGlobal('fetch', async (input: URL | string) => {
+      fetched.push(String(input));
+      return new Response('nope', { status: 404 });
+    });
+
+    const response = await call('https://i.ytimg.com/vi/0Qj2AIw8o3E/mqdefault.jpg');
+
+    expect(response.status).toBe(502);
+    expect(fetched).toHaveLength(1);
+  });
+});

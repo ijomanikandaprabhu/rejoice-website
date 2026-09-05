@@ -63,22 +63,60 @@ export const ACCEPTED_VARIANTS: readonly string[] = [
 ];
 
 /**
- * `https://i.ytimg.com/vi/<id>/<variant>.jpg` — the `_webp` directory and the
- * `vi_webp` host variant are deliberately not matched; the stored URLs never
- * use them and a pattern that guesses would silently produce 404s.
+ * `https://i.ytimg.com/vi/<id>/<variant>.jpg`, capturing the id AND the variant
+ * — the stored variant is not decoration, it is the largest image YouTube
+ * actually published for that video, and asking for a bigger one 404s.
+ *
+ * The `vi_webp` directory is deliberately not matched; stored URLs never use
+ * it and a pattern that guessed would silently produce misses.
  */
-const VIDEO_THUMBNAIL = /^https:\/\/i\.ytimg\.com\/vi\/([\w-]{5,})\/[a-z0-9]+\.jpg$/;
+const VIDEO_THUMBNAIL = /^https:\/\/i\.ytimg\.com\/vi\/([\w-]{5,})\/([a-z0-9]+)\.jpg$/;
 
 /** An avatar's size is the `=s800` segment, which YouTube honours as a request. */
 const AVATAR_SIZE = /=s\d+-/;
 
 /**
- * The smallest published variant that still covers `width`, so a 96px avatar
- * does not download a 1280px file. The largest is used when nothing is big
- * enough — upscaling in the browser beats refusing to render.
+ * Every variant name YouTube may publish, smallest first. Used only to rank
+ * the one stored against the ones we would like to ask for.
  */
-function variantFor(width: number): string {
-  return (VIDEO_VARIANTS.find((v) => v.width >= width) ?? VIDEO_VARIANTS[VIDEO_VARIANTS.length - 1]).name;
+const SIZE_ORDER = ['default', 'mqdefault', 'hqdefault', 'sddefault', 'maxresdefault'];
+
+/**
+ * The variant to request, given the width being rendered and the largest image
+ * YouTube actually has.
+ *
+ * `stored` is the variant in the URL the sync saved, which came from YouTube's
+ * own report of what exists. NOTHING LARGER MAY BE REQUESTED. 177 of the 1,749
+ * videos in this catalogue have no `maxresdefault` — their stored URL is
+ * `sddefault` or `hqdefault` — and asking for one anyway returned 404, which
+ * this route turns into a blank card. That is precisely what happened: a tenth
+ * of the grid rendered as empty grey boxes.
+ *
+ * Reading the answer from the stored URL rather than from a list here means a
+ * video added tomorrow is handled without anyone remembering this rule, and a
+ * video whose maxres YouTube generates later starts using it as soon as the
+ * daily sync refreshes the stored URL.
+ *
+ * The smallest variant that still covers `width` wins, so a 96px card does not
+ * download a 1280px file.
+ */
+function variantFor(width: number, stored: string): string {
+  const ceiling = SIZE_ORDER.indexOf(stored);
+
+  const available = VIDEO_VARIANTS.filter(
+    // A variant we never saw ranked (-1) is treated as no limit rather than as
+    // "nothing allowed" — an unknown name must not blank the image.
+    (v) => ceiling === -1 || SIZE_ORDER.indexOf(v.name) <= ceiling,
+  );
+
+  /*
+   * Everything in VIDEO_VARIANTS is 16:9, and `mqdefault` is the smallest of
+   * them. YouTube publishes it for every video, so this fallback is real
+   * rather than theoretical — it is what the 177 videos above end up using.
+   */
+  if (available.length === 0) return VIDEO_VARIANTS[0].name;
+
+  return (available.find((v) => v.width >= width) ?? available[available.length - 1]).name;
 }
 
 /**
@@ -118,10 +156,11 @@ export default function youtubeImageLoader({ src, width }: { src: string; width:
 
   const video = VIDEO_THUMBNAIL.exec(src);
   if (video) {
-    const variant = variantFor(width);
+    const [, id, stored] = video;
+    const variant = variantFor(width, stored);
     target = WEBP_VARIANTS.has(variant)
-      ? `https://i.ytimg.com/vi_webp/${video[1]}/${variant}.webp`
-      : `https://i.ytimg.com/vi/${video[1]}/${variant}.jpg`;
+      ? `https://i.ytimg.com/vi_webp/${id}/${variant}.webp`
+      : `https://i.ytimg.com/vi/${id}/${variant}.jpg`;
   } else if (AVATAR_SIZE.test(src)) {
     target = src.replace(AVATAR_SIZE, `=s${avatarSize(width)}-`);
   }

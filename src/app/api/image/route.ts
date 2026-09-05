@@ -116,23 +116,49 @@ function fetchOnce(target: URL) {
 }
 
 /**
- * Fetch the image, falling back from the WebP copy to the JPEG.
+ * Fetch the image, stepping down through fallbacks rather than giving up.
  *
- * The loader asks for `vi_webp` because it is about half the size, but YouTube
- * has not generated one for every video — older uploads in particular. Without
- * this fallback those would render as broken images, which is exactly the
- * failure this whole route was built to end.
+ * Two different misses are covered, and both have actually happened:
  *
- * The second request only ever happens on the miss, and the answer is then
- * cached for a year like any other.
+ *   1. The WebP copy is missing. It is asked for because it is about half the
+ *      size, but YouTube has not generated one for every video.
+ *   2. The variant itself does not exist. 177 videos in this catalogue have no
+ *      `maxresdefault`, and requesting one returned 404 — a tenth of the grid
+ *      rendered as blank grey boxes. `youtubeLoader` no longer asks for a
+ *      variant larger than the one YouTube reported, so this should not arise;
+ *      it is here because "should not" is how the blank boxes happened the
+ *      first time.
+ *
+ * The chain ends at `mqdefault.jpg`, which YouTube publishes for EVERY video.
+ * It is small and 16:9, so the worst case is a soft thumbnail rather than a
+ * hole in the page.
+ *
+ * Extra requests only ever happen on a miss, and the answer is cached for a
+ * year afterwards like any other.
  */
 async function fetchImage(target: URL): Promise<Response | null> {
   const first = await fetchOnce(target);
-  if (first?.ok || target.pathname.split('/')[1] !== 'vi_webp') return first;
+  if (first?.ok) return first;
 
-  const [, , id, file] = target.pathname.split('/');
-  const jpeg = new URL(`https://i.ytimg.com/vi/${id}/${file.replace(/\.webp$/, '.jpg')}`);
-  return fetchOnce(jpeg);
+  const [, dir, id, file] = target.pathname.split('/');
+  if (dir !== 'vi' && dir !== 'vi_webp') return first;
+
+  const variant = file.replace(/\.(webp|jpg)$/, '');
+
+  const fallbacks = [
+    // Same picture, the format YouTube always has.
+    dir === 'vi_webp' ? `https://i.ytimg.com/vi/${id}/${variant}.jpg` : null,
+    // The size every video has. Skipped when that is already what failed,
+    // which would mean YouTube is down rather than the variant missing.
+    variant === 'mqdefault' ? null : `https://i.ytimg.com/vi/${id}/mqdefault.jpg`,
+  ].filter((url): url is string => url !== null);
+
+  for (const url of fallbacks) {
+    const next = await fetchOnce(new URL(url));
+    if (next?.ok) return next;
+  }
+
+  return first;
 }
 
 export async function GET(request: Request) {
