@@ -6,6 +6,7 @@ import { useRef, useState, type ChangeEvent } from 'react';
 import { FieldError } from '@/components/admin/ActionForm';
 import { Button } from '@/components/ui/button';
 import { downscale } from '@/lib/images/downscale';
+import { cn } from '@/lib/utils';
 
 /**
  * Pick an image, shrink it here, and submit the small version.
@@ -33,6 +34,7 @@ export function ImageUploadField({
   currentUrl,
   square = false,
   plate = false,
+  frameClassName,
 }: {
   /** Base field name. Each size posts `<size>`, `<size>.width`, `<size>.height`. */
   name: string;
@@ -55,6 +57,8 @@ export function ImageUploadField({
    * covers square, but that is a coincidence, not the reason.
    */
   plate?: boolean;
+  /** Size of the frame. The default suits a form column; a dialog wants less. */
+  frameClassName?: string;
 }) {
   /** The newly picked image, if any. Null means "whatever was already there". */
   const [picked, setPicked] = useState<string | null>(null);
@@ -139,9 +143,12 @@ export function ImageUploadField({
         type="button"
         onClick={() => picker.current?.click()}
         aria-label={shown ? `Replace ${label.toLowerCase()}` : `Add ${label.toLowerCase()}`}
-        className={`group relative grid w-full place-items-center overflow-hidden rounded-lg border border-dashed border-input transition-colors hover:border-primary/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${
-          square ? 'aspect-square max-w-[240px]' : 'h-28 max-w-[240px]'
-        } ${shown && plate ? 'bg-white p-2' : 'bg-muted/40 hover:bg-muted'}`}
+        className={cn(
+          'group relative grid w-full place-items-center overflow-hidden rounded-lg border border-dashed border-input transition-colors hover:border-primary/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+          square ? 'aspect-square max-w-[240px]' : 'h-28 max-w-[240px]',
+          shown && plate ? 'bg-white p-2' : 'bg-muted/40 hover:bg-muted',
+          frameClassName,
+        )}
       >
         {busy ? (
           <Loader2 aria-hidden className="size-6 animate-spin text-muted-foreground" />
