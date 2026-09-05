@@ -20,7 +20,7 @@ import {
   getTopVideos,
 } from '@/features/dashboard/queries';
 import { prisma } from '@/lib/db/prisma';
-import { formatDateTime } from '@/lib/utils';
+import { formatDateTime, formatMoney } from '@/lib/utils';
 import { getAnalytics } from '@/services/youtube/analyticsService';
 import { getLastSyncRecord } from '@/services/youtube/videoSyncService';
 
@@ -269,12 +269,15 @@ export default async function AdminDashboard({
           />
           <StatPanel
             label="Estimated revenue"
+            // `formatMoney`, not `toFixed`: this card printed a bare `259.34`
+            // while the panel below it printed `$259.34`, so one figure read as
+            // two different things on one screen.
             value={
               report.revenueByMonth === null
                 ? '—'
                 : thisMonth
-                  ? thisMonth.revenue.toFixed(2)
-                  : '0.00'
+                  ? formatMoney(thisMonth.revenue)
+                  : formatMoney(0)
             }
             icon={Wallet}
             caption={

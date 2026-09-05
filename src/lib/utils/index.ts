@@ -99,6 +99,50 @@ export function formatDateTime(date: Date | string | null | undefined): string {
   });
 }
 
+/**
+ * The year and month right now, as the API writes them: "2026-09".
+ *
+ * IN THE SITE'S ZONE, not the server's. Vercel runs in UTC and Chennai is
+ * +05:30, so for five and a half hours at the turn of every month the two
+ * disagree — long enough for the dashboard to highlight the wrong row on the
+ * first evening of a new month, and for nobody to be able to reproduce it the
+ * next day.
+ */
+export function currentYearMonth(now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    timeZone: SITE_TIME_ZONE,
+  }).format(now);
+  // en-CA gives "2026-09-14"; the API's months are the first seven characters.
+  return parts.slice(0, 7);
+}
+
+/**
+ * Money, with the currency symbol on it.
+ *
+ * ONE FORMATTER, because the figure appears in two places — the dashboard's
+ * revenue card and the revenue panel — and they disagreed: the card printed a
+ * bare `259.34` while the panel printed `$259.34`, so the same number read as
+ * two different things on one screen.
+ *
+ * THE SYMBOL IS AN ASSUMPTION, and a deliberate one. The YouTube Analytics API
+ * reports earnings in the channel's own payment currency and does not name it
+ * in the response, which is why `AnalyticsReport.currency` is null. Rejoice
+ * asked for dollars. If the AdSense account is ever paid in something else,
+ * this constant is the single place to change it.
+ */
+const CURRENCY = '$';
+
+const moneyFormat = new Intl.NumberFormat('en-US', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+export function formatMoney(amount: number): string {
+  return `${CURRENCY}${moneyFormat.format(amount)}`;
+}
+
 export function truncate(text: string, max: number): string {
   if (text.length <= max) return text;
   return `${text.slice(0, max - 1).trimEnd()}…`;

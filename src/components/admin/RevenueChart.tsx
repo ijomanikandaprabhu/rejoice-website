@@ -1,5 +1,5 @@
 import type { MonthRevenue } from '@/services/youtube/analyticsService';
-import { cn } from '@/lib/utils';
+import { cn, currentYearMonth, formatMoney } from '@/lib/utils';
 
 /**
  * Estimated revenue by month, as rows rather than upright bars.
@@ -20,32 +20,17 @@ import { cn } from '@/lib/utils';
  * charts that genuinely need axes and interpolation. Dropping it here also
  * makes this a SERVER component — no `use client`, no JavaScript shipped.
  *
- * The accent marks the best month automatically, the same rationing
- * `CatalogueChart` and `TrafficSources` use, so lime keeps meaning "look here".
+ * THE ACCENT MARKS THE CURRENT MONTH, not the best one. It marked the peak at
+ * first, which answered a question nobody was asking — the tallest bar is
+ * already the tallest bar, and highlighting it drew the eye to March while the
+ * month actually being earned sat unmarked at the bottom. The row worth finding
+ * on a dashboard is the one still running.
  *
- * The current month is always partial; the panel's caption says so, because a
- * short final row otherwise reads as a collapse.
+ * That row is short by definition: it is a few days of a month against twelve
+ * whole ones, which is why the panel's caption says the figures settle after
+ * the month ends. Marked, it reads as "in progress"; unmarked it read as a
+ * collapse.
  */
-
-/**
- * CURRENCY IS AN ASSUMPTION, and a deliberate one.
- *
- * The YouTube Analytics API reports `estimatedRevenue` in the channel's own
- * payment currency and does NOT name it in the response — which is why
- * `AnalyticsReport.currency` is null. Rejoice asked for dollars, so dollars is
- * what this shows. If the AdSense account is ever paid in another currency,
- * this symbol is the one thing that has to change.
- */
-const CURRENCY = '$';
-
-const money = new Intl.NumberFormat('en-US', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-function format(amount: number) {
-  return `${CURRENCY}${money.format(amount)}`;
-}
 
 function monthLabel(ym: string) {
   // The API returns "2026-08".
@@ -63,19 +48,34 @@ export function RevenueChart({ data }: { data: MonthRevenue[] }) {
     );
   }
 
+  /* Still needed — the bars are scaled against the biggest month even though
+     it is no longer the one highlighted. */
   const peak = data.reduce((max, d) => (d.revenue > max ? d.revenue : max), 0);
   const total = data.reduce((sum, d) => sum + d.revenue, 0);
+
+  /*
+   * The row to mark. Normally the last one, but matched by name rather than by
+   * position: if the report is a few days stale the last row is LAST MONTH, and
+   * highlighting it as "current" would be a plain lie. When nothing matches,
+   * nothing is highlighted, which is the honest state.
+   */
+  const thisMonth = currentYearMonth();
 
   return (
     <div>
       <ul className="grid gap-2.5">
         {data.map((row) => {
           const share = peak > 0 ? (row.revenue / peak) * 100 : 0;
-          const best = row.revenue === peak && peak > 0;
+          const current = row.month === thisMonth;
 
           return (
             <li key={row.month} className="flex items-center gap-3">
-              <span className="w-14 shrink-0 text-xs tabular-nums text-panel-muted">
+              <span
+                className={cn(
+                  'w-14 shrink-0 text-xs tabular-nums',
+                  current ? 'text-panel-fg' : 'text-panel-muted',
+                )}
+              >
                 {monthLabel(row.month)}
               </span>
 
@@ -89,7 +89,7 @@ export function RevenueChart({ data }: { data: MonthRevenue[] }) {
                 <span
                   className={cn(
                     'block h-full rounded-pill',
-                    best ? 'bg-panel-accent' : 'bg-[#3A3A3C]',
+                    current ? 'bg-panel-accent' : 'bg-[#3A3A3C]',
                   )}
                   style={{ width: `${row.revenue > 0 ? Math.max(share, 2) : 0}%` }}
                 />
@@ -98,10 +98,10 @@ export function RevenueChart({ data }: { data: MonthRevenue[] }) {
               <span
                 className={cn(
                   'w-20 shrink-0 text-right text-xs tabular-nums',
-                  best ? 'font-semibold text-panel-accent' : 'text-panel-fg',
+                  current ? 'font-semibold text-panel-accent' : 'text-panel-fg',
                 )}
               >
-                {format(row.revenue)}
+                {formatMoney(row.revenue)}
               </span>
             </li>
           );
@@ -113,7 +113,7 @@ export function RevenueChart({ data }: { data: MonthRevenue[] }) {
         <span className="text-xs text-panel-muted">
           Total over {data.length} month{data.length === 1 ? '' : 's'}
         </span>
-        <span className="text-sm font-semibold tabular-nums text-panel-fg">{format(total)}</span>
+        <span className="text-sm font-semibold tabular-nums text-panel-fg">{formatMoney(total)}</span>
       </div>
     </div>
   );
