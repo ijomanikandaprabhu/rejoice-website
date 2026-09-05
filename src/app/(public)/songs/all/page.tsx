@@ -61,15 +61,18 @@ export default async function AllSongsPage({ searchParams }: { searchParams: Sea
         <BackButton href="/songs" label="Songs" ariaLabel="Back to songs" />
 
         <div className="mt-10 flex flex-wrap items-end justify-between gap-5">
-          <div>
-            <h1 className="t-h1">All songs</h1>
-            <p className="mt-3 text-body text-site-muted">
-              {total === 0
-                ? 'Nothing to show yet.'
-                : `${total.toLocaleString()} release${total === 1 ? '' : 's'}`}
-              {query ? ` matching “${query}”` : ''}
-            </p>
-          </div>
+          {/*
+           * The heading alone.
+           *
+           * A "1 release" line used to sit under it. A visitor is not counting
+           * the catalogue — the grid below already shows how much there is —
+           * and at one song it read as an apology for the size of it.
+           *
+           * Nothing is lost when a search is running: the search box still
+           * holds the words, the grid narrows to match, and a search with no
+           * results is answered by the "Nothing matches that" message below.
+           */}
+          <h1 className="t-h1">All songs</h1>
 
           <SiteSearchField
             id="songs-search"
