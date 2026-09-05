@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 
+import { AVATAR_SIZES, VIDEO_VARIANTS } from '@/lib/images/youtubeLoader';
+import { rateLimit } from '@/lib/utils/rateLimit';
+
 /**
  * Serves YouTube's thumbnails and channel avatars from this domain.
  *
@@ -33,6 +36,57 @@ const ALLOWED_HOSTS = new Set([
 ]);
 
 /**
+ * Beyond the host, the exact SHAPES this loader produces — nothing else.
+ *
+ * The host check alone leaves an unbounded surface: a caller can invent any
+ * number of distinct paths on those three hosts, and every one of them misses
+ * the CDN, wakes this function and makes an upstream request. That is the only
+ * way this route's usage grows without bound, and the CPU it burns is metered.
+ *
+ * Matching the grammar instead means junk is refused in a few microseconds
+ * with no fetch and no bandwidth behind it. The catalogue's own images —
+ * roughly 8,350 distinct URLs — are each fetched once and then served by the
+ * CDN for a year, which is a few CPU-minutes in total.
+ */
+const VIDEO_ID = /^[\w-]{11}$/;
+const VARIANT_NAMES = new Set(VIDEO_VARIANTS.map((v) => v.name));
+
+/** `=s176-c-k-...`, the size segment `youtubeLoader` rewrites on an avatar. */
+const AVATAR_SIZE_SEGMENT = /=s(\d+)-/;
+
+function isImageWeServe(target: URL): boolean {
+  if (target.hostname === 'i.ytimg.com') {
+    // /vi/<id>/<variant>.jpg — exactly three segments, nothing else.
+    const parts = target.pathname.split('/');
+    if (parts.length !== 4 || parts[0] !== '' || parts[1] !== 'vi') return false;
+
+    const [, , id, file] = parts;
+    if (!VIDEO_ID.test(id) || !file.endsWith('.jpg')) return false;
+    return VARIANT_NAMES.has(file.slice(0, -'.jpg'.length));
+  }
+
+  // A channel avatar, which must carry a size this loader would have asked for.
+  const size = AVATAR_SIZE_SEGMENT.exec(target.pathname);
+  return size !== null && AVATAR_SIZES.includes(Number(size[1]));
+}
+
+/**
+ * Requests per address per minute.
+ *
+ * Well clear of any real page — the busiest carries fewer than a hundred
+ * distinct images, and a returning visitor asks for none of them because they
+ * are cached for a year. It is here to blunt a flood of invented URLs, which
+ * the grammar above already makes worthless but not free.
+ *
+ * The window is per instance rather than shared, so this slows a single source
+ * rather than stopping a distributed one. Bounding it exactly would mean
+ * checking every id against the database, which needs Prisma, which forces
+ * this route off the edge runtime and raises the CPU per request — spending
+ * more of the meter this is protecting.
+ */
+const RATE_LIMIT = { requests: 300, windowMs: 60_000 };
+
+/**
  * A year, and immutable.
  *
  * These URLs are content-addressed — a video's thumbnail lives at an address
@@ -54,8 +108,25 @@ export async function GET(request: Request) {
     return new NextResponse('Malformed image address', { status: 400 });
   }
 
-  if (target.protocol !== 'https:' || !ALLOWED_HOSTS.has(target.hostname)) {
+  if (
+    target.protocol !== 'https:' ||
+    !ALLOWED_HOSTS.has(target.hostname) ||
+    !isImageWeServe(target)
+  ) {
     return new NextResponse('Image address not allowed', { status: 400 });
+  }
+
+  /*
+   * Checked only AFTER the address is known to be one we serve, so a flood of
+   * junk cannot use up a real visitor's allowance.
+   */
+  const client = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+  const limit = rateLimit(`image:${client}`, RATE_LIMIT.requests, RATE_LIMIT.windowMs);
+  if (!limit.allowed) {
+    return new NextResponse('Too many image requests', {
+      status: 429,
+      headers: { 'retry-after': String(Math.ceil(limit.retryAfterMs / 1000)) },
+    });
   }
 
   const upstream = await fetch(target, {
@@ -69,9 +140,11 @@ export async function GET(request: Request) {
 
   if (!upstream?.ok) {
     /*
-     * Not cached for a year. A thumbnail can 404 while YouTube is still
-     * generating it, and caching that failure would keep the video looking
-     * broken long after the image existed.
+     * Not cached for a year, and deliberately not "tidied" to match the
+     * success path. A thumbnail can 404 while YouTube is still generating it,
+     * and caching that failure for a year would keep a real video looking
+     * broken long after its image existed. A minute is long enough to absorb a
+     * burst and short enough to correct itself.
      */
     return new NextResponse('Image unavailable', {
       status: 502,

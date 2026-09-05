@@ -22,8 +22,14 @@
  * anything server-only.
  */
 
-/** Thumbnail variants YouTube publishes, smallest first, with their widths. */
-const VIDEO_VARIANTS: ReadonlyArray<{ name: string; width: number }> = [
+/**
+ * Thumbnail variants YouTube publishes, smallest first, with their widths.
+ *
+ * Exported because `/api/image` validates against exactly these names. Two
+ * copies of the list would drift, and the drift would show up as images that
+ * silently stop loading.
+ */
+export const VIDEO_VARIANTS: ReadonlyArray<{ name: string; width: number }> = [
   { name: 'default', width: 120 },
   { name: 'mqdefault', width: 320 },
   { name: 'hqdefault', width: 480 },
@@ -50,12 +56,18 @@ function variantFor(width: number): string {
   return (VIDEO_VARIANTS.find((v) => v.width >= width) ?? VIDEO_VARIANTS[VIDEO_VARIANTS.length - 1]).name;
 }
 
+/**
+ * Avatar sizes this loader will ask for, smallest first. Exported for the same
+ * reason as the variant list above.
+ */
+export const AVATAR_SIZES: readonly number[] = [48, 88, 176, 240, 400, 800];
+
 /** Avatars are square, so one number serves both dimensions. */
 function avatarSize(width: number): number {
-  for (const size of [48, 88, 176, 240, 400, 800]) {
+  for (const size of AVATAR_SIZES) {
     if (size >= width) return size;
   }
-  return 800;
+  return AVATAR_SIZES[AVATAR_SIZES.length - 1];
 }
 
 export default function youtubeImageLoader({ src, width }: { src: string; width: number }): string {

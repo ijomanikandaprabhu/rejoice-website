@@ -20,6 +20,24 @@ const nextConfig = {
      */
     loader: 'custom',
     loaderFile: './src/lib/images/youtubeLoader.ts',
+
+    /*
+     * Trimmed from Next's defaults, which offer eight device widths up to
+     * 3840 and eight more small ones.
+     *
+     * Those widths were sized for an optimizer that would produce a file at
+     * any of them. Ours cannot: `youtubeLoader` maps every width onto one of
+     * five thumbnail variants YouTube actually publishes, so most of the
+     * default entries were several srcset lines pointing at the same image.
+     * Worse, the largest of them landed on `maxresdefault` — 135KB — for
+     * cards that need `hqdefault` at 17KB.
+     *
+     * These are the widths that map onto distinct variants and avatar sizes.
+     * Fewer entries means fewer cache keys, fewer first-time fetches and much
+     * less bandwidth, which is metered separately from the function time.
+     */
+    deviceSizes: [640, 828, 1280, 1920],
+    imageSizes: [48, 96, 176, 240, 384],
   },
 
   /*
