@@ -827,6 +827,74 @@
     }
   }
 
+  /*
+   * The song grid's discs, and which way they slide out.
+   *
+   * `--disc-dir` is 1 (rightwards) everywhere except the last card in a row,
+   * where it flips. That is not decoration: the grid sits in `.container-page`,
+   * which has only 20-32px of padding beside it, and a disc emerging from the
+   * LAST column would reach past the page edge and give the whole site a
+   * horizontal scrollbar. Sliding it the other way costs nothing and the
+   * symmetry reads as deliberate.
+   *
+   * The counts here must match `SongGrid`'s columns — 2, then 3 at `sm`, then
+   * 5 at `lg`. Change one and change the other.
+   */
+  .song-card-grid {
+    --disc-dir: 1;
+  }
+
+  .song-card-grid > li:nth-child(2n) {
+    --disc-dir: -1;
+  }
+
+  @media (min-width: 640px) {
+    .song-card-grid > li:nth-child(2n) {
+      --disc-dir: 1;
+    }
+
+    .song-card-grid > li:nth-child(3n) {
+      --disc-dir: -1;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .song-card-grid > li:nth-child(3n) {
+      --disc-dir: 1;
+    }
+
+    .song-card-grid > li:nth-child(5n) {
+      --disc-dir: -1;
+    }
+  }
+
+  /*
+   * How far out of the sleeve the disc travels, in its own widths. Applied only
+   * while the card is hovered; at rest the disc sits exactly behind the cover.
+   */
+  .song-card-disc {
+    transform: translateX(0);
+  }
+
+  .group:hover .song-card-disc {
+    transform: translateX(calc(var(--disc-dir) * 62%));
+  }
+
+  /*
+   * A page can hold sixty of these. Left running, that is sixty compositor
+   * animations for discs nobody can see, so the spin starts on hover.
+   *
+   * Separate from the class above because the sliding and the turning are
+   * different elements: the wrapper moves, the record inside it turns.
+   */
+  .song-card-disc-spin {
+    animation-play-state: paused;
+  }
+
+  .group:hover .song-card-disc-spin {
+    animation-play-state: running;
+  }
+
 
   /* Faint rule grid, faded out top and bottom. */
   .footer-bg-grid {

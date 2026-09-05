@@ -1,5 +1,7 @@
 import Image from 'next/image';
 
+import { RecordDisc } from '@/components/site/RecordDisc';
+
 /**
  * The cover as a record: a square sleeve with the disc drawn half out of it.
  *
@@ -42,41 +44,12 @@ export function VinylCover({ src, alt }: { src: string; alt: string }) {
        * cue rather than the largest that would fully clear the label and
        * shrink the artwork by 17%.
        *
-       * `overflow-hidden` is the second half of that fix, and less obvious. The
-       * disc LOOKS like a circle but is a square element with rounded corners,
-       * and a rotating square sweeps a bounding box up to 1.41x its side — so
-       * the browser kept counting those invisible corners as page width even
-       * once the circle itself fitted. Clipping to the circle costs nothing to
-       * look at and stops the sweep from reaching the layout.
+       * Clipping the disc to its circle is the second half of that fix, and
+       * `RecordDisc` now carries it — a rotating square sweeps a bounding box
+       * up to 1.41x its side, and the browser kept counting those invisible
+       * corners as page width even once the circle itself fitted.
        */}
-      <div className="absolute left-[38%] top-[4%] aspect-square h-[92%] overflow-hidden rounded-full">
-        <div className="song-vinyl relative size-full rounded-full">
-          {/*
-           * The label carries the artwork, and that is what makes the rotation
-           * legible — concentric grooves alone are rotationally symmetric and
-           * would merely shimmer.
-           */}
-          <span className="absolute left-1/2 top-1/2 aspect-square h-[32%] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-full">
-            <Image
-              src={src}
-              alt=""
-              width={400}
-              height={400}
-              sizes="140px"
-              className="size-full object-cover"
-            />
-          </span>
-
-          {/* The spindle hole — small, and what makes the label read as a label. */}
-          <span className="absolute left-1/2 top-1/2 size-[3.4%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-site-bg" />
-        </div>
-
-        {/* Light on the disc. Static, because light does not travel with the groove. */}
-        <span
-          aria-hidden="true"
-          className="song-vinyl-sheen pointer-events-none absolute inset-0 rounded-full"
-        />
-      </div>
+      <RecordDisc src={src} className="absolute left-[38%] top-[4%] aspect-square h-[92%]" />
 
       <Image
         src={src}
