@@ -56,6 +56,78 @@ const nextConfig = {
    * across automatically. The `:path*` forms cover the nested routes:
    * /channels/{handle}?page=3 lands on /creations/{handle}?page=3.
    */
+  /*
+   * Response headers, in two groups.
+   *
+   * ## Security, on everything
+   *
+   * The site was serving only HSTS, which Vercel adds. These three are the
+   * ones with no configuration cost and no way to break a working page:
+   *
+   *   - `X-Frame-Options: SAMEORIGIN` stops another site putting Rejoice in an
+   *     iframe and dressing it up as their own — or overlaying it to harvest
+   *     clicks. Nothing here needs to be framed by anyone else. It does NOT
+   *     affect this site framing YouTube, which is the other direction.
+   *   - `X-Content-Type-Options: nosniff` stops a browser second-guessing a
+   *     declared content type. `/api/image` already sets it; this extends the
+   *     same rule to everything, including the bytes served from the database
+   *     by `/api/media`.
+   *   - `Referrer-Policy` sends the full address within this site and only the
+   *     bare origin when leaving it, so a YouTube or Spotify link does not
+   *     carry the exact page someone came from.
+   *
+   * DELIBERATELY NOT ADDED: a Content-Security-Policy, and a Permissions-Policy.
+   * A CSP has to enumerate everything the page loads — the YouTube player,
+   * MapLibre's worker, Vercel's own scripts, inline styles — and one missing
+   * entry silently breaks a feature with no error anyone would notice. It is
+   * worth doing, with the time to test each page, rather than added blind.
+   * Permissions-Policy carries the same risk for the video player, which needs
+   * autoplay, fullscreen and encrypted-media.
+   *
+   * ## Caching, for `public/`
+   *
+   * These files were served `max-age=0, must-revalidate`. That is not as bad as
+   * it looks — they carry an ETag, so a repeat visit gets a 304 and downloads
+   * nothing — but it still costs a network ROUND TRIP per file per page load,
+   * on every page, to be told nothing changed.
+   *
+   * One hour of freshness plus a day of `stale-while-revalidate`: within the
+   * hour a repeat visit makes no request at all, and for a day after that the
+   * cached copy is shown immediately while a fresh one is fetched in the
+   * background.
+   *
+   * NOT a year, and not `immutable`, which is what `/_next/static` gets. Those
+   * filenames contain a content hash, so a changed file is a changed name.
+   * These do not: replace `logo-wordmark-light.png` and the address is the
+   * same, so a year-long cache would show the old logo for a year. An hour is
+   * the trade — the round trips go, and a new logo still reaches everyone the
+   * same morning.
+   */
+  async headers() {
+    const security = [
+      { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+    ];
+
+    return [
+      { source: '/:path*', headers: security },
+      {
+        /*
+         * The static files in `public/`, by extension. Matching on extension
+         * rather than on a folder because they live in several — `/brand`,
+         * `/about`, `/media` — and a new folder should not have to be added
+         * here to be cached.
+         */
+        source: '/:path*.(png|jpg|jpeg|webp|avif|svg|ico|mp3|mp4|woff|woff2)',
+        headers: [
+          ...security,
+          { key: 'Cache-Control', value: 'public, max-age=3600, stale-while-revalidate=86400' },
+        ],
+      },
+    ];
+  },
+
   async redirects() {
     return [
       { source: '/channels', destination: '/creations', permanent: true },
