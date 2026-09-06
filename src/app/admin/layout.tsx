@@ -4,6 +4,8 @@ import { AdminTopBar } from '@/components/admin/AdminTopBar';
 import { AdminToaster } from '@/components/admin/AdminToaster';
 import { SyncCatchUp } from '@/components/admin/SyncCatchUp';
 import { logoutAction } from '@/features/auth/actions';
+import { markAllReadAction } from '@/features/notifications/actions';
+import { listNotifications, unreadCount } from '@/features/notifications/queries';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db/prisma';
 
@@ -44,9 +46,21 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     select: { email: true },
   });
 
+  /*
+   * The bell's contents, read here because the top bar is a client component.
+   * Only the preview is fetched — the full history lives on its own page — so
+   * this stays a small query on a path every admin screen takes.
+   */
+  const [unread, items] = await Promise.all([unreadCount(), listNotifications(6)]);
+
   return (
     <div className="admin-theme min-h-screen">
-      <AdminTopBar email={admin?.email ?? session.user.email ?? ''} logout={logoutAction} />
+      <AdminTopBar
+        email={admin?.email ?? session.user.email ?? ''}
+        logout={logoutAction}
+        notifications={{ unread, items }}
+        markAllRead={markAllReadAction}
+      />
       {/*
        * `flex flex-col gap-5`, not `space-y-5`.
        *

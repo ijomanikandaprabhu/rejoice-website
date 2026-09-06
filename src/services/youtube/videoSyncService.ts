@@ -3,6 +3,7 @@ import 'server-only';
 import type { YouTubeChannel } from '@prisma/client';
 
 import { youtubeConfig } from '@/config/youtube.config';
+import { raise } from '@/features/notifications/notify';
 import { prisma } from '@/lib/db/prisma';
 import { createLogger } from '@/lib/logger';
 import {
@@ -508,7 +509,46 @@ export async function syncAllChannels(full = false): Promise<SyncResult[]> {
   }
 
   await recordSyncRun(results);
+  await announce(results);
   return results;
+}
+
+/**
+ * Tell the administrator, but ONLY WHEN SOMETHING CHANGED.
+ *
+ * Imported or deleted, nothing else. The refreshed count is deliberately not a
+ * change: the daily run now walks the whole catalogue and refreshes all 1,755
+ * videos every night by design, so counting that would post a notification
+ * every single day saying nothing happened — which is exactly how a bell stops
+ * being read.
+ *
+ * Never throws: `raise` swallows its own errors, and a note about a sync must
+ * not be able to fail the sync.
+ */
+async function announce(results: SyncResult[]): Promise<void> {
+  const imported = results.reduce((n, r) => n + r.imported, 0);
+  const deleted = results.reduce((n, r) => n + (r.deleted ?? 0), 0);
+
+  if (imported === 0 && deleted === 0) return;
+
+  const parts: string[] = [];
+  if (imported > 0) parts.push(`${imported} new video${imported === 1 ? '' : 's'}`);
+  if (deleted > 0) parts.push(`${deleted} removed from YouTube`);
+
+  await raise({
+    kind: 'SYNC',
+    title: parts.join(' · '),
+    /*
+     * Says what to do next, because a new video is not on the website yet:
+     * imports arrive hidden by default, which is the one thing an administrator
+     * has to know on reading this.
+     */
+    body:
+      imported > 0
+        ? 'New videos arrive hidden. Open YouTube Content to show them on the website.'
+        : 'Videos taken down on YouTube have been removed from the website.',
+    href: '/admin/youtube-content',
+  });
 }
 
 /** Import specific video IDs — the push-notification path (section 12). */

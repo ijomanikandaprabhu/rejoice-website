@@ -15,8 +15,20 @@ import { getSmtpCredentials } from '@/config/mail.config';
 export type OutgoingMail = {
   to: string;
   subject: string;
-  /** Plain text only. Nothing here builds HTML from user-supplied content. */
+  /**
+   * The plain-text part, and STILL REQUIRED even when `html` is given.
+   *
+   * It is what a text-only client renders, and a message with no text part
+   * scores worse with spam filters. `renderMail` in ./template builds both from
+   * one description so they cannot drift.
+   */
   text: string;
+  /**
+   * The HTML part. Build it with `renderMail`, never by hand: this used to be
+   * plain text only precisely because the body is composed almost entirely of
+   * attacker-supplied strings, and that template is where the escaping lives.
+   */
+  html?: string;
   /** Where a reply should go, when that is not the sending account. */
   replyTo?: string;
 };
@@ -65,6 +77,7 @@ export async function sendMail(mail: OutgoingMail): Promise<boolean> {
     to: mail.to,
     subject: mail.subject,
     text: mail.text,
+    html: mail.html,
     replyTo: mail.replyTo,
   });
 

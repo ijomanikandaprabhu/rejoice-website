@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, ExternalLink, LogOut, Search } from 'lucide-react';
+import { ExternalLink, LogOut, Search } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -14,7 +14,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { NotificationBell } from '@/components/admin/NotificationBell';
 import { adminNav } from '@/config/app.config';
+import type { NotificationRow } from '@/features/notifications/queries';
 import { cn } from '@/lib/utils';
 
 /**
@@ -23,7 +25,23 @@ import { cn } from '@/lib/utils';
  * Nav order comes from `config/app.config.ts` so the sitemap, the public header
  * and this bar all derive from one source.
  */
-export function AdminTopBar({ email, logout }: { email: string; logout: () => Promise<void> }) {
+export function AdminTopBar({
+  email,
+  logout,
+  notifications,
+  markAllRead,
+}: {
+  email: string;
+  logout: () => Promise<void>;
+  /*
+   * Read in the LAYOUT and passed down. This bar is a client component and
+   * cannot query the database, and the badge has to be right on every admin
+   * screen — the layout already looks the administrator up for the email
+   * beside it, so the count rides along rather than adding a second trip.
+   */
+  notifications: { unread: number; items: NotificationRow[] };
+  markAllRead: () => Promise<void>;
+}) {
   const pathname = usePathname();
 
   const isActive = (href: string) =>
@@ -86,18 +104,16 @@ export function AdminTopBar({ email, logout }: { email: string; logout: () => Pr
               <TooltipContent>Search content</TooltipContent>
             </Tooltip>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link
-                  href="/admin/enquiries"
-                  aria-label="Enquiries"
-                  className="grid size-9 place-items-center rounded-pill text-panel-muted transition-colors hover:bg-panel-alt hover:text-panel-fg"
-                >
-                  <Bell className="size-[18px]" />
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent>Enquiries</TooltipContent>
-            </Tooltip>
+            {/*
+             * The bell is NOTIFICATIONS now, not a second door to enquiries.
+             * Enquiries keep their place in the nav above; see
+             * `NotificationBell` for why the two are separate things.
+             */}
+            <NotificationBell
+              unread={notifications.unread}
+              items={notifications.items}
+              onMarkAllRead={markAllRead}
+            />
 
             <Tooltip>
               <TooltipTrigger asChild>

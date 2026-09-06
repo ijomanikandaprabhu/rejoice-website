@@ -246,6 +246,38 @@ model Enquiry {
   @@index([status, createdAt])
 }
 
+/// What raised a notification. Kept small on purpose — a kind exists so the list
+/// can be filtered and iconed, not so the reader can reconstruct the event.
+enum NotificationKind {
+  ENQUIRY
+  SYNC
+}
+
+/// One thing worth telling the administrator about, shown behind the bell.
+///
+/// SEPARATE FROM ENQUIRIES, which are correspondence with a person and have
+/// their own screen and their own lifecycle. A notification is a note that
+/// something happened; deleting it changes nothing, which is why they are
+/// cleared after seven days while an enquiry is kept.
+model Notification {
+  id        String           @id @default(cuid())
+  kind      NotificationKind
+  title     String
+  body      String?
+  /// Where clicking it goes. STORED rather than derived from `kind`, so a
+  /// notification can point at one enquiry or one channel without every reader
+  /// needing a switch statement.
+  href      String?
+  createdAt DateTime         @default(now())
+  readAt    DateTime?
+
+  /// The two questions ever asked of this table: how many are unread, and what
+  /// are the newest.
+  @@index([readAt, createdAt])
+  /// The seven-day sweep, which is a range scan on this column alone.
+  @@index([createdAt])
+}
+
 /// Global technical configuration (section 24). Simple key/value so new settings
 /// never require a migration.
 model SiteSetting {

@@ -5,6 +5,7 @@ import { isMailConfigured } from '@/config/mail.config';
 import { getGeneralSettings } from '@/features/settings/queries';
 import { createLogger } from '@/lib/logger';
 import { sendMail } from '@/services/mail/mailer';
+import { renderMail } from '@/services/mail/template';
 
 /**
  * Tells Rejoice that an enquiry has arrived.
@@ -27,27 +28,32 @@ export type EnquiryNotification = {
 /**
  * Builds the message. Pure, so it can be tested without SMTP.
  *
- * Plain text on purpose. The body is composed almost entirely of
- * attacker-supplied strings, and plain text removes the HTML-escaping question
- * rather than depending on getting it right.
+ * BOTH PARTS, from one description. This was plain text only, and the reason
+ * was good: the body is composed almost entirely of attacker-supplied strings,
+ * and plain text removes the HTML-escaping question rather than depending on
+ * getting it right. The branded version does not get to forget that — it is why
+ * `renderMail` takes DATA and escapes every value itself, and why the text part
+ * is still built and still sent.
  */
 export function buildEnquiryEmail(enquiry: EnquiryNotification, to: string) {
-  const lines = [
-    `Name:    ${enquiry.name}`,
-    `Email:   ${enquiry.email}`,
-    enquiry.phone ? `Phone:   ${enquiry.phone}` : null,
-    enquiry.subject ? `Subject: ${enquiry.subject}` : null,
-    '',
-    enquiry.message,
-    '',
-    '—',
-    `Read and reply in the admin: ${appConfig.url}/admin/enquiries`,
-  ].filter((line): line is string => line !== null);
+  const { html, text } = renderMail({
+    heading: 'New enquiry',
+    intro: `${enquiry.name} has written in through the website.`,
+    rows: [
+      { label: 'Name', value: enquiry.name },
+      { label: 'Email', value: enquiry.email },
+      ...(enquiry.phone ? [{ label: 'Phone', value: enquiry.phone }] : []),
+      ...(enquiry.subject ? [{ label: 'Subject', value: enquiry.subject }] : []),
+    ],
+    message: enquiry.message,
+    action: { label: 'Read and reply', href: `${appConfig.url}/admin/enquiries` },
+  });
 
   return {
     to,
     subject: `New enquiry from ${enquiry.name}`,
-    text: lines.join('\n'),
+    text,
+    html,
     /*
      * Replies go to the person who wrote in.
      *

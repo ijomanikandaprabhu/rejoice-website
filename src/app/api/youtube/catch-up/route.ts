@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { youtubeConfig } from '@/config/youtube.config';
 import { isYouTubeConfigured } from '@/config/youtube.config';
 import { isAuthenticated } from '@/lib/auth/guard';
+import { clearOldNotifications } from '@/features/notifications/notify';
 import { createLogger } from '@/lib/logger';
 import { refreshAllAnalytics } from '@/services/youtube/analyticsService';
 import { recordDailyChannelStats, refreshVideoStats } from '@/services/youtube/statsService';
@@ -97,6 +98,14 @@ export async function POST() {
       log.error('Analytics refresh failed', error);
       return { refreshed: 0, failed: 0 };
     });
+
+    /*
+     * Housekeeping, beside the rest of it: notifications older than seven days
+     * are swept here rather than by a second cron. One scheduled job is enough,
+     * and this runs in the catch-up route too — sweeping only from a job that
+     * has not been firing would leave the list growing forever.
+     */
+    await clearOldNotifications();
 
     const stats = await refreshVideoStats(undefined, runDeadline).catch((error: unknown) => {
       log.error('Video statistics refresh failed', error);

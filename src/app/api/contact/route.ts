@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { rateLimits } from '@/config/app.config';
 import { notifyNewEnquiry } from '@/features/enquiries/notify';
+import { raise } from '@/features/notifications/notify';
 import { prisma } from '@/lib/db/prisma';
 import { createLogger } from '@/lib/logger';
 import { clientIpFrom, rateLimit } from '@/lib/utils/rateLimit';
@@ -78,6 +79,22 @@ export async function POST(request: Request) {
    * the send mid-flight.
    */
   await notifyNewEnquiry({ name, email, phone, subject, message });
+
+  /*
+   * And a notification behind the bell, which is a different job from the
+   * email: the mail reaches whoever reads that inbox, the bell reaches whoever
+   * is in the admin. Either one alone leaves a gap.
+   *
+   * `raise` swallows its own errors for the same reason `notifyNewEnquiry`
+   * does — the enquiry is already stored, and nothing about a note can be
+   * allowed to tell the visitor their message failed.
+   */
+  await raise({
+    kind: 'ENQUIRY',
+    title: `New enquiry from ${name}`,
+    body: subject || message.slice(0, 140),
+    href: '/admin/enquiries',
+  });
 
   return NextResponse.json({ message: 'Message sent. We will reply by email.' });
 }
