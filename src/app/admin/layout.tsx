@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 
 import { AdminTopBar } from '@/components/admin/AdminTopBar';
 import { AdminToaster } from '@/components/admin/AdminToaster';
+import { SyncCatchUp } from '@/components/admin/SyncCatchUp';
 import { logoutAction } from '@/features/auth/actions';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db/prisma';
@@ -65,6 +66,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         {children}
       </main>
       <AdminToaster />
+      {/*
+       * In the LAYOUT rather than on the dashboard, so it fires whichever admin
+       * screen is opened first — the catch-up is worth as much to someone who
+       * goes straight to YouTube Content as to someone who lands on the
+       * dashboard. Renders nothing; see the component.
+       */}
+      <SyncCatchUp />
     </div>
   );
 }

@@ -363,6 +363,50 @@ async function fetchReport(token: string): Promise<AnalyticsReport> {
  * returned marked `stale` — an old number with a date on it is far more useful
  * than an error panel.
  */
+/**
+ * Refresh every connected channel's analytics, ignoring the cache.
+ *
+ * For the scheduled run. `getAnalytics` serves a report for three hours before
+ * fetching again, which is right for a dashboard nobody wants to wait on and
+ * wrong for a nightly job whose whole purpose is to fetch — so the cached row
+ * is dropped first and `getAnalytics` then takes its own fetch path.
+ *
+ * Returns how many channels were refreshed. ZERO IS THE NORMAL ANSWER UNTIL A
+ * CHANNEL IS CONNECTED: analytics needs a Google sign-in per channel, which the
+ * API key cannot stand in for, so with no connection there is nothing to fetch
+ * and this is not an error.
+ *
+ * One channel failing does not stop the others — a revoked token on one
+ * connection should not cost the rest their nightly reading.
+ */
+export async function refreshAllAnalytics(): Promise<{ refreshed: number; failed: number }> {
+  if (!getYouTubeOAuthCredentials()) return { refreshed: 0, failed: 0 };
+
+  const tokens = await prisma.youTubeOAuthToken.findMany({
+    where: { channelId: { not: null } },
+    select: { channelId: true },
+  });
+
+  let refreshed = 0;
+  let failed = 0;
+
+  for (const { channelId } of tokens) {
+    if (!channelId) continue;
+    try {
+      await prisma.siteSetting.deleteMany({ where: { key: cacheKey(channelId) } });
+      const state = await getAnalytics(channelId);
+      if (state.status === 'ready') refreshed += 1;
+      else failed += 1;
+    } catch (error) {
+      failed += 1;
+      log.error(`Scheduled analytics refresh failed for channel ${channelId}`, error);
+    }
+  }
+
+  log.info(`Analytics refresh: ${refreshed} channel(s) updated, ${failed} failed`);
+  return { refreshed, failed };
+}
+
 export async function getAnalytics(channelId: string): Promise<AnalyticsState> {
   if (!getYouTubeOAuthCredentials()) {
     return {

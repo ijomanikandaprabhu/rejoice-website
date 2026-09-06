@@ -9,12 +9,17 @@ export const youtubeConfig = {
   apiBaseUrl: 'https://www.googleapis.com/youtube/v3',
 
   /**
-   * Maximum playlist pages fetched per channel per sync. Each page is 50 videos.
-   * Keeps us well inside the daily YouTube quota (section 36).
+   * Pages fetched per channel by the HEAD PASS — the sweep of the newest
+   * uploads. Each page is 50 videos.
    *
-   * The scheduled run only needs to catch what was published since the last one.
-   * At one run per day, 6 pages covers 300 uploads in 24 hours — far more than
-   * any real channel produces, with margin if a day's run is missed.
+   * No longer what the daily run is bounded by: the scheduled sync now walks
+   * the whole catalogue so that edits and deletions anywhere in it are seen
+   * within a day. This applies while a channel is still backfilling, when the
+   * newest pages are read first so a video published this morning is not held
+   * up behind the backlog.
+   *
+   * 6 pages covers 300 uploads — far more than any real channel produces in a
+   * day, with margin if a run is missed.
    */
   maxPagesPerSync: 6,
 
@@ -40,17 +45,28 @@ export const youtubeConfig = {
    * This is the budget for a WHOLE run, shared by every channel in it — the
    * scheduled sync walks all five inside one invocation.
    *
-   * It is deliberately only half of the invocation, because the statistics
-   * upkeep runs in the same 60 seconds afterwards. Before the import became
+   * The statistics upkeep runs in the same 60 seconds afterwards, so the two
+   * are budgeted separately rather than competing — before the import became
    * time-bounded a sync was a handful of fast pages and statistics had the
-   * function almost to itself; a backfill can now fill whatever it is given,
-   * so the two are budgeted separately rather than competing.
+   * function almost to itself.
+   *
+   * RAISED FROM 30s WHEN THE DAILY RUN BECAME A COMPLETE PASS. Measured against
+   * the real catalogue, walking all 1,755 videos across both channels takes
+   * 24-31 seconds — so at 30s it finished on a good night and ran out on a
+   * slower one. That is not a failure, but a walk that stops early cannot run
+   * the deletion pass, which needs the whole playlist to tell "gone" from "not
+   * reached yet". At 30s the check for deleted videos would have happened on
+   * roughly alternate days; 40s leaves real headroom for it to happen daily.
+   *
+   * Statistics keep whatever is left of the 50s, and lose nothing by it: the
+   * refresh is ordered by staleness, so the videos one run does not reach are
+   * simply first in line the next.
    *
    * When the budget runs out the run is NOT a failure: it stores the next page
    * token on each channel and the following run continues from there, so a
    * very large back catalogue completes over a few runs unattended.
    */
-  syncTimeBudgetMs: 30_000,
+  syncTimeBudgetMs: 40_000,
 
   /**
    * The point in a scheduled run by which ALL fetching must stop — syncing and

@@ -39,6 +39,13 @@ export type SyncResult = {
   error?: string;
   /** True when this channel's back catalogue is only partly imported so far. */
   importing?: boolean;
+  /** Videos removed because YouTube no longer lists them. */
+  deleted?: number;
+  /**
+   * True when a deletion pass found more missing than `MAX_DELETION_SHARE` and
+   * refused to act. Surfaced so it can be reported rather than buried in a log.
+   */
+  deletionRefused?: boolean;
 };
 
 /**
@@ -181,20 +188,30 @@ async function importPages(
   startToken: string | undefined,
   maxPages: number,
   deadline: number,
-): Promise<{ imported: number; updated: number; nextPageToken?: string }> {
+): Promise<{ imported: number; updated: number; nextPageToken?: string; seen: Set<string> }> {
   let pageToken = startToken;
   let imported = 0;
   let updated = 0;
+  /*
+   * Every video id this walk saw on YouTube.
+   *
+   * Collected so a COMPLETED walk can name what is missing — a video the
+   * playlist no longer offers has been deleted or made private. Ids only, not
+   * rows: 1,700 short strings is nothing to hold, where the video objects
+   * would be megabytes.
+   */
+  const seen = new Set<string>();
 
   for (let page = 0; page < maxPages; page++) {
     const result = await fetchUploadsPage(channel.uploadsPlaylistId, pageToken);
+    for (const video of result.videos) seen.add(video.videoId);
     const counts = await importVideos(channel, result.videos);
     imported += counts.imported;
     updated += counts.updated;
 
     // End of the playlist. This is the only place a channel is declared
     // complete, and it is why the token is returned rather than a page count.
-    if (!result.nextPageToken) return { imported, updated, nextPageToken: undefined };
+    if (!result.nextPageToken) return { imported, updated, nextPageToken: undefined, seen };
 
     /*
      * A token that hands back itself would loop forever. Treating it as the
@@ -204,7 +221,7 @@ async function importPages(
      */
     if (result.nextPageToken === pageToken) {
       log.warn(`${channel.name}: YouTube repeated a page token, stopping this run`);
-      return { imported, updated, nextPageToken: result.nextPageToken };
+      return { imported, updated, nextPageToken: result.nextPageToken, seen };
     }
 
     pageToken = result.nextPageToken;
@@ -213,11 +230,77 @@ async function importPages(
     // the next request, never work already done.
     if (Date.now() >= deadline) {
       log.info(`${channel.name}: time budget reached after ${page + 1} pages, will resume`);
-      return { imported, updated, nextPageToken: pageToken };
+      return { imported, updated, nextPageToken: pageToken, seen };
     }
   }
 
-  return { imported, updated, nextPageToken: pageToken };
+  return { imported, updated, nextPageToken: pageToken, seen };
+}
+
+/**
+ * How much of a channel may disappear in one run before the deletion pass
+ * refuses to act.
+ *
+ * A completed walk that returns far fewer videos than the database holds is far
+ * more likely to be YouTube serving a truncated playlist than the label having
+ * deleted a third of its catalogue overnight. The pass stops and records the
+ * fact instead, leaving a person to decide.
+ */
+const MAX_DELETION_SHARE = 0.2;
+
+/**
+ * Whether a deletion pass should stand down.
+ *
+ * Its own function so the rule can be tested without a database or a network:
+ * it is the one thing standing between a truncated response from YouTube and an
+ * emptied catalogue, and "I reasoned about it carefully" is not the same as
+ * knowing.
+ */
+export function refusesDeletion(held: number, gone: number): boolean {
+  if (held === 0 || gone === 0) return false;
+  return gone / held > MAX_DELETION_SHARE;
+}
+
+/**
+ * Remove videos that are no longer on YouTube.
+ *
+ * ONLY EVER CALLED WITH A COMPLETED WALK. `seen` has to be the whole uploads
+ * playlist, because the rule is "in the database and not on YouTube" — run
+ * against a partial walk it would delete everything the run did not reach.
+ * `syncChannel` is the only caller and it checks that first.
+ *
+ * Deleting rather than hiding is what Rejoice asked for: a video taken off
+ * YouTube leaves the website entirely. The cost is that a video made private
+ * for a day is deleted here and re-imported as a new one when it comes back,
+ * losing any custom title or thumbnail it carried — which is the reason the
+ * guard above exists.
+ */
+async function removeDeletedVideos(
+  channel: YouTubeChannel,
+  seen: Set<string>,
+): Promise<{ deleted: number; refused: boolean }> {
+  const held = await prisma.youTubeVideo.findMany({
+    where: { channelId: channel.id },
+    select: { id: true, youtubeVideoId: true },
+  });
+
+  const gone = held.filter((video) => !seen.has(video.youtubeVideoId));
+  if (gone.length === 0) return { deleted: 0, refused: false };
+
+  if (refusesDeletion(held.length, gone.length)) {
+    log.error(
+      `${channel.name}: refusing to delete ${gone.length} of ${held.length} videos — ` +
+        'the playlist looks truncated, not emptied',
+    );
+    return { deleted: 0, refused: true };
+  }
+
+  const { count } = await prisma.youTubeVideo.deleteMany({
+    where: { id: { in: gone.map((video) => video.id) } },
+  });
+
+  log.info(`${channel.name}: removed ${count} video(s) no longer on YouTube`);
+  return { deleted: count, refused: false };
 }
 
 /**
@@ -263,14 +346,44 @@ export async function syncChannel(
   try {
     let imported = 0;
     let updated = 0;
+    let deleted = 0;
+    let deletionRefused = false;
     let cursor = channel.importCursor;
 
     if (cursor === null && full) {
-      // Fresh deep import: from the newest video to the end of the catalogue.
+      // A complete pass: from the newest video to the end of the catalogue.
       const run = await importPages(channel, undefined, youtubeConfig.maxPagesPerRun, deadline);
       imported += run.imported;
       updated += run.updated;
       cursor = run.nextPageToken ?? null;
+
+      /*
+       * THE DELETION PASS RUNS ONLY HERE, AND ONLY WHEN THE WALK FINISHED.
+       *
+       * Both halves matter. This branch is the one that starts at the newest
+       * video, so `seen` is the whole playlist rather than a slice of it; and
+       * an absent `nextPageToken` is the single place a channel is declared
+       * complete. A walk that stopped for time, for a repeated token, or for an
+       * error leaves the cursor set and is skipped — it cannot tell "deleted"
+       * from "not reached yet", and acting on that guess would empty the
+       * catalogue.
+       */
+      if (cursor === null) {
+        /*
+         * Its own try/catch: a failure here must not discard the import that
+         * just succeeded. `syncChannel`'s outer catch returns the zeroed base
+         * result, so without this a broken deletion pass would report "0 new
+         * videos" after importing two thousand — and, worse, would leave
+         * `lastSyncedAt` unstamped and the channel looking never-synced.
+         */
+        try {
+          const removal = await removeDeletedVideos(channel, run.seen);
+          deleted = removal.deleted;
+          deletionRefused = removal.refused;
+        } catch (error) {
+          log.error(`${channel.name}: deletion pass failed, import kept`, error);
+        }
+      }
     } else {
       // The newest pages, always — a backfill in progress must not delay a
       // video published this morning.
@@ -322,10 +435,10 @@ export async function syncChannel(
     });
 
     log.info(
-      `Synced ${channel.name}: ${imported} new, ${updated} refreshed` +
+      `Synced ${channel.name}: ${imported} new, ${updated} refreshed, ${deleted} removed` +
         (cursor ? ' (back catalogue still importing)' : ''),
     );
-    return { ...base, imported, updated, importing: cursor !== null };
+    return { ...base, imported, updated, deleted, deletionRefused, importing: cursor !== null };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown synchronization error';
     log.error(`Sync failed for ${channel.name}`, message);

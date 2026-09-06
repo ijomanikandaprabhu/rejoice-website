@@ -21,11 +21,30 @@ const prismaMock = {
     findMany: vi.fn().mockResolvedValue([]),
   },
   youTubeVideo: {
-    findMany: vi.fn(async ({ where }: { where: { youtubeVideoId: { in: string[] } } }) =>
-      where.youtubeVideoId.in
-        .filter((id) => db.videos.has(id))
-        .map((id) => ({ youtubeVideoId: id })),
+    /*
+     * TWO SHAPES, because the sync asks two different questions.
+     *
+     * `{ youtubeVideoId: { in } }` is the import's "which of these do we
+     * already hold"; `{ channelId }` is the deletion pass asking for everything
+     * this channel holds, so it can name what YouTube no longer offers. The
+     * fake modelled only the first, and the deletion pass therefore threw —
+     * which the sync caught as a failed channel and reported zero imports for.
+     */
+    findMany: vi.fn(
+      async ({ where }: { where: { youtubeVideoId?: { in: string[] }; channelId?: string } }) => {
+        if (where.youtubeVideoId) {
+          return where.youtubeVideoId.in
+            .filter((id) => db.videos.has(id))
+            .map((id) => ({ youtubeVideoId: id }));
+        }
+        return [...db.videos.keys()].map((id) => ({ id, youtubeVideoId: id }));
+      },
     ),
+    deleteMany: vi.fn(async ({ where }: { where: { id: { in: string[] } } }) => {
+      let count = 0;
+      for (const id of where.id.in) if (db.videos.delete(id)) count += 1;
+      return { count };
+    }),
     /*
      * `createMany` with `skipDuplicates`, modelled faithfully: a row whose id
      * is already present is silently skipped and NOT counted, which is what
@@ -469,5 +488,92 @@ describe('syncChannel with a rejected cursor', () => {
     expect(result.ok).toBe(false);
     // A bad night must not throw away a large catalogue's progress.
     expect(lastChannelUpdate()).not.toHaveProperty('importCursor');
+  });
+});
+
+/*
+ * Removing videos that are no longer on YouTube.
+ *
+ * The daily run now walks the whole uploads playlist and deletes anything the
+ * playlist stops offering, because Rejoice asked for a video taken down on
+ * YouTube to leave the website too. That is a destructive write driven by an
+ * external API's response, so the two rules that bound it are tested directly:
+ * it acts only on a walk that finished, and only on a plausible share.
+ */
+describe('syncChannel deletion pass', () => {
+  it('removes a video the playlist no longer offers', async () => {
+    /*
+     * Twenty held and one missing — 5%, an ordinary takedown. Scale matters
+     * here: written with two held and one missing it is 50%, and the guard
+     * below rightly refuses, which is how the first draft of this test failed.
+     */
+    for (let i = 0; i < 19; i++) db.videos.set(`keep${i}`, { youtubeVideoId: `keep${i}` });
+    db.videos.set('gone', { youtubeVideoId: 'gone' });
+
+    fetchUploadsPage.mockResolvedValue({
+      videos: Array.from({ length: 19 }, (_, i) => upload(`keep${i}`, 'Still here')),
+      nextPageToken: undefined,
+    });
+
+    const result = await syncChannel('chan-1', true);
+
+    expect(result.deleted).toBe(1);
+    expect(db.videos.has('gone')).toBe(false);
+    expect(db.videos.has('keep0')).toBe(true);
+    expect(db.videos.size).toBe(19);
+  });
+
+  it('does NOT delete when the walk stopped early', async () => {
+    db.videos.set('not-reached', { youtubeVideoId: 'not-reached' });
+
+    /*
+     * A page that offers another one, and keeps offering the same token — one
+     * of the real ways a walk ends without reaching the end (the repeated-token
+     * guard stops it). Whatever the reason, the walk is incomplete, so
+     * "missing" cannot be told from "on a page we never fetched".
+     */
+    fetchUploadsPage.mockResolvedValue({
+      videos: [upload('page-one', 'Page one')],
+      nextPageToken: 'more',
+    });
+
+    const result = await syncChannel('chan-1', true);
+
+    expect(result.deleted).toBe(0);
+    expect(db.videos.has('not-reached')).toBe(true);
+    expect(result.importing).toBe(true);
+  });
+
+  it('refuses when a suspicious share of the channel has vanished', async () => {
+    for (let i = 0; i < 20; i++) db.videos.set(`held${i}`, { youtubeVideoId: `held${i}` });
+
+    // A completed walk offering one video against twenty held: far past the
+    // threshold, and much likelier to be a truncated playlist than a purge.
+    fetchUploadsPage.mockResolvedValue({
+      videos: [upload('held0', 'The only one offered')],
+      nextPageToken: undefined,
+    });
+
+    const result = await syncChannel('chan-1', true);
+
+    expect(result.deletionRefused).toBe(true);
+    expect(result.deleted).toBe(0);
+    expect(db.videos.size).toBe(20);
+  });
+
+  it('does not delete on an ordinary run, which only reads the newest pages', async () => {
+    db.videos.set('older', { youtubeVideoId: 'older' });
+
+    fetchUploadsPage.mockResolvedValue({
+      videos: [upload('newest', 'Newest')],
+      nextPageToken: undefined,
+    });
+
+    // `full` omitted: the head pass sees a slice of the playlist, never all
+    // of it, so it must never conclude anything about what is missing.
+    const result = await syncChannel('chan-1');
+
+    expect(result.deleted).toBe(0);
+    expect(db.videos.has('older')).toBe(true);
   });
 });
