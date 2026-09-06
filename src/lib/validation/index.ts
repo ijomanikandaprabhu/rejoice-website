@@ -177,13 +177,56 @@ export const adminPasswordSchema = z
 export const IMAGE_MIME_TYPES = ['image/webp', 'image/png', 'image/jpeg'] as const;
 export const MAX_IMAGE_BYTES = 2_000_000;
 
-/** A link has to be somewhere a listener can actually go. */
-const httpsUrl = z
+/**
+ * Schemes that are not places — they are code, or a local file.
+ *
+ * THIS LIST IS THE SECURITY HALF OF ACCEPTING A BARE ADDRESS. `javascript:` in
+ * an `href` runs when a visitor clicks it, so a link field that took anything
+ * would be a way to put script on a public page through the admin. `data:` can
+ * carry a whole HTML document; `vbscript:` is the same idea in another engine;
+ * `file:` points at the reader's own disk.
+ *
+ * A deny-list is used rather than an allow-list of `http`/`https` because the
+ * normaliser below adds `https://` to anything with no scheme at all — so the
+ * only strings that arrive here still carrying a scheme are ones somebody typed
+ * deliberately, and these are the ones to refuse by name.
+ */
+const DANGEROUS_SCHEMES = /^\s*(javascript|data|vbscript|file):/i;
+
+/**
+ * A link, in whatever form it was pasted.
+ *
+ * It used to demand `https://` and reject everything else, which meant a
+ * perfectly good address copied from a phone — `youtu.be/abc`,
+ * `open.spotify.com/track/1` — was refused with a message about protocols.
+ * Rejoice asked to be able to add any link; that is a formatting job, not a
+ * reason to turn work away.
+ *
+ * So: an address with no scheme gets `https://`, an `http://` one is kept as
+ * typed rather than silently upgraded to a page that may not exist there, and
+ * the result has to parse as a real host with a dot in it — which is what
+ * separates `spotify.com/x` from a typo like `spotify`.
+ *
+ * The stored value is always absolute, which is what makes it open in a new
+ * tab: a relative address would be read as a page on this site.
+ */
+const linkUrl = z
   .string()
   .trim()
   .min(1, 'Enter the link')
   .max(500)
-  .regex(/^https:\/\//i, 'Enter a full address starting with https://');
+  .refine((value) => !DANGEROUS_SCHEMES.test(value), 'That is not a web address.')
+  .transform((value) => (/^[a-z][a-z0-9+.-]*:\/\//i.test(value) ? value : `https://${value}`))
+  .refine((value) => /^https?:\/\//i.test(value), 'Enter a web address.')
+  .refine((value) => {
+    try {
+      const { hostname } = new URL(value);
+      // A host with no dot is not somewhere on the public internet.
+      return hostname.includes('.') && !hostname.startsWith('.') && !hostname.endsWith('.');
+    } catch {
+      return false;
+    }
+  }, 'That does not look like a web address.');
 
 export const platformSchema = z.object({
   name: z.string().trim().min(1, 'Enter the platform name').max(60),
@@ -211,7 +254,7 @@ export const songSchema = z.object({
  */
 export const songLinkSchema = z.object({
   platformId: z.string().min(1),
-  url: httpsUrl,
+  url: linkUrl,
 });
 
 /** Flatten a ZodError into a simple field -> message map for form rendering. */

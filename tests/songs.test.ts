@@ -55,18 +55,65 @@ describe('songLinkSchema', () => {
   });
 
   /*
-   * http, not https: these are links a visitor clicks from our page, and
-   * sending them somewhere unencrypted is a downgrade we would be responsible
-   * for. Every streaming service supports https.
+   * ADDRESSES WITH NO SCHEME ARE NOW ACCEPTED, and this is a reversal.
+   *
+   * The rule used to demand `https://` and refuse everything else, on the
+   * reasoning that a link a visitor clicks from our page should not downgrade
+   * them to an unencrypted connection. That reasoning is sound and is why the
+   * scheme ADDED here is https — but it was refusing perfectly good addresses
+   * copied off a phone, and Rejoice asked to be able to paste any link.
+   *
+   * Formatting is our job, not the reason to turn work away. What is stored is
+   * always absolute, which is also what makes the link open in a new tab: a
+   * relative address would be read as a page on this site.
    */
-  it('refuses a plain http link', () => {
-    expect(
-      songLinkSchema.safeParse({ platformId, url: 'http://open.spotify.com/track/abc' }).success,
-    ).toBe(false);
+  it('adds https to an address pasted without one', () => {
+    const cases = [
+      ['open.spotify.com/track/abc', 'https://open.spotify.com/track/abc'],
+      ['youtu.be/dQw4w9WgXcQ', 'https://youtu.be/dQw4w9WgXcQ'],
+      ['www.youtube.com/watch?v=abc', 'https://www.youtube.com/watch?v=abc'],
+    ] as const;
+
+    for (const [typed, stored] of cases) {
+      const result = songLinkSchema.safeParse({ platformId, url: typed });
+      expect(result.success, typed).toBe(true);
+      if (result.success) expect(result.data.url).toBe(stored);
+    }
   });
 
-  it('refuses something that is not a link at all', () => {
-    for (const bad of ['spotify', 'open.spotify.com/track/abc', '', 'javascript:alert(1)']) {
+  it('keeps an http link as typed rather than silently changing where it goes', () => {
+    const result = songLinkSchema.safeParse({ platformId, url: 'http://example.com/track' });
+
+    expect(result.success).toBe(true);
+    // Upgrading it to https would point the link at a page that may not exist
+    // there — a different destination from the one that was entered.
+    if (result.success) expect(result.data.url).toBe('http://example.com/track');
+  });
+
+  /*
+   * THE SECURITY HALF OF ACCEPTING A BARE ADDRESS.
+   *
+   * `javascript:` in an href runs when a visitor clicks it. With the scheme no
+   * longer required, this is the test standing between the admin's link field
+   * and script on a public page.
+   */
+  it('refuses schemes that are code or a local file', () => {
+    for (const bad of [
+      'javascript:alert(1)',
+      'JavaScript:alert(1)',
+      '  javascript:alert(1)',
+      'data:text/html,<script>alert(1)</script>',
+      'vbscript:msgbox(1)',
+      'file:///etc/passwd',
+    ]) {
+      expect(songLinkSchema.safeParse({ platformId, url: bad }).success, bad).toBe(false);
+    }
+  });
+
+  it('refuses something that is not an address at all', () => {
+    // No dot means no host on the public internet — `spotify` is a typo, not a
+    // site, and would otherwise be stored as `https://spotify`.
+    for (const bad of ['spotify', '', '   ', 'https://']) {
       expect(songLinkSchema.safeParse({ platformId, url: bad }).success, bad).toBe(false);
     }
   });
