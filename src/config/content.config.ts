@@ -123,7 +123,19 @@ export type Service = {
 };
 
 export const homeContent: HomeContent = {
-  heroHeading: 'Enjoy listening! Joy of Gospel Music with our Diverse creations',
+  /*
+   * The escapes are DELIBERATE LINE BREAKS, not formatting of this file: the
+   * heading is set as three lines rather than left to wrap wherever the width
+   * happens to fall. `whitespace-pre-line` on the `h1` is what honours them —
+   * take that class away and the breaks collapse to spaces.
+   *
+   * They are MINIMUMS. A line still wraps further on a narrow screen, which is
+   * why the middle line is written as a whole thought on its own.
+   *
+   * Same mechanism as `platformsHeading` and `shinyText` below.
+   */
+  heroHeading:
+    'Enjoy listening!\nExperience the joy of Gospel music\nthrough our diverse creations.',
   heroText:
     'Rejoice is a gospel music label and video production company. We record, produce and film worship music across five YouTube channels.',
   heroImage: '',

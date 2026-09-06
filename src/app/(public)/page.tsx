@@ -115,7 +115,11 @@ export default async function HomePage() {
            * a couple of points costs it far less than the record loses by
            * becoming a token. Full scale returns at `xl` where the sky does.
            */}
-          <h1 className="t-h1 mx-auto max-w-3xl text-center lg:text-[1.875rem] xl:text-[3.25rem]">
+          {/* `whitespace-pre-line` honours the `
+`s in `heroHeading`, which set
+              it as three deliberate lines. Without it they collapse to spaces
+              and the heading wraps wherever the width happens to fall. */}
+          <h1 className="t-h1 mx-auto max-w-3xl whitespace-pre-line text-center lg:text-[1.875rem] xl:text-[3.25rem]">
             {content.heroHeading}
           </h1>
         </div>
