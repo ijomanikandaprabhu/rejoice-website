@@ -2,7 +2,7 @@ import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import type { ComponentProps, ReactNode } from 'react';
 
-import { cn } from '@/lib/utils';
+import { cn, externalLinkProps } from '@/lib/utils';
 
 /**
  * The circular back control, shared by the channel page and the video page.
@@ -128,7 +128,20 @@ export function SiteButton({
   className,
   ...props
 }: ComponentProps<typeof Link> & { tone?: ButtonTone }) {
-  return <Link className={cn(tones[tone], className)} {...props} />;
+  /*
+   * A button pointing at another domain opens in a new tab, decided from the
+   * address rather than remembered by each caller. `externalLinkProps` returns
+   * nothing for our own pages, so this is safe wherever the destination is not
+   * known until runtime — and the spread sits before `props` so a caller can
+   * still override it deliberately.
+   */
+  return (
+    <Link
+      className={cn(tones[tone], className)}
+      {...externalLinkProps(typeof props.href === 'string' ? props.href : undefined)}
+      {...props}
+    />
+  );
 }
 
 /**

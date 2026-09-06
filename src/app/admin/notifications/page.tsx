@@ -6,7 +6,7 @@ import { Panel } from '@/components/admin/Panels';
 import { markAllReadAction } from '@/features/notifications/actions';
 import { listNotifications, unreadCount } from '@/features/notifications/queries';
 import { NOTIFICATION_TTL_DAYS } from '@/features/notifications/notify';
-import { cn, formatDateTime } from '@/lib/utils';
+import { cn, externalLinkProps, formatDateTime } from '@/lib/utils';
 
 /**
  * The full notification history — what the bell's drop-down is a glance at.
@@ -106,6 +106,7 @@ export default async function NotificationsPage() {
                     <Link
                       href={item.href}
                       className="block rounded-sm2 px-2 transition-colors hover:bg-white/[0.04]"
+                      {...externalLinkProps(item.href)}
                     >
                       {inner}
                     </Link>

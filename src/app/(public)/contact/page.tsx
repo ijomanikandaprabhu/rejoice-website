@@ -6,6 +6,7 @@ import { PageHero } from '@/components/site/PageHero';
 import { SocialButtons } from '@/components/site/SocialButtons';
 import { contactForm, contactPage, services } from '@/config/content.config';
 import { getContactDetails } from '@/features/content/queries';
+import { externalLinkProps } from '@/lib/utils';
 import { getSocialSettings } from '@/features/settings/queries';
 import { buildMetadata } from '@/lib/seo';
 
@@ -77,7 +78,18 @@ function DetailRow({
   if (!href) return <div>{body}</div>;
 
   return (
-    <a href={href} className="block transition-colors hover:text-site-accent">
+    /*
+     * Today this is only ever `mailto:` or `tel:`, which `externalLinkProps`
+     * deliberately leaves alone — a new tab for those opens an empty window
+     * the reader then has to close. It is applied anyway so that the day a map
+     * or a directory link is added here, it behaves like every other outward
+     * link on the site without anyone remembering to.
+     */
+    <a
+      href={href}
+      className="block transition-colors hover:text-site-accent"
+      {...externalLinkProps(href)}
+    >
       {body}
     </a>
   );

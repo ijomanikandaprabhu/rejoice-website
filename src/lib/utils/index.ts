@@ -1,6 +1,8 @@
 import { clsx, type ClassValue } from 'clsx';
 import { extendTailwindMerge } from 'tailwind-merge';
 
+import { appConfig } from '@/config/app.config';
+
 /**
  * tailwind-merge, taught this project's own scales.
  *
@@ -141,6 +143,57 @@ const moneyFormat = new Intl.NumberFormat('en-US', {
 
 export function formatMoney(amount: number): string {
   return `${CURRENCY}${moneyFormat.format(amount)}`;
+}
+
+/**
+ * Does this address leave the website?
+ *
+ * Rejoice's rule: anything pointing at another domain — YouTube, a streaming
+ * platform, a social account — opens in a new tab, on the public site and in
+ * the admin alike. Losing your place in the admin because a link took the tab
+ * with it is the failure this prevents.
+ *
+ * `mailto:` and `tel:` are NOT external by this definition, and that is the
+ * part worth stating. They hand off to a mail or phone app rather than
+ * navigating, so `target="_blank"` there opens a blank tab that then sits
+ * around empty — the reader has to close a window they never asked for.
+ *
+ * Anything relative — `/songs`, `#top`, `?page=2` — is our own.
+ */
+export function isExternalHref(href: string | undefined | null): boolean {
+  if (!href) return false;
+  if (/^(mailto:|tel:|sms:)/i.test(href)) return false;
+  // Protocol-relative (`//example.com`) counts: it is another host.
+  if (href.startsWith('//')) return true;
+  if (!/^https?:\/\//i.test(href)) return false;
+
+  try {
+    return new URL(href).host !== new URL(appConfig.url).host;
+  } catch {
+    /*
+     * An address we cannot parse is treated as external. A link that opens in
+     * a new tab when it did not need to is a small annoyance; one that
+     * navigates away when it should not have is lost work.
+     */
+    return true;
+  }
+}
+
+/**
+ * The attributes an external link needs, as one object.
+ *
+ * `rel` travels with `target` and is not optional: `noopener` stops the opened
+ * page from reaching back through `window.opener`, and both are here so nobody
+ * has to remember the pair.
+ *
+ * Spread it — `{...externalLinkProps(href)}` — and an internal address gets
+ * nothing, so the same call is safe wherever a link's destination is not known
+ * until runtime.
+ */
+export function externalLinkProps(href: string | undefined | null) {
+  return isExternalHref(href)
+    ? ({ target: '_blank', rel: 'noopener noreferrer' } as const)
+    : {};
 }
 
 export function truncate(text: string, max: number): string {

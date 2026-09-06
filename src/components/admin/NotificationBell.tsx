@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { NotificationRow } from '@/features/notifications/queries';
-import { cn, formatDateTime } from '@/lib/utils';
+import { cn, externalLinkProps, formatDateTime } from '@/lib/utils';
 
 /**
  * The bell, and what is behind it.
@@ -124,7 +124,13 @@ export function NotificationBell({
               return (
                 <li key={item.id}>
                   <DropdownMenuItem asChild className="cursor-pointer rounded-none px-3 py-2.5">
-                    <Link href={item.href ?? '/admin/notifications'} className="flex gap-2.5">
+                    {/* `href` is a stored column, so nothing about it
+                        guarantees it points at this site. */}
+                    <Link
+                      href={item.href ?? '/admin/notifications'}
+                      className="flex gap-2.5"
+                      {...externalLinkProps(item.href)}
+                    >
                       <span
                         className={cn(
                           'mt-0.5 grid size-7 shrink-0 place-items-center rounded-pill',

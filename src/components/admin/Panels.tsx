@@ -3,7 +3,7 @@ import { TrendingDown, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { cn } from '@/lib/utils';
+import { cn, externalLinkProps } from '@/lib/utils';
 
 /**
  * Admin panel primitives.
@@ -134,7 +134,9 @@ export function StatPanel({
   );
 
   return href ? (
-    <Link href={href} className="block h-full">
+    // Opens in a new tab when it leaves the site — losing your place in the
+    // admin to a link that took the tab with it is the failure this prevents.
+    <Link href={href} className="block h-full" {...externalLinkProps(href)}>
       {body}
     </Link>
   ) : (
@@ -205,7 +207,7 @@ export function ListRow({
   );
 
   return href ? (
-    <Link href={href} className="block">
+    <Link href={href} className="block" {...externalLinkProps(href)}>
       {inner}
     </Link>
   ) : (
