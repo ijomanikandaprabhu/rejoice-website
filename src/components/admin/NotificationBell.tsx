@@ -4,6 +4,7 @@ import { Bell, Mail, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 
+import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -63,14 +64,25 @@ export function NotificationBell({
             <Bell className="size-[18px]" />
 
             {/*
-             * The count, capped at 9+. A three-digit badge is wider than the
-             * button it sits on, and the exact number stops mattering long
-             * before then — the answer is "a lot, go and look".
+             * shadcn's `Badge`, not a hand-rolled span — it is the component
+             * this codebase already uses for a count or a state, and the
+             * `default` variant is `bg-primary`, which is the admin's lime.
+             *
+             * The overrides earn their place: a badge on a bell is a small
+             * round dot rather than the rounded rectangle a table row wants.
+             * `rounded-pill` and a fixed 18px square make it circular, and
+             * `border-0` matters more than it looks — `Badge` carries a
+             * transparent 1px border, which measured the dot at 18x20 and read
+             * as a slight oval.
+             *
+             * Capped at 9+. A three-digit badge is wider than the button it
+             * sits on, and the exact number stops mattering long before then —
+             * the answer is "a lot, go and look".
              */}
             {unread > 0 ? (
-              <span className="absolute -right-0.5 -top-0.5 grid min-w-[18px] place-items-center rounded-pill bg-panel-accent px-1 text-[10px] font-bold leading-[18px] text-panel-bg">
+              <Badge className="absolute -right-0.5 -top-0.5 size-[18px] min-w-[18px] justify-center rounded-pill border-0 p-0 text-[10px] leading-none">
                 {unread > 9 ? '9+' : unread}
-              </span>
+              </Badge>
             ) : null}
           </DropdownMenuTrigger>
         </TooltipTrigger>
@@ -116,7 +128,9 @@ export function NotificationBell({
                       <span
                         className={cn(
                           'mt-0.5 grid size-7 shrink-0 place-items-center rounded-pill',
-                          item.readAt ? 'bg-panel-alt text-panel-muted' : 'bg-panel-accent/15 text-panel-accent',
+                          item.readAt
+                            ? 'bg-panel-alt text-panel-muted'
+                            : 'bg-panel-accent/15 text-panel-accent',
                         )}
                       >
                         <Icon className="size-3.5" />
