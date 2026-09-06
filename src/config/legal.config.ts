@@ -117,9 +117,9 @@ export const privacyPolicy: LegalDocumentContent = {
         'We do not share your information with anyone for their own purposes. A small number of service providers necessarily handle it in order to run the site:',
       ],
       bullets: [
-        'Vercel — hosts the website and runs the contact form.',
-        'Neon — provides the database where enquiries are stored. Our database is located in Singapore.',
-        'Google (Gmail) — delivers the notification email telling us that your enquiry has arrived.',
+        'Vercel: hosts the website and runs the contact form.',
+        'Neon: provides the database where enquiries are stored. Our database is located in Singapore.',
+        'Google (Gmail): delivers the notification email telling us that your enquiry has arrived.',
         'Because these providers operate internationally, your information may be processed outside India.',
       ],
     },
@@ -129,8 +129,8 @@ export const privacyPolicy: LegalDocumentContent = {
         'Two parts of the site load content from elsewhere, which means your browser contacts those services directly. We do not control what they collect, and their own privacy policies apply.',
       ],
       bullets: [
-        'YouTube — every video on this site is hosted on YouTube. We use YouTube’s privacy-enhanced player, so YouTube is contacted only when you actually press play, not merely when a page loads. Video thumbnails are served through our own domain rather than from YouTube, so simply browsing does not tell YouTube anything.',
-        'OpenFreeMap — supplies the map tiles on the contact page.',
+        'YouTube: every video on this site is hosted on YouTube. We use YouTube’s privacy-enhanced player, so YouTube is contacted only when you actually press play, not merely when a page loads. Video thumbnails are served through our own domain rather than from YouTube, so simply browsing does not tell YouTube anything.',
+        'OpenFreeMap: supplies the map tiles on the contact page.',
       ],
     },
     {
@@ -185,7 +185,7 @@ export const termsOfUse: LegalDocumentContent = {
     {
       heading: 'What this site is',
       paragraphs: [
-        'This website is a catalogue of Rejoice’s work — gospel music, films and video production. It exists so you can find that work and get in touch about it.',
+        'This website is a catalogue of Rejoice’s work: gospel music, films and video production. It exists so you can find that work and get in touch about it.',
         'Every video shown here is hosted on YouTube and played through YouTube’s own player. Watching it is also subject to YouTube’s terms of service.',
       ],
     },
@@ -193,14 +193,14 @@ export const termsOfUse: LegalDocumentContent = {
       heading: 'Ownership of the content',
       paragraphs: [
         'The music, video, images, artwork and written material on this site belong to Rejoice Gospel Communications or to the artists, composers and writers credited alongside them. The design and code of the site itself are ours.',
-        'You are welcome to watch, listen and share links. You may not copy, re-upload, edit, redistribute or use any of it commercially without our written permission — including using it as background music, in another video, or in any material of your own.',
+        'You are welcome to watch, listen and share links. You may not copy, re-upload, edit, redistribute or use any of it commercially without our written permission, including using it as background music, in another video, or in any material of your own.',
         'If you would like to use something, ask. We would rather say yes to a request than find our work reused without one.',
       ],
     },
     {
       heading: 'Sending us an enquiry',
       paragraphs: [
-        'The contact form is an invitation to start a conversation. Sending it does not create a contract, and does not oblige either of us to anything — any work we go on to do together would be agreed separately.',
+        'The contact form is an invitation to start a conversation. Sending it does not create a contract, and does not oblige either of us to anything. Any work we go on to do together would be agreed separately.',
         'Please send only information that is accurate and yours to send, and nothing unlawful or abusive.',
         'How we handle what you send is set out in our Privacy Policy.',
       ],

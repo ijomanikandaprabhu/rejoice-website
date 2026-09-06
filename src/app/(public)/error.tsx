@@ -34,7 +34,7 @@ export default function PublicError({
       <p className="t-label">Something went wrong</p>
       <h1 className="t-h1 mt-5">This page could not be loaded</h1>
       <p className="mt-4 max-w-md text-body leading-[1.7] text-site-muted">
-        The problem is on our side, not yours. Try again — if it keeps happening, please get in
+        The problem is on our side, not yours. Try again. If it keeps happening, please get in
         touch and we will look into it.
       </p>
 

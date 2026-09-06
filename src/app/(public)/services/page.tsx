@@ -30,7 +30,7 @@ export const revalidate = 300;
 export const metadata = buildMetadata({
   title: 'Services',
   description:
-    'Audio production, video production and AI-powered creative production from Rejoice — from concept to final delivery.',
+    'Audio production, video production and AI-powered creative production from Rejoice, from first concept to final delivery.',
   path: '/services',
 });
 

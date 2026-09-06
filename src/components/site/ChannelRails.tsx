@@ -75,7 +75,7 @@ function ChannelRail({ channel }: { channel: Channel }) {
       <Link
         href={`/creations/${channel.slug}`}
         className="shrink-0 pl-5 sm:pl-8"
-        aria-label={`${channel.name} — all videos`}
+        aria-label={`All videos from ${channel.name}`}
       >
         <span className="relative block size-16 overflow-hidden rounded-pill border border-white/10 bg-site-surface transition-colors hover:border-white/30 sm:size-20 lg:size-24">
           {channel.thumbnail ? (

@@ -276,7 +276,7 @@ export const services: Service[] = [
       'AI-Assisted Mixing & Production',
     ],
     closing:
-      'AI is a creative tool — your idea, message, and direction remain at the centre of every production.',
+      'AI is a creative tool. Your idea, message, and direction remain at the centre of every production.',
     ctaLabel: 'Explore AI Audio',
     ctaHref: '/contact?service=ai-audio-production',
   },
@@ -407,7 +407,7 @@ export const aboutPage = {
     eyebrow: 'About us',
     heading: 'Faith in Every Note. Purpose in Every Story.',
     paragraphs: [
-      'Rejoice Gospel Communications was founded with a simple but powerful vision — to use music and creative media as a way to share the message of faith, hope, love, and redemption.',
+      'Rejoice Gospel Communications was founded with a simple but powerful vision: to use music and creative media as a way to share the message of faith, hope, love, and redemption.',
       'Since 2003, Rejoice has grown from a heartfelt mission to promote Christian music into a creative gospel communication platform reaching people across generations.',
     ],
     badge: 'Since 2003',
@@ -421,7 +421,7 @@ export const aboutPage = {
     paragraphs: [
       'At a time when Christian artists and gospel music had limited opportunities to reach wider audiences, Mr. Robin Nazeren envisioned something different.',
       'Rather than allowing meaningful songs and messages to remain unheard, he established Rejoice Gospel Communications as a platform dedicated to bringing Christian music to people and helping emerging voices find an audience.',
-      'His vision was never simply about producing songs. It was about using creativity as a ministry — allowing music to carry messages of hope, encouragement, compassion, worship, and the love of God into homes and hearts.',
+      'His vision was never simply about producing songs. It was about using creativity as a ministry, allowing music to carry messages of hope, encouragement, compassion, worship, and the love of God into homes and hearts.',
     ],
     closing: 'What began with music gradually became something much greater.',
   },
@@ -436,7 +436,7 @@ export const aboutPage = {
       'Throughout the early journey, financial limitations, practical challenges, and the difficulties of building a Christian creative platform tested that vision. Yet the mission remained unchanged.',
       'Robin believed that if meaningful Christian songs were given the opportunity to be heard, they could encourage people, strengthen families, inspire communities, and guide hearts toward God.',
       'That conviction became the foundation on which Rejoice was built.',
-      'His dedication to supporting and promoting gospel music reflected a purpose greater than financial reward — to serve through creativity and help messages of faith reach the people who needed to hear them.',
+      'His dedication to supporting and promoting gospel music reflected a purpose greater than financial reward: to serve through creativity and help messages of faith reach the people who needed to hear them.',
     ],
     /** Portrait. Empty leads with the quote instead. */
     portrait: '',
@@ -474,7 +474,7 @@ export const aboutPage = {
     heading: 'Sharing the Gospel Through Creativity',
     paragraphs: [
       'The world of communication has changed dramatically since Rejoice began, and so has the way we tell stories.',
-      'Today, Rejoice continues its original mission through a growing range of creative expressions — from gospel music and worship to instrumentals, children’s stories, animation, video production, and emerging AI-powered creative experiences.',
+      'Today, Rejoice continues its original mission through a growing range of creative expressions, from gospel music and worship to instrumentals, children’s stories, animation, video production, and emerging AI-powered creative experiences.',
     ],
     /** Set apart from the paragraphs, in larger type. */
     // "Different formats. Different generations. One purpose." is the Vision
@@ -576,7 +576,7 @@ export const aboutPage = {
     heading: 'One Message. Many Expressions.',
     words: ['Music', 'Stories', 'Visuals', 'Technology'],
     paragraphs: [
-      'We envision Rejoice as a creative home where faith and imagination meet — a place where songs, stories, visuals, technology, and talented people come together to create something meaningful.',
+      'We envision Rejoice as a creative home where faith and imagination meet, a place where songs, stories, visuals, technology, and talented people come together to create something meaningful.',
       'Our hope is to continue building a platform that connects generations through Christian creativity and allows the message of the Gospel to travel beyond boundaries.',
       'From a song heard through headphones to a story watched by a child, every piece of content can become part of something greater.',
     ],

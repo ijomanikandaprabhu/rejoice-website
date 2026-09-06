@@ -31,7 +31,9 @@ export async function generateMetadata({ params }: Params) {
   if (!song) return buildMetadata({ title: 'Songs', path: '/songs' });
 
   return buildMetadata({
-    title: song.artist ? `${song.title} — ${song.artist}` : song.title,
+    // "by", not a dash: this is the browser tab and the Google result, where
+    // the words do the joining better than punctuation does.
+    title: song.artist ? `${song.title} by ${song.artist}` : song.title,
     description:
       song.description ||
       `Listen to ${song.title}${song.artist ? ` by ${song.artist}` : ''} from Rejoice Gospel Communications.`,
