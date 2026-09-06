@@ -69,11 +69,30 @@ describe('renderMail', () => {
     expect(html).toContain('<!doctype html>');
   });
 
-  it('carries the logo with alt text, for the clients that block images', () => {
+  it('carries the logo with STYLED alt text, for the clients that block images', () => {
     const { html } = renderMail({ heading: 'Anything' });
 
     expect(html).toContain('/brand/logo-wordmark-light.png');
-    expect(html).toContain('alt="Rejoice"');
+    expect(html).toContain('alt="REJOICE"');
+
+    /*
+     * The styling on the `img` is what a client applies to the text it shows
+     * INSTEAD of a blocked image. Without it Gmail draws a torn-page icon and a
+     * tiny grey caption; with it, a white wordmark on the dark header. Asserted
+     * because it looks like decoration and is the whole reason a blocked
+     * message still looks like Rejoice.
+     */
+    expect(html).toMatch(/alt="REJOICE"[^>]*color:#FFFFFF/);
+    expect(html).toMatch(/alt="REJOICE"[^>]*font:700/);
+  });
+
+  it('centres the card three ways, because Gmail honours only some of them', () => {
+    const { html } = renderMail({ heading: 'Anything' });
+
+    // It arrived right-of-centre in Gmail with `align` on the cell alone.
+    expect(html).toContain('margin:0 auto');
+    expect(html).toContain('<table align="center"');
+    expect(html).toContain('text-align:center');
   });
 });
 

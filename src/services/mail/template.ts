@@ -66,10 +66,20 @@ export type MailContent = {
 /**
  * The wordmark, absolutely addressed.
  *
- * MOST MAIL CLIENTS BLOCK IMAGES BY DEFAULT, so this is never the only thing
- * carrying the brand: it sits on the dark header block below, and its `alt` is
- * the company name. A blocked image therefore leaves a branded bar reading
- * "Rejoice" rather than a broken-image icon on white.
+ * MOST MAIL CLIENTS BLOCK IMAGES BY DEFAULT — Gmail included, until the reader
+ * clicks "display images" — so the blocked state is the common one, not the
+ * edge case. Two things make it look deliberate rather than broken:
+ *
+ *   - the dark header block behind it is drawn in CSS, so the brand survives
+ *     with no image at all;
+ *   - THE ALT TEXT IS STYLED. Styling an `img` styles the text a client shows
+ *     in its place, so `alt="REJOICE"` renders as a white bold wordmark rather
+ *     than the default tiny grey caption beside a torn-page icon. That is the
+ *     whole trick, and it is invisible until you look at a blocked message.
+ *
+ * Sending from a development machine puts `localhost` in this address and the
+ * image cannot load anywhere but that machine — expected, and not a fault in
+ * the template.
  */
 const logoUrl = `${appConfig.url}/brand/logo-wordmark-light.png`;
 
@@ -77,6 +87,22 @@ export function renderMail(content: MailContent): { html: string; text: string }
   return { html: renderHtml(content), text: renderText(content) };
 }
 
+/*
+ * THREE WAYS OF SAYING "CENTRE THIS" in the markup below, and all three are
+ * needed. The card arrived right-of-centre in Gmail with only `align` on the
+ * cell: Gmail rewrites the document and does not reliably carry that attribute
+ * onto a fixed-width child. `text-align` on the cell handles the clients that
+ * centre inline-level boxes, `align` on the table itself handles the ones
+ * reading HTML 4 attributes, and `margin:0 auto` handles the ones with a real
+ * CSS engine. Any one alone leaves some client rendering it against an edge.
+ *
+ * The card then sets `text-align:left` to undo the inherited centring for its
+ * own contents.
+ *
+ * NOTE FOR ANYONE EDITING THE TEMPLATE BELOW: it is one long template literal,
+ * so a backtick inside an HTML comment ends the string. Explanations go here,
+ * in TypeScript comments, rather than in the markup.
+ */
 function renderHtml(content: MailContent): string {
   const rows = (content.rows ?? [])
     .map(
@@ -123,14 +149,14 @@ function renderHtml(content: MailContent): string {
 
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#F2F2F3;">
     <tr>
-      <td align="center" style="padding:28px 16px;">
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="560" style="width:560px;max-width:100%;background:${PAPER};border-radius:14px;overflow:hidden;border:1px solid ${LINE};">
+      <td align="center" style="padding:28px 16px;text-align:center;">
+        <table align="center" role="presentation" cellpadding="0" cellspacing="0" border="0" width="560" style="width:560px;max-width:100%;margin:0 auto;background:${PAPER};border-radius:14px;overflow:hidden;border:1px solid ${LINE};text-align:left;">
 
           <!-- Header. The dark block is what carries the brand when the logo is
                blocked, which is the default in most clients. -->
           <tr>
             <td align="center" style="background:${INK};padding:26px 24px;">
-              <img src="${logoUrl}" width="132" alt="${escapeHtml(appConfig.name)}" style="display:block;border:0;width:132px;height:auto;">
+              <img src="${logoUrl}" width="132" height="26" alt="REJOICE" style="display:block;border:0;width:132px;height:auto;color:#FFFFFF;font:700 20px/26px Arial,Helvetica,sans-serif;letter-spacing:3px;text-align:center;">
             </td>
           </tr>
 
