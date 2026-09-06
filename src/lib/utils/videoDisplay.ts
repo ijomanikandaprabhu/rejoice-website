@@ -125,9 +125,43 @@ export function resolveVideoDisplay(video: DisplayableVideo): ResolvedVideo {
     publishedAt: video.youtubePublishedAt,
     youtubeUrl: override(video.youtubeUrl) ?? watchUrl(video.youtubeVideoId),
     showChannelName: video.showChannelName,
-    seoTitle: override(video.seoTitle) ?? title,
+    seoTitle: override(video.seoTitle) ?? searchTitle(title),
     seoDescription: override(video.seoDescription) ?? buildMetaDescription(description, title),
   };
+}
+
+/**
+ * A YouTube title cut down to something a search result can show.
+ *
+ * YouTube titles on this catalogue are pipe-separated billing, not headlines:
+ *
+ *   "Sthotharipen  | Roshan shelton (Sri Lanka) | Amos | Latest Worship Song |
+ *    Official Music Video | 4K"
+ *
+ * That is 102 characters before the site name is appended. Google shows roughly
+ * 60, so every one of these was being cut mid-credit, and the part that
+ * survived was the same boilerplate on every video.
+ *
+ * The song name is what comes before the first pipe, so that is what is kept.
+ *
+ * This feeds `seoTitle`, so it sets the `<title>`, the `og:title` and the
+ * Twitter card title. That is the right reach: all three are short, truncated
+ * displays with the same problem. The full title stays on everything that is
+ * about the video rather than about a listing of it — the `<h1>`, the
+ * `VideoObject` name, and the page's own copy.
+ *
+ * Two guards. A title with no pipe is left exactly as it is rather than being
+ * chopped at an arbitrary column, because there is no telling where a safe cut
+ * would be. And a first segment too short to be a name (a stray leading pipe, a
+ * "4K" prefix) falls back to the whole title, on the grounds that a long
+ * correct title beats a short meaningless one.
+ *
+ * An editor who wants something else still overrides it in Admin, and that
+ * override wins here.
+ */
+export function searchTitle(title: string): string {
+  const first = title.split('|')[0]?.replace(/\s+/g, ' ').trim() ?? '';
+  return first.length >= 3 ? first : title.replace(/\s+/g, ' ').trim();
 }
 
 function truncateForMeta(text: string, max = 160): string {

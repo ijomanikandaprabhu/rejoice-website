@@ -16,7 +16,7 @@ import { VideoGrid } from '@/components/youtube/VideoCard';
 import { bentoCards, getContactDetails, homeContent, platforms } from '@/features/content/queries';
 import { listPublicSongsPage } from '@/features/songs/queries';
 import { getChannelsWithVideos, getShortsVideos } from '@/features/youtube/queries';
-import { buildMetadata, organizationJsonLd } from '@/lib/seo';
+import { buildMetadata, organizationJsonLd, websiteJsonLd } from '@/lib/seo';
 
 export const revalidate = 300;
 
@@ -56,9 +56,15 @@ export default async function HomePage() {
 
   return (
     <>
+      {/* Organization says who runs the site; WebSite says what the site is.
+          Google treats them as separate entities and both are worth stating. */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd(socials)) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd()) }}
       />
 
       {/*

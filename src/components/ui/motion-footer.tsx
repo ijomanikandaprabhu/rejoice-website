@@ -402,12 +402,23 @@ export function CinematicFooter({
           <div ref={bodyRef} className="flex w-full flex-col items-center gap-5">
             <nav aria-label="Footer" className="flex flex-wrap justify-center gap-3">
               {publicNav.map((item) => (
+                /*
+                  The padding belongs to the link, not to the pill around it.
+                  With `px-7 py-3.5` on this span the pill LOOKED like a
+                  comfortable target while the anchor inside it was 17px tall —
+                  the visible button and the tappable one were different sizes,
+                  and only the small one responded. Moving the padding inside
+                  makes the anchor fill the pill. Nothing moves: the span still
+                  takes its size from its padded child.
+                */
                 <Magnetic
                   key={item.href}
                   as="span"
-                  className="footer-glass-pill inline-block rounded-pill px-7 py-3.5 text-sm font-bold text-site-fg md:text-base"
+                  className="footer-glass-pill inline-block rounded-pill text-sm font-bold text-site-fg md:text-base"
                 >
-                  <Link href={item.href}>{item.label}</Link>
+                  <Link href={item.href} className="block px-7 py-3.5">
+                    {item.label}
+                  </Link>
                 </Magnetic>
               ))}
             </nav>
@@ -518,11 +529,18 @@ export function CinematicFooter({
             bottom-right of the viewport and sat 24px on top of the Terms link
             when these were first flush with the edge.
           */}
-          <span className="order-3 flex items-center gap-4 text-[10px] font-semibold uppercase tracking-widest text-site-muted md:order-3 md:mr-16 md:justify-self-end md:text-xs">
-            <Link href="/privacy" className="transition-colors hover:text-site-fg">
+          {/*
+            `-my-1.5` on the row with `py-1.5` on each link: the two legal links
+            were 15px tall on a phone, well under the 24px a thumb can be
+            expected to hit. The padding grows the tap target without moving
+            anything — the negative margin gives back exactly what the padding
+            takes, so the row sits where it always did.
+          */}
+          <span className="order-3 -my-1.5 flex items-center gap-4 text-[10px] font-semibold uppercase tracking-widest text-site-muted md:order-3 md:mr-16 md:justify-self-end md:text-xs">
+            <Link href="/privacy" className="py-1.5 transition-colors hover:text-site-fg">
               Privacy
             </Link>
-            <Link href="/terms" className="transition-colors hover:text-site-fg">
+            <Link href="/terms" className="py-1.5 transition-colors hover:text-site-fg">
               Terms
             </Link>
           </span>

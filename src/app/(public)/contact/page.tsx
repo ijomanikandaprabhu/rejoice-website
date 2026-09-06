@@ -8,7 +8,7 @@ import { contactForm, contactPage, services } from '@/config/content.config';
 import { getContactDetails } from '@/features/content/queries';
 import { externalLinkProps } from '@/lib/utils';
 import { getSocialSettings } from '@/features/settings/queries';
-import { buildMetadata } from '@/lib/seo';
+import { breadcrumbJsonLd, buildMetadata, contactJsonLd } from '@/lib/seo';
 
 export const revalidate = 300;
 
@@ -127,6 +127,28 @@ export default async function ContactPage({
 
   return (
     <>
+      {/* The phone, email and address printed below, stated in a form a search
+          engine can read. See `contactJsonLd` for why this is not a
+          LocalBusiness. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(
+            contactJsonLd({
+              email: details.email,
+              phone: details.phone,
+              address: details.address,
+            }),
+          ),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbJsonLd([{ name: 'Contact', path: '/contact' }])),
+        }}
+      />
+
       <PageHero
         heading={hero.heading}
         paragraphs={hero.paragraphs}

@@ -8,7 +8,7 @@ import { SongGrid } from '@/components/site/SongGrid';
 import { pageSizes } from '@/config/app.config';
 import { ctaPanels } from '@/config/content.config';
 import { listPublicSongsPage } from '@/features/songs/queries';
-import { buildMetadata } from '@/lib/seo';
+import { listingMetadata } from '@/lib/seo';
 
 /**
  * Every song, paged and searchable.
@@ -25,13 +25,17 @@ import { buildMetadata } from '@/lib/seo';
 
 export const revalidate = 300;
 
-export const metadata = buildMetadata({
-  title: 'All songs',
-  description: 'Every release from Rejoice Gospel Communications, and where to hear it.',
-  path: '/songs/all',
-});
-
 type SearchParams = { q?: string; page?: string };
+
+export function generateMetadata({ searchParams }: { searchParams: SearchParams }) {
+  return listingMetadata({
+    title: 'All songs',
+    description: 'Every release from Rejoice Gospel Communications, and where to hear it.',
+    basePath: '/songs/all',
+    page: Math.max(Number(searchParams.page ?? '1') || 1, 1),
+    query: (searchParams.q ?? '').trim(),
+  });
+}
 
 export default async function AllSongsPage({ searchParams }: { searchParams: SearchParams }) {
   const query = (searchParams.q ?? '').trim();

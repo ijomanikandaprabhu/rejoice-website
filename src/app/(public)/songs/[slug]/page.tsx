@@ -7,7 +7,7 @@ import { VinylCover } from '@/components/site/VinylCover';
 import { ctaPanels } from '@/config/content.config';
 import { getPublicSong, mediaUrl } from '@/features/songs/queries';
 import { getPublicVideoBySlug } from '@/features/youtube/queries';
-import { buildMetadata } from '@/lib/seo';
+import { breadcrumbJsonLd, buildMetadata, songJsonLd } from '@/lib/seo';
 import { formatDate } from '@/lib/utils';
 
 /**
@@ -70,6 +70,41 @@ export default async function SongPage({ params }: Params) {
 
   return (
     <>
+      {/*
+       * This page carried no structured data at all, which left the one page
+       * type on the site that is unambiguously about a piece of music saying
+       * nothing about it. The breadcrumb states where the page sits; the site
+       * shows a labelled back control rather than a drawn trail, which the
+       * markup is allowed to describe.
+       */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(
+            songJsonLd({
+              title: song.title,
+              slug: song.slug,
+              artist: song.artist,
+              description: song.description,
+              image: mediaUrl(song.coverId),
+              releasedAt: song.releasedAt,
+              links: song.links,
+            }),
+          ),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(
+            breadcrumbJsonLd([
+              { name: 'Songs', path: '/songs' },
+              { name: song.title, path: `/songs/${song.slug}` },
+            ]),
+          ),
+        }}
+      />
+
       <section className="container-page pb-16 pt-8 sm:pb-20 sm:pt-10">
         {/* Labelled rather than a bare arrow: it stands alone at the top of the
             page, so it should say where it goes — the same reasoning as the

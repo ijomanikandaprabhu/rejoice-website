@@ -10,7 +10,7 @@ import { LazyYouTubeEmbed } from '@/components/youtube/LazyYouTubeEmbed';
 import { VideoTile } from '@/components/site/VideoTile';
 import { getSocialSettings } from '@/features/settings/queries';
 import { getLatestVideos, getPublicVideoBySlug } from '@/features/youtube/queries';
-import { buildMetadata, videoJsonLd } from '@/lib/seo';
+import { breadcrumbJsonLd, buildMetadata, videoJsonLd } from '@/lib/seo';
 import { formatDate } from '@/lib/utils';
 
 export const revalidate = 300;
@@ -77,6 +77,20 @@ export default async function VideoPage({ params }: Params) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(videoJsonLd(video)) }}
+      />
+      {/* Creations, then the channel, then this video — the trail the labelled
+          back button walks, stated for a search result. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(
+            breadcrumbJsonLd([
+              { name: 'Creations', path: '/creations' },
+              { name: video.channel.name, path: `/creations/${channelSlug}` },
+              { name: video.title, path: `/videos/${video.youtubeVideoId}` },
+            ]),
+          ),
+        }}
       />
 
       {/* Labelled here, unlike the channel page's bare icon: this button stands

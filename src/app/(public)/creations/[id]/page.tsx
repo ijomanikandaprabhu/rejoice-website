@@ -3,22 +3,26 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { ChannelPageBody } from '@/components/site/ChannelPageBody';
 import { pageSizes } from '@/config/app.config';
 import { getMusicVideos, getPublicChannelBySlug } from '@/features/youtube/queries';
-import { buildMetadata } from '@/lib/seo';
+import { breadcrumbJsonLd, buildMetadata, listingMetadata } from '@/lib/seo';
 
 export const revalidate = 300;
 
 type Params = { params: { id: string }; searchParams: { page?: string; q?: string } };
 
-export async function generateMetadata({ params }: { params: { id: string } }) {
+export async function generateMetadata({ params, searchParams }: Params) {
   const channel = await getPublicChannelBySlug(params.id);
   if (!channel) return buildMetadata({ title: 'Channel', path: `/creations/${params.id}` });
 
-  return buildMetadata({
+  return listingMetadata({
     title: channel.name,
     description: `Every ${channel.name} release published on the Rejoice website.`,
     // The canonical address is the handle, so an id-based visit still points
-    // search engines at the one real URL.
-    path: `/creations/${channel.handle ?? channel.id}`,
+    // search engines at the one real URL. This channel runs to 36 pages, and
+    // every one of them used to claim to be this first one — see
+    // `listingMetadata`.
+    basePath: `/creations/${channel.handle ?? channel.id}`,
+    page: Math.max(Number(searchParams.page ?? '1') || 1, 1),
+    query: searchParams.q?.trim() ?? '',
   });
 }
 
@@ -80,6 +84,21 @@ export default async function ChannelPage({ params, searchParams }: Params) {
 
   return (
     <div className="container-page py-14 sm:py-20">
+      {/* Home, Creations, this channel. The crumb always names page one of the
+          channel, even on page 5 — the trail describes where the page sits in
+          the site, not which slice of the list is on screen. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(
+            breadcrumbJsonLd([
+              { name: 'Creations', path: '/creations' },
+              { name: channel.name, path: `/creations/${channel.handle ?? channel.id}` },
+            ]),
+          ),
+        }}
+      />
+
       <ChannelPageBody
         channel={channel}
         slug={slug}

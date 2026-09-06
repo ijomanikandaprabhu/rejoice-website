@@ -8,7 +8,7 @@ import { SiteSearchField } from '@/components/site/SiteSearchField';
 import { pageSizes } from '@/config/app.config';
 import { ctaPanels } from '@/config/content.config';
 import { getMusicVideos } from '@/features/youtube/queries';
-import { buildMetadata } from '@/lib/seo';
+import { listingMetadata } from '@/lib/seo';
 
 /**
  * Every Short, paged and searchable.
@@ -30,13 +30,17 @@ import { buildMetadata } from '@/lib/seo';
 
 export const revalidate = 300;
 
-export const metadata = buildMetadata({
-  title: 'All Shorts',
-  description: 'Every vertical release from Rejoice Gospel Communications.',
-  path: '/shorts/all',
-});
-
 type SearchParams = { q?: string; page?: string };
+
+export function generateMetadata({ searchParams }: { searchParams: SearchParams }) {
+  return listingMetadata({
+    title: 'All Shorts',
+    description: 'Every vertical release from Rejoice Gospel Communications.',
+    basePath: '/shorts/all',
+    page: Math.max(Number(searchParams.page ?? '1') || 1, 1),
+    query: (searchParams.q ?? '').trim(),
+  });
+}
 
 export default async function AllShortsPage({ searchParams }: { searchParams: SearchParams }) {
   const query = (searchParams.q ?? '').trim();
