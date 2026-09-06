@@ -429,8 +429,14 @@ export const aboutPage = {
   founder: {
     eyebrow: 'Our founder',
     heading: 'A Calling Beyond Business',
+    /*
+     * FIRST PERSON, because it is attributed. It read "For Mr. Robin
+     * Nazeren, Rejoice was never created..." underneath a byline naming him,
+     * so the founder appeared to be speaking about himself in the third
+     * person. A quote and its attribution have to agree.
+     */
     quote:
-      'For Mr. Robin Nazeren, Rejoice was never created simply as a commercial venture. It was born from a deep sense of calling and service.',
+      'For me, Rejoice was never created simply as a commercial venture. It was born from a deep sense of calling and service.',
     attribution: 'Mr. Robin Nazeren, Founder',
     paragraphs: [
       'Throughout the early journey, financial limitations, practical challenges, and the difficulties of building a Christian creative platform tested that vision. Yet the mission remained unchanged.',
