@@ -80,7 +80,38 @@ export function AboutFounder() {
 
   return (
     <section className="container-page border-t border-white/[0.06] py-20 sm:py-28">
+      {/*
+       * TEXT FIRST, then the quote or portrait.
+       *
+       * It was the other way round, which put the quote above the heading that
+       * introduces the man saying it — stacked on a phone, the page opened on
+       * an unattributed claim and only then said whose story this was. Reading
+       * order and column order are the same thing here, so swapping the two
+       * children fixes both: on a wide screen the text now leads on the left.
+       */}
       <div className="grid gap-12 lg:grid-cols-2 lg:gap-16">
+        <div className="min-w-0">
+          <p className="t-label">{eyebrow}</p>
+          <h2 className="t-h2 mt-4">{heading}</h2>
+
+          {paragraphs.map((paragraph) => (
+            <p key={paragraph} className="mt-5 text-body leading-[1.7] text-site-muted">
+              {paragraph}
+            </p>
+          ))}
+
+          {/* Only when a portrait exists: without one, the quote IS the other
+              column and would otherwise appear twice. */}
+          {portrait ? (
+            <blockquote
+              data-reveal
+              className="mt-8 border-l-2 border-site-accent pl-5 text-[1.25rem] font-medium leading-[1.4] text-site-fg"
+            >
+              “{quote}”
+            </blockquote>
+          ) : null}
+        </div>
+
         <div>
           {portrait ? (
             <div className="relative aspect-[4/5] overflow-hidden rounded-[20px] border border-white/10">
@@ -111,26 +142,6 @@ export function AboutFounder() {
               </figcaption>
             </figure>
           )}
-        </div>
-
-        <div className="min-w-0">
-          <p className="t-label">{eyebrow}</p>
-          <h2 className="t-h2 mt-4">{heading}</h2>
-
-          {paragraphs.map((paragraph) => (
-            <p key={paragraph} className="mt-5 text-body leading-[1.7] text-site-muted">
-              {paragraph}
-            </p>
-          ))}
-
-          {portrait ? (
-            <blockquote
-              data-reveal
-              className="mt-8 border-l-2 border-site-accent pl-5 text-[1.25rem] font-medium leading-[1.4] text-site-fg"
-            >
-              “{quote}”
-            </blockquote>
-          ) : null}
         </div>
       </div>
     </section>
