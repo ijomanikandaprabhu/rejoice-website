@@ -241,7 +241,16 @@ export function HeroRecord({ src, className }: { src: string; className?: string
            * The record is the element worth protecting here; the headline is
            * long enough to survive a couple of points.
            */
-          'size-24 sm:size-28 lg:size-32 xl:size-36 2xl:size-44',
+          /*
+           * It grows to `lg` and then steps back down at `xl`. That looks
+           * backwards until you remember what changes at `xl`: the record
+           * stops sitting on a plain panel and moves onto the film, where it
+           * has to share the clip's sky with a three-line headline. The sky is
+           * a fixed fraction of the window's WIDTH, so it is at its meanest
+           * right at the point the overlay begins. Below `xl` nothing is
+           * competing for the space and the record can have it.
+           */
+          'size-24 sm:size-28 lg:size-32 xl:size-28 2xl:size-36',
           broken ? 'cursor-not-allowed opacity-40' : 'hover:opacity-95',
         )}
       >

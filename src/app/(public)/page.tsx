@@ -90,24 +90,36 @@ export default async function HomePage() {
        * rather than left to sit behind the page.
        */}
       {/*
-       * The overlay only starts at `lg`, and the padding is staged, because the
-       * usable area is the clip's *sky* — the horizon sits at ~55% of the frame
-       * (measured off the footage), and copy over the seated figures reads as
-       * clutter. Since the film is 16:9 that sky is a fixed fraction of
-       * viewport width, so the budget collapses as the window narrows:
+       * The overlay only starts at `xl`, because the usable area is the clip's
+       * *sky* — the horizon sits at ~55% of the frame (measured off the
+       * footage), and copy over the seated figures reads as clutter rather
+       * than as a headline.
        *
-       *   1440px → 263px spare after the headline
-       *   1280px → 213px
-       *   1024px → 134px
-       *    768px →   0px  ← the headline alone fills the whole sky
+       * The sky is the trap here. The film is 16:9, so its height — and so the
+       * sky's — is a fixed fraction of viewport WIDTH, while the record and the
+       * type are fixed pixel sizes. Narrow the window and the sky shrinks
+       * underneath type that does not. Measured, with the three-line headline,
+       * as room left above the horizon:
        *
-       * Hence `lg` rather than `md`: below it there is provably no room for
-       * both, so the two stack above the film on the navy panel instead, where
-       * there is no horizon to avoid.
+       *   1920px → +113px
+       *   1440px →   -4px
+       *   1280px →  -53px   ← the last line lands on the seated figures
+       *   1024px →  -23px
+       *
+       * This used to start at `lg`, which was correct when the headline was two
+       * lines. The third line costs ~55px and there is no width below 1280
+       * where it and the record both fit over the sky — not without shrinking
+       * the record into a token. So below `xl` the two stack above the film on
+       * the navy panel instead, which is the same arrangement phones get and
+       * has no horizon to avoid.
+       *
+       * Above `xl` the headline is sized in `vw` rather than points, capped at
+       * its full 3.25rem, so it stays a constant fraction of the sky instead of
+       * re-creating this bug at every width between the breakpoints.
        */}
-      <section className="relative isolate -mt-[73px] overflow-hidden bg-site-night pt-[113px] lg:bg-transparent lg:pt-0">
-        <div className="container-page relative z-10 pb-8 lg:absolute lg:inset-x-0 lg:top-0 lg:pb-0 lg:pt-[80px] xl:pt-[92px]">
-          <HeroRecord src={content.heroAudio} className="mb-4 sm:mb-6 lg:mb-2 xl:mb-5" />
+      <section className="relative isolate -mt-[73px] overflow-hidden bg-site-night pt-[113px] xl:bg-transparent xl:pt-0">
+        <div className="container-page relative z-10 pb-8 xl:absolute xl:inset-x-0 xl:top-0 xl:pb-0 xl:pt-[92px]">
+          <HeroRecord src={content.heroAudio} className="mb-4 sm:mb-6 xl:mb-3 2xl:mb-5" />
           {/*
            * The step down at `lg` is deliberate. That is the width where the
            * sky runs out, and between shrinking the record and shrinking the
@@ -119,7 +131,7 @@ export default async function HomePage() {
 `s in `heroHeading`, which set
               it as three deliberate lines. Without it they collapse to spaces
               and the heading wraps wherever the width happens to fall. */}
-          <h1 className="t-h1 mx-auto max-w-3xl whitespace-pre-line text-center lg:text-[1.875rem] xl:text-[3.25rem]">
+          <h1 className="t-h1 mx-auto max-w-3xl whitespace-pre-line text-center xl:text-[min(3.25rem,3.4vw)]">
             {content.heroHeading}
           </h1>
         </div>
