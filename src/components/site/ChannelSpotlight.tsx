@@ -86,7 +86,14 @@ export function ChannelSpotlight({
     >
       {heading ? <h2 className="t-h2 mb-10 text-center sm:mb-12">{heading}</h2> : null}
 
-      <div className="flex justify-center gap-4 sm:gap-6">
+      {/*
+       * A horizontal scroller on a phone, not a bare flex row: with no wrap and
+       * no overflow handling, a sixth channel connected in the admin would push
+       * straight past the screen edge with no way to reach it. Scrolling keeps
+       * every channel reachable at any count; `sm:` and up have the width to
+       * spare, so those switch to wrapping, centred.
+       */}
+      <div className="no-scrollbar -mx-5 flex snap-x justify-start gap-4 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:justify-center sm:gap-6 sm:overflow-visible sm:px-0 sm:pb-0">
         {withVideos.map((item, index) => {
           const isActive = index === Math.min(active, withVideos.length - 1);
 
@@ -106,7 +113,7 @@ export function ChannelSpotlight({
               onClick={() => setActive(index)}
               aria-pressed={isActive}
               className={cn(
-                'group relative shrink-0 rounded-pill transition-opacity duration-300',
+                'group relative shrink-0 snap-start rounded-pill transition-opacity duration-300',
                 isActive ? 'opacity-100' : 'opacity-50 hover:opacity-90',
               )}
             >

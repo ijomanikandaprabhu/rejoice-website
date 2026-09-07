@@ -274,7 +274,7 @@ export function ScrollRing({ items, eyebrow, heading, lead, className }: ScrollR
                       textVisible ? 'opacity-100' : 'opacity-0',
                     )}
                   >
-                    {eyebrow ? <p className="t-label">{eyebrow}</p> : null}
+                    {eyebrow ? <p className="t-label text-center">{eyebrow}</p> : null}
                     {/*
                      * Sized against the inner disc, not the viewport: the usable
                      * width in there is only ~85% of the disc after the padding,

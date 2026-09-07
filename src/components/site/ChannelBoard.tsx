@@ -53,7 +53,14 @@ export function ChannelBoard({ channels }: { channels: Channel[] }) {
        * half-built tab widget behaves worse for a keyboard user than plain
        * buttons. Same call as `ChannelSpotlight` on the homepage.
        */}
-      <div className="flex flex-wrap justify-center gap-4 sm:gap-6">
+      {/*
+       * A horizontal scroller on a phone, not `flex-wrap`: five channels sit on
+       * one line, but a sixth wrapped to a second row the moment it was added,
+       * and nothing here caps how many channels admin connects. Scrolling keeps
+       * one tidy row at any count; `sm:` and up have the width to spare, so
+       * those switch back to wrapping, centred.
+       */}
+      <div className="no-scrollbar -mx-5 flex snap-x gap-4 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:justify-center sm:gap-6 sm:overflow-visible sm:px-0 sm:pb-0">
         {withVideos.map((item, i) => {
           const isActive = i === index;
           return (
@@ -63,7 +70,7 @@ export function ChannelBoard({ channels }: { channels: Channel[] }) {
               onClick={() => setActive(i)}
               aria-pressed={isActive}
               className={cn(
-                'group shrink-0 rounded-pill transition-opacity duration-300',
+                'group shrink-0 snap-start rounded-pill transition-opacity duration-300',
                 isActive ? 'opacity-100' : 'opacity-50 hover:opacity-90',
               )}
             >
