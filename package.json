@@ -20,6 +20,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:cross": "playwright test e2e/crossBrowser.spec.ts",
     "predev": "node scripts/sync-maplibre-worker.mjs",
     "prebuild": "node scripts/sync-maplibre-worker.mjs"
   },

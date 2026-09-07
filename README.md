@@ -208,6 +208,7 @@ What *is* still editable at runtime, because it changes without a developer:
 | `npm run seed` | Create the administrator, categories and starter services |
 | `npm run test` | Vitest unit tests |
 | `npm run test:e2e` | Playwright end-to-end tests |
+| `npm run test:e2e:cross` | The read-only cross-browser checks, in every engine |
 
 | `npm run lint` | ESLint |
 | `npm run format` | Prettier |
@@ -218,14 +219,34 @@ from the database at build time.
 ### End-to-end tests
 
 ```bash
-npx playwright install chromium && npm run test:e2e
+npx playwright install chromium firefox webkit && npm run test:e2e
 ```
 
 They need the database running (`npm run db:start`) and a seeded admin. Playwright starts
 its own dev server, or reuses one already on port 3000.
 
-The tests write to the database — an enquiry, and the homepage hero heading. Run them
-against a development database, never production.
+`rejoice.spec.ts` writes to the database — an enquiry, and the homepage hero heading. Run
+it against a development database, never production. It runs on **chromium only**: those
+flows are server behaviour, and the server does not care which engine asked.
+
+### Cross-browser checks
+
+```bash
+npm run test:e2e:cross
+```
+
+`crossBrowser.spec.ts` is the one that fans out — chromium, firefox, webkit, and three
+phone-width projects (`firefox-narrow`, `mobile-chrome`, `mobile-safari`). It is read-only:
+no login, no seeding, no YouTube key, and it passes with whatever content the database
+happens to hold. It covers every public page for console errors, sideways overflow and
+broken images, and it covers the rails — scrollable and unfaded on a phone, clipped and
+faded with a running marquee on a desktop, and the swipe-then-resume behaviour.
+
+Two things it deliberately does not do: assert a scroll *speed* (a throttled
+`requestAnimationFrame` would fail a correct rail — it polls for movement instead, and
+records the frame rate as an annotation), and stand in for a real phone. Playwright's
+WebKit is not iOS Safari and has no touch momentum, so the fling behaviour still wants a
+real device.
 
 The YouTube flow (connect a channel, import, show, edit, reset) is skipped unless you
 provide real credentials:
