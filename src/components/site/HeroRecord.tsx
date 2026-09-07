@@ -108,8 +108,19 @@ export function HeroRecord({ src, className }: { src: string; className?: string
 
     let visible = false;
 
+    /*
+     * `audio.paused` IS NOT "is it playing", and nothing here may treat it as
+     * though it were.
+     *
+     * `play()` sets `paused` to false synchronously and settles its promise
+     * later, so between a refused attempt and its rejection the element reports
+     * `paused === false` while making no sound at all. Guarding on it therefore
+     * skips exactly the attempt that would have worked. `play()` on an element
+     * that is genuinely already playing simply resolves, so there is nothing
+     * worth guarding against in the first place.
+     */
     const start = () => {
-      if (userStopped.current || !visible || !audio.paused) return;
+      if (userStopped.current || !visible) return;
       void audio.play().catch(() => {});
     };
 
@@ -127,21 +138,40 @@ export function HeroRecord({ src, className }: { src: string; className?: string
      * So these stay armed and keep trying, and are removed only once `play()`
      * has actually RESOLVED — success is the exit condition, not "an event fired".
      *
-     * `scroll` is included because on this page it is very often the first thing
-     * that happens, and it counts as interaction for the autoplay policy.
+     * NO `scroll`. It used to be here, with a comment claiming it "counts as
+     * interaction for the autoplay policy" — it does not, in any engine, and
+     * `ShortsFeed.tsx` says so correctly a few files away: "Scrolling is
+     * deliberately NOT treated as that gesture: Chrome does not count it." All a
+     * scroll could ever do here is spend a turn on a `play()` the browser was
+     * always going to refuse. The case it was reaching for — the hero coming
+     * back into view — belongs to the IntersectionObserver below, which already
+     * handles it.
      */
-    const events = ['pointerdown', 'keydown', 'touchstart', 'scroll'] as const;
+    const events = ['pointerdown', 'keydown', 'touchstart'] as const;
 
     const disarm = () => {
       for (const type of events) window.removeEventListener(type, onInteraction);
     };
 
+    /*
+     * Deliberately NOT gated on `audio.paused` — see the note on `start` above.
+     *
+     * DEFENSIVE, not a fix for anything observed, and worth saying so rather
+     * than letting a future reader assume it was load-bearing. Measured against
+     * Chromium with autoplay blocked, clicking away from the record at 120, 200,
+     * 300, 450 and 700ms after navigation: the track started every time, with
+     * the guard and without it. The guard is still wrong in principle — it can
+     * only ever drop the one attempt that would have worked — but the in-flight
+     * window is plainly narrower than a real visitor's first click.
+     *
+     * `toggle` is where the same unsound read did cause a reproducible failure.
+     */
     function onInteraction() {
       if (userStopped.current) {
         disarm();
         return;
       }
-      if (!visible || !audio!.paused) return;
+      if (!visible) return;
       audio!.play().then(disarm, () => {});
     }
 
@@ -186,7 +216,18 @@ export function HeroRecord({ src, className }: { src: string; className?: string
     const audio = audioRef.current;
     if (!audio) return;
 
-    if (audio.paused) {
+    /*
+     * Branched on `playing`, not `audio.paused`.
+     *
+     * `playing` is the mirror of the element's own `play`/`pause` events, which
+     * this file already treats as the source of truth. `paused` is false the
+     * instant `play()` is called, including for an attempt the browser is about
+     * to refuse — so on a first visit a press landing in that window read as
+     * "already playing", took the else branch, and latched `userStopped`. The
+     * visitor's first press of the record would have STOPPED a track that had
+     * never made a sound, and nothing automatic would have started it again.
+     */
+    if (!playing) {
       // Pressing play clears the manual stop, so the automatic behaviour is
       // handed back — scrolling away will pause it and scrolling back resumes.
       userStopped.current = false;
@@ -200,7 +241,10 @@ export function HeroRecord({ src, className }: { src: string; className?: string
       userStopped.current = true;
       audio.pause();
     }
-  }, []);
+    /* `playing` is read above, so it has to be a dependency: with an empty array
+       this would close over `false` for the life of the component and the button
+       could only ever start the track, never stop it. */
+  }, [playing]);
 
   // Nothing configured yet — render nothing rather than a control that can't work.
   if (!src) return null;
@@ -251,10 +295,52 @@ export function HeroRecord({ src, className }: { src: string; className?: string
            * competing for the space and the record can have it.
            */
           'size-24 sm:size-28 lg:size-32 xl:size-28 2xl:size-36',
-          broken ? 'cursor-not-allowed opacity-40' : 'hover:opacity-95',
+          /*
+           * Focus has to be visible. The disc has always been a real button and
+           * reachable by keyboard, but it showed nothing on focus, so anyone
+           * driving the page from the keyboard could not tell they were on it.
+           */
+          'outline-none focus-visible:ring-2 focus-visible:ring-site-accent focus-visible:ring-offset-2 focus-visible:ring-offset-site-bg',
+          broken
+            ? 'cursor-not-allowed opacity-40'
+            : /* Was `hover:opacity-95` — a 5% opacity change, which is not
+                 feedback anyone can see. The lift is `motion-safe:` because the
+                 reduced-motion rule in globals.css governs the spin, not this. */
+              'hover:opacity-100 motion-safe:hover:scale-[1.04] motion-safe:active:scale-[0.98] motion-safe:transition-transform',
         )}
       >
         <VinylDisc playing={playing} />
+
+        {/*
+         * Says "press me" before anything has been pressed.
+         *
+         * The caption below spells it out, but a record on a dark hero reads as
+         * decoration until something marks it as a control — and the owner
+         * reported exactly that, having not realised the disc was pressable. It
+         * fades out once the track is running, where the spin and the caption
+         * carry the state instead.
+         *
+         * `aria-hidden` and `pointer-events-none`: the button already announces
+         * itself through `aria-label`, and this must never become the thing that
+         * swallows the click it is advertising.
+         */}
+        {!broken ? (
+          <span
+            aria-hidden="true"
+            className={cn(
+              'pointer-events-none absolute inset-0 grid place-items-center transition-opacity duration-300',
+              playing ? 'opacity-0' : 'opacity-100',
+            )}
+          >
+            <span className="grid size-2/5 place-items-center rounded-pill bg-black/55 backdrop-blur-sm">
+              {/* A triangle, drawn rather than typed: the glyph ▶ renders as an
+                  emoji on some platforms and as a tofu box on others. */}
+              <svg viewBox="0 0 24 24" className="size-1/2 translate-x-[6%] fill-white">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </span>
+          </span>
+        ) : null}
       </button>
 
       {/*
