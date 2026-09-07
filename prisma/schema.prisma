@@ -341,6 +341,10 @@ model Song {
   slug        String    @unique
   title       String
   artist      String?
+  /// Who made the music — a CREDIT, not a file. "Ben Vin", the way a sleeve
+  /// prints it. The track itself lives on the streaming services `links` points
+  /// at; nothing audible is stored here.
+  music       String?
   releasedAt  DateTime?
   description String?
 

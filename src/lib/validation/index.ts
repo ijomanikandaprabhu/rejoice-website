@@ -235,6 +235,8 @@ export const platformSchema = z.object({
 export const songSchema = z.object({
   title: z.string().trim().min(1, 'Enter the song title').max(200),
   artist: z.string().trim().max(200).optional().or(z.literal('')),
+  /** Who made the music, as a credit — a name, not a file. Same rule as `artist`. */
+  music: z.string().trim().max(200).optional().or(z.literal('')),
   description: z.string().trim().max(2000).optional().or(z.literal('')),
   /** `<input type="date">` gives an empty string when it is left blank. */
   releasedAt: z

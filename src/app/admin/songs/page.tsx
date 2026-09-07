@@ -21,7 +21,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { pageSizes } from '@/config/app.config';
-import { cn } from '@/lib/utils';
+import { cn, formatDate } from '@/lib/utils';
 import {
   bulkSetSongVisibilityAction,
   deleteSongAction,
@@ -142,6 +142,9 @@ export default async function SongsAdminPage({ searchParams }: { searchParams: S
                       <TableHead className="w-16">Cover</TableHead>
                       <TableHead>Title</TableHead>
                       <TableHead>Artist</TableHead>
+                      {/* The column the table is sorted by, so the order on
+                          screen can be read rather than taken on trust. */}
+                      <TableHead>Released</TableHead>
                       <TableHead className="text-center">Links</TableHead>
                       <TableHead className="text-center">Visible</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -186,6 +189,10 @@ export default async function SongsAdminPage({ searchParams }: { searchParams: S
 
                         <TableCell className="text-muted-foreground">
                           {song.artist ?? '—'}
+                        </TableCell>
+
+                        <TableCell className="whitespace-nowrap text-muted-foreground">
+                          {song.releasedAt ? formatDate(song.releasedAt) : '—'}
                         </TableCell>
 
                         <TableCell className="text-center tabular-nums text-muted-foreground">

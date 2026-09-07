@@ -51,6 +51,21 @@ const songCard = {
 } as const;
 
 /**
+ * Newest release first — the one order the admin table, the public listing and
+ * the sitemap all use, so they cannot disagree about what "latest" means.
+ *
+ * `nulls: 'last'` is LOAD-BEARING and is not Postgres's default. `ORDER BY ...
+ * DESC` puts NULLs FIRST, so without this every song that has no date yet would
+ * sit above the newest release — the undated ones crowding out exactly what the
+ * page exists to show. `createdAt` then settles ties, and orders the undated
+ * ones among themselves.
+ */
+const newestFirst = [
+  { releasedAt: { sort: 'desc', nulls: 'last' } },
+  { createdAt: 'desc' },
+] satisfies Prisma.SongOrderByWithRelationInput[];
+
+/**
  * One page of songs for the admin table, plus the total.
  *
  * PAGED, emphatically. This used to return every row, which was fine for the
@@ -100,7 +115,7 @@ export async function listSongsForAdmin({
   const [rows, total] = await Promise.all([
     prisma.song.findMany({
       where,
-      orderBy: [{ releasedAt: 'desc' }, { createdAt: 'desc' }],
+      orderBy: newestFirst,
       skip,
       take,
       select: {
@@ -150,7 +165,7 @@ export async function listPublicSongsPage({
   const [rows, total] = await Promise.all([
     prisma.song.findMany({
       where,
-      orderBy: [{ releasedAt: 'desc' }, { createdAt: 'desc' }],
+      orderBy: newestFirst,
       skip,
       take,
       select: songCard,
@@ -170,7 +185,7 @@ export async function listPublicSongsPage({
 export async function listPublicSongs() {
   return prisma.song.findMany({
     where: { isVisible: true },
-    orderBy: [{ releasedAt: 'desc' }, { createdAt: 'desc' }],
+    orderBy: newestFirst,
     select: songCard,
   });
 }
@@ -186,6 +201,7 @@ export async function getPublicSong(slug: string) {
     where: { slug, isVisible: true },
     select: {
       ...songCard,
+      music: true,
       description: true,
       links: {
         orderBy: { platform: { sortOrder: 'asc' } },
@@ -204,6 +220,7 @@ export async function getSongForAdmin(id: string) {
     where: { id },
     select: {
       ...songCard,
+      music: true,
       description: true,
       links: { select: { id: true, url: true, platformId: true } },
     },

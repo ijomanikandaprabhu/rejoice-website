@@ -269,6 +269,7 @@ export async function addSongAction(_prev: ActionState, formData: FormData): Pro
   const parsed = songSchema.safeParse({
     title: formData.get('title'),
     artist: optionalText(formData, 'artist'),
+    music: optionalText(formData, 'music'),
     description: optionalText(formData, 'description'),
     releasedAt: optionalText(formData, 'releasedAt'),
   });
@@ -283,13 +284,14 @@ export async function addSongAction(_prev: ActionState, formData: FormData): Pro
   const storedCover = await storeImage(cover.file, cover.width, cover.height);
   if (typeof storedCover === 'string') return { ok: false, errors: { cover: storedCover } };
 
-  const { title, artist, description, releasedAt } = parsed.data;
+  const { title, artist, music, description, releasedAt } = parsed.data;
 
   const song = await prisma.song.create({
     data: {
       slug: await uniqueSlug(title),
       title,
       artist: artist || null,
+      music: music || null,
       description: description || null,
       // Parsed as UTC midnight: a release date is a calendar day, and letting
       // the server's timezone shift it would show the day before in India.
@@ -330,6 +332,7 @@ export async function updateSongAction(
   const parsed = songSchema.safeParse({
     title: formData.get('title'),
     artist: optionalText(formData, 'artist'),
+    music: optionalText(formData, 'music'),
     description: optionalText(formData, 'description'),
     releasedAt: optionalText(formData, 'releasedAt'),
   });
@@ -354,18 +357,17 @@ export async function updateSongAction(
     coverId = storedCover.id;
   }
 
-  const { title, artist, description, releasedAt } = parsed.data;
+  const { title, artist, music, description, releasedAt } = parsed.data;
 
   /*
-   * Absent, not empty. Release date and description are no longer on the form,
-   * so they arrive as undefined — and a song that has one must keep it rather
-   * than being quietly cleared by a screen that cannot show it.
+   * Absent, not empty. `description` is the last field with a column but no
+   * input — it arrives as undefined, and a song that has one must keep it
+   * rather than being quietly cleared by a screen that cannot show it.
+   *
+   * Release date needs no such guard any more: it is back on the form, so it
+   * always arrives, and an empty string genuinely means "clear it".
    */
   const keepDescription = description === undefined ? {} : { description: description || null };
-  const keepReleasedAt =
-    releasedAt === undefined
-      ? {}
-      : { releasedAt: releasedAt ? new Date(`${releasedAt}T00:00:00Z`) : null };
 
   await prisma.$transaction([
     // Replace the links wholesale. They are a short list edited as one thing,
@@ -376,8 +378,11 @@ export async function updateSongAction(
       data: {
         title,
         artist: artist || null,
+        music: music || null,
         ...keepDescription,
-        ...keepReleasedAt,
+        // Parsed as UTC midnight, as on create: a release date is a calendar
+        // day, and the server's timezone must not shift it a day earlier.
+        releasedAt: releasedAt ? new Date(`${releasedAt}T00:00:00Z`) : null,
         isVisible: formData.get('isVisible') === 'on',
         coverId,
         links: { create: rows },

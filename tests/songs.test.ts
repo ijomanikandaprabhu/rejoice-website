@@ -17,7 +17,13 @@ import {
 import { slugify } from '@/lib/utils';
 
 describe('songSchema', () => {
-  const valid = { title: 'Devan', artist: 'Elisha Isaac', description: '', releasedAt: '' };
+  const valid = {
+    title: 'Devan',
+    artist: 'Elisha Isaac',
+    music: '',
+    description: '',
+    releasedAt: '',
+  };
 
   it('needs a title', () => {
     expect(songSchema.safeParse({ ...valid, title: '   ' }).success).toBe(false);
@@ -40,6 +46,14 @@ describe('songSchema', () => {
 
   it('allows the date to be left empty', () => {
     expect(songSchema.safeParse({ ...valid, releasedAt: '' }).success).toBe(true);
+  });
+
+  it('takes a music credit', () => {
+    expect(songSchema.safeParse({ ...valid, music: 'Ben Vin' }).success).toBe(true);
+  });
+
+  it('refuses a music credit longer than a name could be', () => {
+    expect(songSchema.safeParse({ ...valid, music: 'x'.repeat(201) }).success).toBe(false);
   });
 });
 

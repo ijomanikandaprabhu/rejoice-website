@@ -16,12 +16,18 @@ export type SongFormValues = {
   id: string;
   title: string;
   artist: string | null;
+  music: string | null;
   description: string | null;
   releasedAt: Date | null;
   isVisible: boolean;
   coverId: string;
   links: Array<{ platformId: string; url: string }>;
 };
+
+/** `<input type="date">` wants exactly YYYY-MM-DD, in the UTC day it was stored as. */
+function dateInputValue(date: Date | null | undefined): string {
+  return date ? date.toISOString().slice(0, 10) : '';
+}
 
 /**
  * Add or edit a song. ONE component for both, so the two forms cannot drift
@@ -90,6 +96,30 @@ export function SongForm({
                 defaultValue={song?.artist ?? ''}
               />
               <FieldError name="artist" />
+            </Field>
+
+            {/* A credit, the way a sleeve prints it — "Ben Vin". Not the track:
+                where to hear that is the platform links below. */}
+            <Field label="Music" htmlFor="music">
+              <Input
+                id="music"
+                name="music"
+                placeholder="Optional"
+                defaultValue={song?.music ?? ''}
+              />
+              <FieldError name="music" />
+            </Field>
+
+            {/* Sorts the public listing and the admin table, newest first. A
+                song left undated sorts to the bottom rather than the top. */}
+            <Field label="Release date" htmlFor="releasedAt">
+              <Input
+                id="releasedAt"
+                name="releasedAt"
+                type="date"
+                defaultValue={dateInputValue(song?.releasedAt)}
+              />
+              <FieldError name="releasedAt" />
             </Field>
 
             {editing ? (
