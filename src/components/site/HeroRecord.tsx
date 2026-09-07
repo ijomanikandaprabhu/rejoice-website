@@ -309,38 +309,20 @@ export function HeroRecord({ src, className }: { src: string; className?: string
               'hover:opacity-100 motion-safe:hover:scale-[1.04] motion-safe:active:scale-[0.98] motion-safe:transition-transform',
         )}
       >
-        <VinylDisc playing={playing} />
-
         {/*
-         * Says "press me" before anything has been pressed.
+         * NO PLAY TRIANGLE OVER THE DISC.
          *
-         * The caption below spells it out, but a record on a dark hero reads as
-         * decoration until something marks it as a control — and the owner
-         * reported exactly that, having not realised the disc was pressable. It
-         * fades out once the track is running, where the spin and the caption
-         * carry the state instead.
+         * One was tried — a white triangle on a dark badge, centred, fading out
+         * once the track ran — and it was rejected on sight: it covered the
+         * label art and turned a record into a generic video thumbnail. The
+         * artwork is the point of this hero.
          *
-         * `aria-hidden` and `pointer-events-none`: the button already announces
-         * itself through `aria-label`, and this must never become the thing that
-         * swallows the click it is advertising.
+         * What marks it as a control instead: the caption below spelling out
+         * "Play the song", the pointer cursor, the hover lift above, and the
+         * focus ring for anyone on a keyboard. That is enough without painting
+         * over the disc.
          */}
-        {!broken ? (
-          <span
-            aria-hidden="true"
-            className={cn(
-              'pointer-events-none absolute inset-0 grid place-items-center transition-opacity duration-300',
-              playing ? 'opacity-0' : 'opacity-100',
-            )}
-          >
-            <span className="grid size-2/5 place-items-center rounded-pill bg-black/55 backdrop-blur-sm">
-              {/* A triangle, drawn rather than typed: the glyph ▶ renders as an
-                  emoji on some platforms and as a tofu box on others. */}
-              <svg viewBox="0 0 24 24" className="size-1/2 translate-x-[6%] fill-white">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </span>
-          </span>
-        ) : null}
+        <VinylDisc playing={playing} />
       </button>
 
       {/*
