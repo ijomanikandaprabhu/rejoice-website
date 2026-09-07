@@ -530,59 +530,90 @@
   /* ---- Channel rails ---------------------------------------------------- */
 
   /*
-   * Viewport for a marquee row.
+   * Viewport for a marquee row. TWO DIFFERENT THINGS EITHER SIDE OF `sm`.
    *
-   * Normally hidden: the track is deliberately far wider than the screen, so
-   * `overflow-x: auto` would park a scrollbar under every row permanently, and
-   * without any clipping the page itself would gain a horizontal scrollbar.
+   * Below `sm` it is a real horizontal scroller, so the row can be swiped, and
+   * `site/RailAutoScroll.tsx` drives its `scrollLeft` so it still drifts on its
+   * own. That component is the whole reason for the split: a transform marquee
+   * inside `overflow: hidden` cannot be touched, and the arrows that rescue a
+   * desktop visitor are `hidden sm:grid`, so on a phone every card past the
+   * first two used to be unreachable except by waiting.
    *
-   * Under reduced motion the marquee is frozen by the rule at the end of this
-   * file, which would otherwise strand every card past the first few offscreen
-   * with no way to reach them. There, and only there, it becomes a normal
-   * scrollable row.
+   * From `sm` up it is the original clipped box, moved by the CSS marquee.
    */
   .rail-viewport {
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
+
+    /* Keep a horizontal fling inside the rail: no chaining to the page, and no
+       accidental back-navigation from a swipe that starts here. */
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
 
     /*
-     * Soften both ends of the row.
-     *
-     * Without this the track is clipped dead straight, so cards pop into
-     * existence beside the avatar and vanish at the screen edge. Masking the
-     * edges to transparent makes them fade in and out instead, which reads as
-     * a row continuing past the frame rather than one being cut off.
-     *
-     * A mask rather than a gradient overlay, because the page background is
-     * not always what sits behind a rail — a gradient would have to know the
-     * colour, a mask does not.
-     *
-     * The fade is narrower on small screens: at 375px the rail is only ~270px
-     * wide, and a desktop-sized fade would eat most of a card.
+     * Explicit, because `html` sets `scroll-behavior: smooth` above. It is not
+     * an inherited property so it does not reach this element — but if it ever
+     * did, every `scrollLeft` write in the rAF loop would be smooth-animated and
+     * the loop would spend its time fighting itself.
      */
-    --rail-fade: 1.5rem;
-    -webkit-mask-image: linear-gradient(
-      to right,
-      transparent 0,
-      #000 var(--rail-fade),
-      #000 calc(100% - var(--rail-fade)),
-      transparent 100%
-    );
-    mask-image: linear-gradient(
-      to right,
-      transparent 0,
-      #000 var(--rail-fade),
-      #000 calc(100% - var(--rail-fade)),
-      transparent 100%
-    );
+    scroll-behavior: auto;
+
+    /* No scrollbar parked under every row. Same pair as `.no-scrollbar`. */
+    scrollbar-width: none;
+  }
+
+  .rail-viewport::-webkit-scrollbar {
+    display: none;
   }
 
   @media (min-width: 640px) {
     .rail-viewport {
+      /* The track is deliberately far wider than the screen; this clips it, and
+         the marquee transform is what moves it. */
+      overflow: hidden;
+
+      /*
+       * Soften both ends of the row.
+       *
+       * Without this the track is clipped dead straight, so cards pop into
+       * existence beside the avatar and vanish at the screen edge. Masking the
+       * edges to transparent makes them fade in and out instead, which reads as
+       * a row continuing past the frame rather than one being cut off.
+       *
+       * A mask rather than a gradient overlay, because the page background is
+       * not always what sits behind a rail — a gradient would have to know the
+       * colour, a mask does not.
+       *
+       * `sm:` AND UP ONLY. On a 375px screen the row is barely 270px wide and a
+       * fade at both ends ate most of the first and last card — and now that the
+       * row is scrollable down there, there is nothing left to imply: a visitor
+       * can simply push it.
+       */
       --rail-fade: 4rem;
+      -webkit-mask-image: linear-gradient(
+        to right,
+        transparent 0,
+        #000 var(--rail-fade),
+        #000 calc(100% - var(--rail-fade)),
+        transparent 100%
+      );
+      mask-image: linear-gradient(
+        to right,
+        transparent 0,
+        #000 var(--rail-fade),
+        #000 calc(100% - var(--rail-fade)),
+        transparent 100%
+      );
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
+  /*
+   * Reduced motion freezes the marquee (the rule at the end of this file), which
+   * would otherwise strand every card past the first few offscreen with no way to
+   * reach them. Only `sm:` and up needs this branch now — below it the row is
+   * already a scroller.
+   */
+  @media (min-width: 640px) and (prefers-reduced-motion: reduce) {
     .rail-viewport {
       overflow-x: auto;
     }

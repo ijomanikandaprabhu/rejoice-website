@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 import { RailArrows } from '@/components/site/RailArrows';
+import { RailAutoScroll } from '@/components/site/RailAutoScroll';
 import { SiteButton } from '@/components/site/Section';
 import type { VideoCardData } from '@/features/youtube/queries';
 
@@ -81,14 +82,19 @@ function RailItems({ videos }: { videos: VideoCardData[] }) {
  * must be identical widths for that to hold — hence the shared `RailItems` with
  * `pr-4` inside it rather than a gap between the halves.
  *
- * `.rail-viewport` (globals.css) clips the over-wide track, fades both ends,
- * and swaps to a normally scrollable row under reduced motion — where the
- * marquee is frozen and the cards would otherwise be unreachable.
+ * `.rail-viewport` (globals.css) clips the over-wide track and fades both ends
+ * from `sm` up, and is a real scroller below it — where `RailAutoScroll` moves
+ * it instead, so a phone can swipe the row and it still drifts on its own. It
+ * also swaps to a scrollable row under desktop reduced motion, where the marquee
+ * is frozen and the cards would otherwise be unreachable.
  *
  * Renders nothing when no Short is visible, so the page reads exactly as it did
  * before until some are switched on in the admin.
  */
 export function ShortsRail({ videos }: { videos: VideoCardData[] }) {
+  /* One number for both movers — see the same note in `ChannelRails`. */
+  const seconds = Math.max(videos.length, 4) * 7;
+
   if (videos.length === 0) return null;
 
   return (
@@ -104,11 +110,14 @@ export function ShortsRail({ videos }: { videos: VideoCardData[] }) {
          * would be nearly invisible.
          */}
         <div data-rail className="relative min-w-0">
-          <div className="rail-viewport">
+          <RailAutoScroll seconds={seconds}>
+            {/* `sm:animate-marquee`: below the breakpoint the row is scrolled
+                rather than animated. The inline duration stays unconditional —
+                `animation-duration` with no `animation-name` does nothing. */}
             <div
               data-rail-track
-              className="flex w-max animate-marquee group-hover:[animation-play-state:paused]"
-              style={{ animationDuration: `${Math.max(videos.length, 4) * 7}s` }}
+              className="flex w-max group-hover:[animation-play-state:paused] sm:animate-marquee"
+              style={{ animationDuration: `${seconds}s` }}
             >
               <RailItems videos={videos} />
               {/* Visual filler only — a screen reader must not read the row twice. */}
@@ -116,7 +125,7 @@ export function ShortsRail({ videos }: { videos: VideoCardData[] }) {
                 <RailItems videos={videos} />
               </div>
             </div>
-          </div>
+          </RailAutoScroll>
 
           <RailArrows cardsPerCopy={videos.length} label="Shorts" />
         </div>
