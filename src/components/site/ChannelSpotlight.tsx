@@ -46,14 +46,20 @@ export function ChannelSpotlight({
   const [active, setActive] = useState(0);
 
   /*
-   * Advances every 5s, then stops for good the moment anyone touches the
-   * section.
+   * Advances every 5s, then stops for good the moment anyone deliberately
+   * interacts with the section.
    *
    * `paused` is never cleared, and that is the point rather than politeness.
    * The player below is mounted with `key={video.id}` — see the note there —
    * so an auto-advance mid-watch would REMOUNT it and kill the video someone
-   * is actually watching. Capturing pointerdown catches the avatar buttons and
-   * the play button alike.
+   * is actually watching. Capturing CLICK, not pointerdown, catches the avatar
+   * buttons and the play button alike while leaving a scroll alone: a phone
+   * visitor almost always touches down somewhere inside this section on the
+   * way to scrolling past it, and pointerdown fires on that contact regardless
+   * of what follows. Click does not — a browser withholds it once a touch has
+   * moved far enough to count as a scroll instead of a tap — so it was pausing
+   * the carousel, permanently, on nearly every mobile visit before a single
+   * frame had a chance to play.
    *
    * Also parked off-screen, and under `prefers-reduced-motion`: content that
    * auto-updates for more than five seconds needs a way to stop, and honouring
@@ -81,7 +87,7 @@ export function ChannelSpotlight({
   return (
     <section
       ref={sectionRef}
-      onPointerDownCapture={() => setPaused(true)}
+      onClickCapture={() => setPaused(true)}
       className="container-page pt-24"
     >
       {heading ? <h2 className="t-h2 mb-10 text-center sm:mb-12">{heading}</h2> : null}
