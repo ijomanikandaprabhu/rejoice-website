@@ -189,7 +189,25 @@ export default async function MusicPage() {
           {musicPage.heroImage ? (
             <div
               aria-hidden="true"
-              className="relative mx-auto mt-12 aspect-[1024/1536] w-full max-w-[15rem] sm:max-w-[19rem] lg:hidden"
+              /*
+               * Bled to the BOTTOM-RIGHT corner, not centred, because the
+               * picture carries its own background: the hand sits in the left
+               * of the frame and the right third is scene. Centred, that third
+               * read as a slab of dead space beside the hand. Pushed off the
+               * right edge instead — `-mr-5 sm:-mr-8` cancels the container's
+               * side padding — it leaves the frame the way the desktop version
+               * does, and the hand lands where the eye expects it.
+               *
+               * `-mb-14 sm:-mb-16` does the same for the bottom padding, so the
+               * picture's lower edge meets the section's.
+               *
+               * Without it the hand floated: the source file already crops the
+               * arm at its bottom edge, and with 56px of black underneath, that
+               * crop stopped reading as "reaching in from below" and started
+               * reading as a cut-out pasted in mid-air. Grounding it is what
+               * the desktop version gets for free by hanging past the section.
+               */
+              className="relative -mb-14 -mr-5 ml-auto mt-12 aspect-[1024/1536] w-full max-w-[19rem] sm:-mb-16 sm:-mr-8 sm:max-w-[25rem] lg:hidden"
             >
               <Image
                 src={musicPage.heroImage}
@@ -201,7 +219,7 @@ export default async function MusicPage() {
                  * the mirror of it. The same trick the desktop image already
                  * used; without it both files are fetched at every width.
                  */
-                sizes="(min-width: 1024px) 0px, (min-width: 640px) 19rem, 15rem"
+                sizes="(min-width: 1024px) 0px, (min-width: 640px) 25rem, 19rem"
                 className="object-contain"
               />
             </div>
