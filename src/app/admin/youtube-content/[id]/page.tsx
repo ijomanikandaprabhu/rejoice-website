@@ -3,24 +3,24 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import { Fragment } from 'react';
+
 import { ActionForm, Field, FieldError, SubmitButton } from '@/components/admin/ActionForm';
 import { FormSelect } from '@/components/admin/FormSelect';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { resetVideoOverridesAction, updateVideoAction } from '@/features/youtube/actions';
 import { prisma } from '@/lib/db/prisma';
 import { formatDate } from '@/lib/utils';
-import { fallbackThumbnailUrl, hasVideoOverrides, resolveVideoDisplay } from '@/lib/utils/videoDisplay';
+import {
+  fallbackThumbnailUrl,
+  hasVideoOverrides,
+  resolveVideoDisplay,
+} from '@/lib/utils/videoDisplay';
 
 export const dynamic = 'force-dynamic';
 
@@ -120,108 +120,115 @@ export default async function VideoEditorPage({ params }: { params: { id: string
       </Card>
 
       {/*
-        Keyed on updatedAt so the form remounts whenever the record changes.
+        The key is INSIDE the form, on the fields, and that placement is the
+        whole point.
 
-        The inputs are uncontrolled, and React does not push a new defaultValue
-        into an input that is already mounted. Without this key, "Reset to
-        YouTube details" clears the overrides in the database but leaves the old
-        text sitting in the fields — and the next "Save changes" would write the
-        override straight back.
+        Why a key at all: the inputs are uncontrolled, and React does not push a
+        new defaultValue into an input that is already mounted. Without one,
+        "Reset to YouTube details" clears the overrides in the database but
+        leaves the old text sitting in the fields — and the next "Save changes"
+        would write the override straight back.
+
+        Why not on <ActionForm>, where it used to be: `updatedAt` changes on
+        every successful save, so keying the form itself remounted the very
+        component that owns `useFormState` — throwing away the result before its
+        toast could fire. "Website display details saved." was returned by the
+        action every time and never once reached the screen, which is exactly
+        what "edit and save not working" looks like from the outside.
+
+        A Fragment key remounts the fields without adding an element, so the
+        reset stays fixed and the form survives to speak.
       */}
-      <ActionForm
-        key={video.updatedAt.toISOString()}
-        action={updateVideoAction}
-        hiddenFields={{ id: video.id }}
-        className="space-y-6"
-      >
-        <Card>
-          <CardHeader>
-            <CardTitle>Publishing</CardTitle>
-            <CardDescription>
-              &ldquo;Show on website&rdquo; is the main control. Off hides the video from Rejoice
-              without touching YouTube.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Toggle name="isVisible" label="Show on website" defaultChecked={video.isVisible} />
-              <Toggle
-                name="showChannelName"
-                label="Show channel name"
-                defaultChecked={video.showChannelName}
-              />
-              {/*
-               * Set by hand, mirroring the "AI" label YouTube shows on the
-               * watch page. The sync cannot fill this in: an API-key request
-               * never receives `status.containsSyntheticMedia`, even for a
-               * video that carries the label on YouTube.
-               */}
-              <Toggle
-                name="isAiDisclosed"
-                label="AI generated"
-                defaultChecked={video.isAiDisclosed}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Website display details</CardTitle>
-            <CardDescription>
-              Leave a field empty to use the imported YouTube value shown beside it.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid gap-4 lg:grid-cols-2">
-              <Field label="Website title" htmlFor="displayTitle">
-                <Input
-                  id="displayTitle"
-                  name="displayTitle"
-                  defaultValue={video.displayTitle ?? ''}
-                  placeholder={video.youtubeTitle}
+      <ActionForm action={updateVideoAction} hiddenFields={{ id: video.id }} className="space-y-6">
+        <Fragment key={video.updatedAt.toISOString()}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Publishing</CardTitle>
+              <CardDescription>
+                &ldquo;Show on website&rdquo; is the main control. Off hides the video from Rejoice
+                without touching YouTube.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Toggle name="isVisible" label="Show on website" defaultChecked={video.isVisible} />
+                <Toggle
+                  name="showChannelName"
+                  label="Show channel name"
+                  defaultChecked={video.showChannelName}
                 />
-                <FieldError name="displayTitle" />
-              </Field>
-              <Original label="Original YouTube title" value={video.youtubeTitle} />
-            </div>
-
-            <div className="grid gap-4 lg:grid-cols-2">
-              <Field label="Website description" htmlFor="displayDescription">
-                <Textarea
-                  id="displayDescription"
-                  name="displayDescription"
-                  rows={8}
-                  defaultValue={video.displayDescription ?? ''}
+                {/*
+                 * Set by hand, mirroring the "AI" label YouTube shows on the
+                 * watch page. The sync cannot fill this in: an API-key request
+                 * never receives `status.containsSyntheticMedia`, even for a
+                 * video that carries the label on YouTube.
+                 */}
+                <Toggle
+                  name="isAiDisclosed"
+                  label="AI generated"
+                  defaultChecked={video.isAiDisclosed}
                 />
-                <FieldError name="displayDescription" />
-              </Field>
-              <Original
-                label="Original YouTube description"
-                value={video.youtubeDescription.slice(0, 1200)}
-              />
-            </div>
+              </div>
+            </CardContent>
+          </Card>
 
-            <div className="grid gap-4 lg:grid-cols-2">
-              <Field
-                label="Website thumbnail URL"
-                htmlFor="displayThumbnail"
-                hint="Leave empty to use the YouTube thumbnail."
-              >
-                <Input
-                  id="displayThumbnail"
-                  name="displayThumbnail"
-                  defaultValue={video.displayThumbnail ?? ''}
-                  placeholder={video.youtubeThumbnail ?? ''}
+          <Card>
+            <CardHeader>
+              <CardTitle>Website display details</CardTitle>
+              <CardDescription>
+                Leave a field empty to use the imported YouTube value shown beside it.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Field label="Website title" htmlFor="displayTitle">
+                  <Input
+                    id="displayTitle"
+                    name="displayTitle"
+                    defaultValue={video.displayTitle ?? ''}
+                    placeholder={video.youtubeTitle}
+                  />
+                  <FieldError name="displayTitle" />
+                </Field>
+                <Original label="Original YouTube title" value={video.youtubeTitle} />
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Field label="Website description" htmlFor="displayDescription">
+                  <Textarea
+                    id="displayDescription"
+                    name="displayDescription"
+                    rows={8}
+                    defaultValue={video.displayDescription ?? ''}
+                  />
+                  <FieldError name="displayDescription" />
+                </Field>
+                <Original
+                  label="Original YouTube description"
+                  value={video.youtubeDescription.slice(0, 1200)}
                 />
-                <FieldError name="displayThumbnail" />
-              </Field>
-              <Original label="Original YouTube thumbnail" value={video.youtubeThumbnail ?? ''} />
-            </div>
-          </CardContent>
-        </Card>
+              </div>
 
-        {/*
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Field
+                  label="Website thumbnail URL"
+                  htmlFor="displayThumbnail"
+                  hint="Leave empty to use the YouTube thumbnail."
+                >
+                  <Input
+                    id="displayThumbnail"
+                    name="displayThumbnail"
+                    defaultValue={video.displayThumbnail ?? ''}
+                    placeholder={video.youtubeThumbnail ?? ''}
+                  />
+                  <FieldError name="displayThumbnail" />
+                </Field>
+                <Original label="Original YouTube thumbnail" value={video.youtubeThumbnail ?? ''} />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/*
           The placeholders are the REAL published text, not a hint.
 
           Both boxes were empty and captioned "Falls back to the …", which read
@@ -230,52 +237,53 @@ export default async function VideoEditorPage({ params }: { params: { id: string
           the resolved values greyed out makes the automatic behaviour visible
           and leaves an empty field meaning exactly what it always meant.
         */}
-        <Card>
-          <CardHeader>
-            <CardTitle>SEO</CardTitle>
-            <CardDescription>
-              Leave these empty to publish the text shown in grey, which follows the video as it
-              changes on YouTube. Type to override it.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
-            <Field
-              label="SEO title"
-              htmlFor="seoTitle"
-              hint="Used in search results and the browser tab."
-            >
-              <Input
-                id="seoTitle"
-                name="seoTitle"
-                defaultValue={video.seoTitle ?? ''}
-                placeholder={resolved.seoTitle}
-              />
-              <FieldError name="seoTitle" />
-            </Field>
+          <Card>
+            <CardHeader>
+              <CardTitle>SEO</CardTitle>
+              <CardDescription>
+                Leave these empty to publish the text shown in grey, which follows the video as it
+                changes on YouTube. Type to override it.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <Field
+                label="SEO title"
+                htmlFor="seoTitle"
+                hint="Used in search results and the browser tab."
+              >
+                <Input
+                  id="seoTitle"
+                  name="seoTitle"
+                  defaultValue={video.seoTitle ?? ''}
+                  placeholder={resolved.seoTitle}
+                />
+                <FieldError name="seoTitle" />
+              </Field>
 
-            <Field
-              label="SEO description"
-              htmlFor="seoDescription"
-              hint="Built from the song credits when the YouTube description has them."
-            >
-              <Textarea
-                id="seoDescription"
-                name="seoDescription"
-                rows={3}
-                defaultValue={video.seoDescription ?? ''}
-                placeholder={resolved.seoDescription}
-              />
-              <FieldError name="seoDescription" />
-            </Field>
-          </CardContent>
-        </Card>
+              <Field
+                label="SEO description"
+                htmlFor="seoDescription"
+                hint="Built from the song credits when the YouTube description has them."
+              >
+                <Textarea
+                  id="seoDescription"
+                  name="seoDescription"
+                  rows={3}
+                  defaultValue={video.seoDescription ?? ''}
+                  placeholder={resolved.seoDescription}
+                />
+                <FieldError name="seoDescription" />
+              </Field>
+            </CardContent>
+          </Card>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <SubmitButton>Save changes</SubmitButton>
-          <Button asChild variant="ghost">
-            <Link href="/admin/youtube-content">Cancel</Link>
-          </Button>
-        </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <SubmitButton>Save changes</SubmitButton>
+            <Button asChild variant="ghost">
+              <Link href="/admin/youtube-content">Cancel</Link>
+            </Button>
+          </div>
+        </Fragment>
       </ActionForm>
 
       {/* Section 19. A separate form so it cannot submit with unsaved edits. */}
