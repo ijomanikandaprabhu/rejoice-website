@@ -97,21 +97,54 @@ export default async function MusicPage() {
          * stopped being comfortably readable. Below `lg` the copy still wants
          * the full width, exactly as it does on a phone.
          */}
-        {musicPage.heroImage ? (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -bottom-[10%] -right-[6%] z-[1] hidden h-[118%] w-[46%] lg:-right-[4%] lg:block"
-          >
-            <Image
-              src={musicPage.heroImage}
-              alt=""
-              fill
-              priority
-              sizes="(min-width: 1024px) 46vw, 0px"
-              className="object-contain object-bottom"
-            />
-          </div>
-        ) : null}
+        {/*
+         * A band, not the whole viewport, and only this element is inside it.
+         *
+         * Pinned to the window's own right edge the hand kept drifting away
+         * from the words as the monitor got wider — at 1920 it ended up with
+         * several hundred pixels of empty black between the copy and the
+         * phone, which reads as two unrelated halves rather than one scene.
+         * Capping the band at 100rem keeps them in the same picture. Below
+         * 1600px the band IS the viewport, so nothing changes there.
+         */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-[1] mx-auto w-full max-w-[100rem]"
+        >
+          {musicPage.heroImage ? (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -bottom-[10%] right-0 hidden h-[118%] w-[46%] lg:block"
+            >
+              <Image
+                src={musicPage.heroImage}
+                alt=""
+                fill
+                priority
+                sizes="(min-width: 1024px) 46vw, 0px"
+                /*
+                 * `object-right-bottom`, not `object-bottom`, and the box sits at
+                 * `right-0` rather than pushed past the edge.
+                 *
+                 * The image is portrait (1024x1536) inside a box whose shape
+                 * follows the window, so on a WIDE, SHORT monitor the box is far
+                 * wider than the picture and `contain` centred it — leaving the
+                 * hand floating in the middle of the right half with a band of
+                 * empty black beside it. Measured at 1920x720: an 879px box
+                 * holding a 385px image, so roughly 250px of nothing on either
+                 * side, and the box itself hanging 76px past the section.
+                 *
+                 * Anchoring the picture to its box's right edge, and the box to
+                 * the section's, makes the hand reach in from the edge at every
+                 * window shape. On a tall window the box is narrower than the
+                 * picture's aspect, so the width is the limit, there is no
+                 * horizontal slack, and this changes nothing.
+                 */
+                className="object-contain object-right-bottom"
+              />
+            </div>
+          ) : null}
+        </div>
 
         <div className="container-page relative z-10 flex min-h-[68vh] flex-col justify-center py-14 sm:py-16">
           <div>
@@ -120,9 +153,7 @@ export default async function MusicPage() {
             {/* `t-h1` like every other page — the light weight now comes from
                 the token, so this hero belongs to the same family. Its presence
                 comes from the image and the light, not from bespoke type. */}
-            <h1 className="t-h1 mt-6 max-w-[18ch]">
-              {musicPage.heading}
-            </h1>
+            <h1 className="t-h1 mt-6 max-w-[18ch]">{musicPage.heading}</h1>
           </div>
 
           {/* The two footnotes, as in the reference: the intro on the left, the
@@ -132,14 +163,49 @@ export default async function MusicPage() {
               them however tall the hero was — the void is closed by grouping
               the text, not by shortening the section. */}
           <div className="mt-12 flex max-w-md flex-col gap-5 sm:mt-14">
-            <p className="text-body leading-[1.7] text-site-muted">
-              {musicPage.text}
-            </p>
+            <p className="text-body leading-[1.7] text-site-muted">{musicPage.text}</p>
 
-            <p className="text-body leading-[1.7] text-site-muted">
-              {musicPage.line}
-            </p>
+            <p className="text-body leading-[1.7] text-site-muted">{musicPage.line}</p>
           </div>
+
+          {/*
+           * The same hand, BELOW the copy, on phones and tablets.
+           *
+           * It used to be absent entirely under `lg`, and the reason was sound:
+           * as a background it sat under the heading and "Your Favourite
+           * Platform." ran across the lit face of the phone. Measured then,
+           * heading against image: 300px of overlap at 640, 183px at 768, 114px
+           * at 900, clear only at 1024.
+           *
+           * Putting it in the flow instead of behind the text settles that
+           * argument rather than moving it — the copy keeps the full width it
+           * wants, and the picture is finally seen whole rather than cropped
+           * behind words. In the flow it also grows the section naturally, so
+           * no height needs guessing.
+           *
+           * `aspect-[1024/1536]` is the file's own shape, so the box never
+           * letterboxes and no space is reserved that the image will not fill.
+           */}
+          {musicPage.heroImage ? (
+            <div
+              aria-hidden="true"
+              className="relative mx-auto mt-12 aspect-[1024/1536] w-full max-w-[15rem] sm:max-w-[19rem] lg:hidden"
+            >
+              <Image
+                src={musicPage.heroImage}
+                alt=""
+                fill
+                /*
+                 * `0px` above `lg` so a browser on a desktop never downloads
+                 * this copy, and the absolutely-positioned one above declares
+                 * the mirror of it. The same trick the desktop image already
+                 * used; without it both files are fetched at every width.
+                 */
+                sizes="(min-width: 1024px) 0px, (min-width: 640px) 19rem, 15rem"
+                className="object-contain"
+              />
+            </div>
+          ) : null}
         </div>
       </section>
 
