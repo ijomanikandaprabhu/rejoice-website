@@ -73,8 +73,17 @@ export default async function SettingsPage({
 }) {
   const session = await auth();
 
-  const [general, carousel, lastSync, channelCount, videoCount, social, admin, analytics, channels] =
-    await Promise.all([
+  const [
+    general,
+    carousel,
+    lastSync,
+    channelCount,
+    videoCount,
+    social,
+    admin,
+    analytics,
+    channels,
+  ] = await Promise.all([
     getGeneralSettings(),
     getCarouselSettings(),
     getLastSyncRecord(),
@@ -89,14 +98,14 @@ export default async function SettingsPage({
           select: { email: true, userId: true },
         })
       : null,
-      getConnections(),
-      // The analytics card lists every channel, connected or not — a channel
-      // with no connection is the row that needs a Connect button.
-      prisma.youTubeChannel.findMany({
-        orderBy: { createdAt: 'asc' },
-        select: { id: true, name: true },
-      }),
-    ]);
+    getConnections(),
+    // The analytics card lists every channel, connected or not — a channel
+    // with no connection is the row that needs a Connect button.
+    prisma.youTubeChannel.findMany({
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, name: true },
+    }),
+  ]);
 
   /*
    * Outcome of an OAuth round trip, if we just came back from one.
@@ -128,7 +137,10 @@ export default async function SettingsPage({
       case 'cancelled':
         return { tone: 'warn', message: 'Connection cancelled — nothing was changed.' };
       case 'error':
-        return { tone: 'error', message: searchParams.reason ?? 'The connection could not be completed.' };
+        return {
+          tone: 'error',
+          message: searchParams.reason ?? 'The connection could not be completed.',
+        };
       default:
         return null;
     }
@@ -205,7 +217,11 @@ export default async function SettingsPage({
                 <Input id="contactEmail" name="contactEmail" defaultValue={general.contactEmail} />
                 <FieldError name="contactEmail" />
               </Field>
-              <Field label="Phone number" htmlFor="contactPhone">
+              <Field
+                label="Phone number"
+                htmlFor="contactPhone"
+                hint="Include the country code, like +91 91766 00765. The contact form's WhatsApp button only appears when it is written that way — without a country code there is no way to know which country the number belongs to."
+              >
                 <Input id="contactPhone" name="contactPhone" defaultValue={general.contactPhone} />
                 <FieldError name="contactPhone" />
               </Field>
@@ -437,7 +453,6 @@ export default async function SettingsPage({
         </Card>
       </ActionForm>
 
-
       {/*
        * Social links.
        *
@@ -534,21 +549,16 @@ export default async function SettingsPage({
         </CardHeader>
         <CardContent className="grid gap-8 lg:grid-cols-2">
           {/*
-            * The two identifier forms share the first column so that the
-            * password form keeps the second. Three children in a two-column
-            * grid would leave one stranded on a row of its own.
-            */}
+           * The two identifier forms share the first column so that the
+           * password form keeps the second. Three children in a two-column
+           * grid would leave one stranded on a row of its own.
+           */}
           <div className="grid gap-8">
             <ActionForm action={changeEmailAction}>
               <h3 className="text-sm font-semibold">Change email</h3>
 
               <Field label="New email address" htmlFor="new-email">
-                <Input
-                  id="new-email"
-                  name="email"
-                  type="email"
-                  defaultValue={adminEmail}
-                />
+                <Input id="new-email" name="email" type="email" defaultValue={adminEmail} />
                 <FieldError name="email" />
               </Field>
 
@@ -573,11 +583,11 @@ export default async function SettingsPage({
                 hint="Digits only. Your email address always signs in as well, so this is a shortcut rather than a replacement."
               >
                 {/*
-                  * `inputMode="numeric"` raises the number pad on a phone,
-                  * which is where a short id earns its keep. Not
-                  * `type="number"`: that adds spinner arrows and lets a scroll
-                  * wheel change the value by accident.
-                  */}
+                 * `inputMode="numeric"` raises the number pad on a phone,
+                 * which is where a short id earns its keep. Not
+                 * `type="number"`: that adds spinner arrows and lets a scroll
+                 * wheel change the value by accident.
+                 */}
                 <Input
                   id="new-user-id"
                   name="userId"
@@ -618,11 +628,7 @@ export default async function SettingsPage({
               htmlFor="new-password"
               hint="At least 10 characters, with upper case, lower case and a number."
             >
-              <PasswordInput
-                id="new-password"
-                name="newPassword"
-                autoComplete="new-password"
-              />
+              <PasswordInput id="new-password" name="newPassword" autoComplete="new-password" />
               <FieldError name="newPassword" />
             </Field>
 

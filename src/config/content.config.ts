@@ -692,6 +692,13 @@ export const contactForm = {
     'General Enquiry',
   ],
   submitLabel: 'Send Enquiry',
+  /*
+   * Must not contain the words "Send Enquiry". The end-to-end suite finds the
+   * primary button with `getByRole('button', { name: submitLabel })`, which is
+   * a substring match, so a second button carrying that phrase makes the
+   * locator ambiguous and fails the test.
+   */
+  whatsappLabel: 'Send on WhatsApp',
 } as const;
 
 /**

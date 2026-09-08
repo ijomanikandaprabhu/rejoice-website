@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { contactForm } from '@/config/content.config';
+import { whatsappEnquiryUrl, whatsappNumber } from '@/lib/whatsapp';
 import { cn } from '@/lib/utils';
 
 /**
@@ -61,8 +62,16 @@ export function ContactForm({
    * — so an enquiry arrives already tagged with the offering it came from.
    */
   defaultInterest,
+  /**
+   * The label's own number, from Settings, threaded down by `/contact`.
+   *
+   * Optional and unvalidated on the way in: `whatsappNumber` decides whether it
+   * can be used, and the button is simply absent when it cannot.
+   */
+  whatsappPhone,
 }: {
   defaultInterest?: string;
+  whatsappPhone?: string;
 } = {}) {
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [errors, setErrors] = useState<Errors>({});
@@ -71,11 +80,19 @@ export function ContactForm({
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    await submit(event.currentTarget);
+  }
+
+  /*
+   * The one submission path, so the WhatsApp button records the enquiry exactly
+   * as the primary button does. WhatsApp is an ADDITIONAL route to the label,
+   * not a replacement for the row in the admin and the email.
+   */
+  async function submit(form: HTMLFormElement) {
     setStatus('sending');
     setErrors({});
     setMessage('');
 
-    const form = event.currentTarget;
     const payload = Object.fromEntries(new FormData(form).entries());
 
     try {
@@ -100,6 +117,51 @@ export function ContactForm({
       setStatus('error');
       setMessage('That did not send. Check your connection and try again.');
     }
+  }
+
+  /*
+   * Whether the button can exist at all. A blank or local-format number in
+   * Settings means no button rather than a link that 404s in front of someone.
+   */
+  const canWhatsapp = whatsappNumber(whatsappPhone) !== null;
+
+  function handleWhatsapp(event: React.MouseEvent<HTMLButtonElement>) {
+    const form = event.currentTarget.form;
+    if (!form) return;
+
+    /*
+     * The form is `noValidate`, which only suppresses validation on submit —
+     * `reportValidity` still shows the browser's own required-field prompts. Far
+     * better than opening WhatsApp with an empty message in it.
+     */
+    if (!form.reportValidity()) return;
+
+    const data = new FormData(form);
+    const read = (key: string) => String(data.get(key) ?? '');
+
+    // `website` is the honeypot and is deliberately not read.
+    const url = whatsappEnquiryUrl(whatsappPhone, {
+      name: read('name'),
+      email: read('email'),
+      phone: read('phone'),
+      subject: read('subject'),
+      message: read('message'),
+    });
+    if (!url) return;
+
+    /*
+     * OPENED FIRST, and synchronously. `window.open` is only allowed while the
+     * click still counts as a user gesture; move it after the `await` below and
+     * Safari and Firefox block it. This is also why it is a button calling
+     * `window.open` rather than the anchor this codebase otherwise prefers for
+     * third-party links — the fields are uncontrolled, so an `href` computed at
+     * render would carry whatever the form held when it last rendered, which is
+     * nothing.
+     */
+    window.open(url, '_blank', 'noopener,noreferrer');
+
+    // And then the ordinary submission, so the enquiry is still recorded.
+    void submit(form);
   }
 
   if (status === 'sent') {
@@ -242,9 +304,9 @@ export function ContactForm({
         className="hidden"
       />
 
-      {/* Wrapper rather than `mx-auto` on the button, so the form's `space-y-6`
-          rhythm is untouched and the pill keeps its intrinsic width. */}
-      <div className="flex justify-center">
+      {/* Wrapper rather than `mx-auto` on the buttons, so the form's `space-y-6`
+          rhythm is untouched and the pills keep their intrinsic width. */}
+      <div className="flex flex-wrap items-center justify-center gap-3">
         <button
           type="submit"
           disabled={status === 'sending'}
@@ -252,6 +314,17 @@ export function ContactForm({
         >
           {status === 'sending' ? 'Sending' : contactForm.submitLabel}
         </button>
+
+        {canWhatsapp ? (
+          <button
+            type="button"
+            onClick={handleWhatsapp}
+            disabled={status === 'sending'}
+            className="btn-secondary disabled:opacity-60"
+          >
+            {contactForm.whatsappLabel}
+          </button>
+        ) : null}
       </div>
     </form>
   );

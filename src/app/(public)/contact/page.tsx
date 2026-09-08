@@ -195,7 +195,7 @@ export default async function ContactPage({
             <span aria-hidden="true" className="absolute inset-0 bg-emberSoft opacity-40" />
 
             <div className="relative z-20">
-              <ContactForm defaultInterest={preselectedInterest} />
+              <ContactForm defaultInterest={preselectedInterest} whatsappPhone={details.phone} />
             </div>
           </div>
         </div>
@@ -288,7 +288,6 @@ export default async function ContactPage({
           accentLine={closing.line}
         />
       </div>
-
     </>
   );
 }

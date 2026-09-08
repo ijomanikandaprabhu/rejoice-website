@@ -106,6 +106,14 @@ test.describe('Public website', () => {
     await page.getByLabel('Name', { exact: true }).fill('E2E Tester');
     await page.getByLabel('Email Address').fill('e2e@example.com');
     await page.getByLabel('Tell Us About Your Project').fill(marker);
+    /*
+     * Present, not clicked. Clicking opens wa.me, and a suite that depends on a
+     * third-party site being up and keeping its markup is a suite that goes red
+     * for reasons that have nothing to do with this project. What the button
+     * builds is covered in `tests/whatsapp.test.ts`.
+     */
+    await expect(page.getByRole('button', { name: contactForm.whatsappLabel })).toBeVisible();
+
     await page.getByRole('button', { name: contactForm.submitLabel }).click();
 
     // Exact, not /message sent/i: the rate-limited response reads "Too many
