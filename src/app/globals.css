@@ -382,6 +382,28 @@
     @apply rounded-panel border border-white/[0.06] bg-panel-alt p-5;
   }
 
+  /* ---- Admin loading screen -------------------------------------------- */
+
+  /*
+   * The wordmark breathing on `admin/AdminLoader.tsx`.
+   *
+   * ONLY THE 50% FRAME IS WRITTEN, and that is what makes this safe. The global
+   * `prefers-reduced-motion` rule at the end of this file sets `animation: none`
+   * — deliberately, because animations that begin at `opacity: 0` and fill
+   * `both` left elements stranded invisible when the animation was refused. With
+   * no `from` frame the logo's resting state is simply opaque, so removing the
+   * animation leaves it sitting there in full view rather than disappearing.
+   */
+  .admin-loader-logo {
+    animation: adminLoaderPulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes adminLoaderPulse {
+    50% {
+      opacity: 0.5;
+    }
+  }
+
   /* ---- Calendar month transitions -------------------------------------- */
 
   /*

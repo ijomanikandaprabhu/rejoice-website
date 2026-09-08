@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import { AdminLoader } from '@/components/admin/AdminLoader';
 import { AdminTopBar } from '@/components/admin/AdminTopBar';
 import { AdminToaster } from '@/components/admin/AdminToaster';
 import { SyncCatchUp } from '@/components/admin/SyncCatchUp';
@@ -15,6 +16,28 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+/*
+ * The overlay plus the escape hatch that guarantees it can be dismissed, kept
+ * together so the two returns below cannot drift apart.
+ *
+ * `dangerouslySetInnerHTML`, not a nested JSX `<style>` child: the public
+ * layout's comment records that the JSX form threw React error #423 and took
+ * the page down. Without this rule the `holding` state in the served HTML would
+ * leave a visitor with JavaScript off facing a panel they can never close.
+ */
+function AdminOpeningScreen() {
+  return (
+    <>
+      <AdminLoader />
+      <noscript
+        dangerouslySetInnerHTML={{
+          __html: '<style>[data-admin-loader]{display:none!important}</style>',
+        }}
+      />
+    </>
+  );
+}
+
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
 
@@ -28,6 +51,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!session?.user) {
     return (
       <div className="admin-theme min-h-screen">
+        <AdminOpeningScreen />
         {children}
         <AdminToaster />
       </div>
@@ -55,6 +79,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="admin-theme min-h-screen">
+      <AdminOpeningScreen />
       <AdminTopBar
         email={admin?.email ?? session.user.email ?? ''}
         logout={logoutAction}
