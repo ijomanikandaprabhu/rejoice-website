@@ -97,6 +97,10 @@ export function buildSongListWhere({ q }: { q?: string }): Prisma.SongWhereInput
     OR: [
       { title: { contains: search, mode: 'insensitive' } },
       { artist: { contains: search, mode: 'insensitive' } },
+      // Searchable because it is a COLUMN IN THE TABLE. A field the operator can
+      // see but cannot search for is a small trap, and this is the one function
+      // the table and the bulk action both read, so they cannot disagree.
+      { music: { contains: search, mode: 'insensitive' } },
     ],
   };
 }
@@ -120,6 +124,11 @@ export async function listSongsForAdmin({
       take,
       select: {
         ...songCard,
+        // Drawn in the admin table. Deliberately not in `songCard` itself: the
+        // public listings and the sitemap share that projection and none of
+        // them show a music credit, so it would be a column fetched for nothing
+        // on every visitor's page.
+        music: true,
         // Only the count is drawn in the table, so the links themselves are not
         // fetched — 25 rows would otherwise pull every URL on the page.
         _count: { select: { links: true } },

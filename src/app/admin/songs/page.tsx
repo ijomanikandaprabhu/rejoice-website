@@ -95,7 +95,7 @@ export default async function SongsAdminPage({ searchParams }: { searchParams: S
        * side and had no reason to be built differently.
        */}
       <div className="flex flex-wrap items-center justify-end gap-3">
-        <SearchField defaultValue={q} />
+        <SearchField defaultValue={q} placeholder="Search title, artist or music…" />
       </div>
 
       {songs.length === 0 ? (
@@ -142,6 +142,7 @@ export default async function SongsAdminPage({ searchParams }: { searchParams: S
                       <TableHead className="w-16">Cover</TableHead>
                       <TableHead>Title</TableHead>
                       <TableHead>Artist</TableHead>
+                      <TableHead>Music</TableHead>
                       {/* The column the table is sorted by, so the order on
                           screen can be read rather than taken on trust. */}
                       <TableHead>Released</TableHead>
@@ -189,6 +190,10 @@ export default async function SongsAdminPage({ searchParams }: { searchParams: S
 
                         <TableCell className="text-muted-foreground">
                           {song.artist ?? '—'}
+                        </TableCell>
+
+                        <TableCell className="text-muted-foreground">
+                          {song.music ?? '—'}
                         </TableCell>
 
                         <TableCell className="whitespace-nowrap text-muted-foreground">

@@ -24,7 +24,19 @@ import { Input } from '@/components/ui/input';
 
 const DEBOUNCE_MS = 350;
 
-export function SearchField({ defaultValue }: { defaultValue: string }) {
+export function SearchField({
+  defaultValue,
+  /*
+   * Overridable because the two tables search different things, and a
+   * placeholder that names the wrong ones teaches the operator the tool is
+   * narrower than it is. The videos table really does match titles only; the
+   * songs table also matches the artist and the music credit.
+   */
+  placeholder = 'Search titles…',
+}: {
+  defaultValue: string;
+  placeholder?: string;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -75,7 +87,7 @@ export function SearchField({ defaultValue }: { defaultValue: string }) {
 
       <Input
         name="q"
-        placeholder="Search titles…"
+        placeholder={placeholder}
         value={value}
         onChange={(event) => setValue(event.target.value)}
         onKeyDown={(event) => {
