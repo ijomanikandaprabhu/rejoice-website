@@ -1,7 +1,9 @@
 'use client';
 
+import { Loader2, Send } from 'lucide-react';
 import { useState } from 'react';
 
+import { WhatsAppIcon } from '@/components/common/WhatsAppIcon';
 import {
   Select,
   SelectContent,
@@ -312,6 +314,17 @@ export function ContactForm({
           disabled={status === 'sending'}
           className="btn-primary disabled:opacity-60"
         >
+          {/*
+            The paper plane becomes a spinner while the message is in flight,
+            rather than sitting still beside the word "Sending". `.btn` already
+            supplies `inline-flex` and `gap-2`, so the glyph needs no layout of
+            its own — the same arrangement as the "Watch on YouTube" button.
+          */}
+          {status === 'sending' ? (
+            <Loader2 aria-hidden className="size-[1.15em] animate-spin" />
+          ) : (
+            <Send aria-hidden className="size-[1.15em]" />
+          )}
           {status === 'sending' ? 'Sending' : contactForm.submitLabel}
         </button>
 
@@ -322,6 +335,7 @@ export function ContactForm({
             disabled={status === 'sending'}
             className="btn-secondary disabled:opacity-60"
           >
+            <WhatsAppIcon />
             {contactForm.whatsappLabel}
           </button>
         ) : null}
