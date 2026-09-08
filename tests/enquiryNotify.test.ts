@@ -92,10 +92,11 @@ describe('notifyNewEnquiry', () => {
     vi.restoreAllMocks();
   });
 
-  it('does not throw when the send fails', async () => {
+  it('reports failure rather than throwing when the send fails', async () => {
     sendMail.mockRejectedValue(new Error('SMTP refused the connection'));
 
-    await expect(notifyNewEnquiry(enquiry)).resolves.toBeUndefined();
+    // `false` is what leaves `notifiedAt` null, so the daily sweep retries it.
+    await expect(notifyNewEnquiry(enquiry)).resolves.toBe(false);
   });
 
   it('logs a fixed token on failure, so the logs can be searched for it', async () => {
@@ -107,11 +108,17 @@ describe('notifyNewEnquiry', () => {
     expect(error.mock.calls.flat().join(' ')).toContain('ENQUIRY_MAIL_FAILED');
   });
 
-  it('does not throw when SMTP is not configured at all', async () => {
+  it('reports failure, without throwing, when SMTP is not configured at all', async () => {
     vi.stubEnv('SMTP_USER', '');
     vi.stubEnv('SMTP_PASSWORD', '');
 
-    await expect(notifyNewEnquiry(enquiry)).resolves.toBeUndefined();
+    await expect(notifyNewEnquiry(enquiry)).resolves.toBe(false);
     expect(sendMail).not.toHaveBeenCalled();
+  });
+
+  it('reports success when the mail goes', async () => {
+    sendMail.mockResolvedValue(true);
+
+    await expect(notifyNewEnquiry(enquiry)).resolves.toBe(true);
   });
 });

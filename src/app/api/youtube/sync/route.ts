@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+import { sweepUnsentEnquiries } from '@/features/enquiries/notify';
+
 import { isYouTubeConfigured, youtubeConfig } from '@/config/youtube.config';
 import { clearOldNotifications } from '@/features/notifications/notify';
 import { createLogger } from '@/lib/logger';
@@ -33,11 +35,26 @@ async function runSync(request: Request) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
 
+  /*
+   * The enquiry sweep runs FIRST, and deliberately above the YouTube guard
+   * below.
+   *
+   * It has nothing to do with YouTube; it is here only because this is the one
+   * scheduled run the site has. Put it after that guard and a site with no
+   * YouTube key would silently stop retrying enquiry notifications — the two
+   * jobs would fail together for no reason connecting them.
+   *
+   * Its own errors are swallowed for the same reason: a mail problem must not
+   * stop the catalogue syncing.
+   */
+  try {
+    await sweepUnsentEnquiries();
+  } catch (error) {
+    log.error('Enquiry sweep failed', error);
+  }
+
   if (!isYouTubeConfigured()) {
-    return NextResponse.json(
-      { message: 'YOUTUBE_API_KEY is not configured.' },
-      { status: 503 },
-    );
+    return NextResponse.json({ message: 'YOUTUBE_API_KEY is not configured.' }, { status: 503 });
   }
 
   try {

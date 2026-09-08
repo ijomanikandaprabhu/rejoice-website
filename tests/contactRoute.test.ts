@@ -1,16 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * The order the contact endpoint does its work in.
+ * What the contact endpoint does, and crucially what it does NOT wait for.
  *
- * The email is the only slow step — around 1.5 seconds even on a warm pooled
- * connection, because that is simply how long Gmail takes to accept a message —
- * so nothing that can go in front of it should sit behind it.
- *
- * The companion guarantee, that a mail failure never turns a stored enquiry into
- * an error for the visitor, is NOT asserted here. The route does not catch
- * around `notifyNewEnquiry`; it relies on that function swallowing its own
- * errors, so the test belongs where the behaviour is — `enquiryNotify.test.ts`.
+ * The email is the only slow step — 3.7-3.8s measured on the live site, because
+ * that is how long Gmail takes — so the visitor is answered before it runs. The
+ * cases below pin the two halves of that being safe: everything the visitor
+ * depends on happens before the response, and a mail failure never reaches them.
  */
 
 const order: string[] = [];
@@ -21,13 +17,23 @@ const create = vi.fn(async () => {
 const raise = vi.fn(async () => {
   order.push('raise');
 });
-const notifyNewEnquiry = vi.fn(async () => {
+const notifyAndRecord = vi.fn(async () => {
   order.push('notify');
+  return true;
 });
 
-vi.mock('@/lib/db/prisma', () => ({ prisma: { enquiry: { create } } }));
+vi.mock('@/lib/db/prisma', () => ({
+  prisma: {
+    enquiry: {
+      create: async () => {
+        await create();
+        return { id: 'e1' };
+      },
+    },
+  },
+}));
 vi.mock('@/features/notifications/notify', () => ({ raise }));
-vi.mock('@/features/enquiries/notify', () => ({ notifyNewEnquiry }));
+vi.mock('@/features/enquiries/notify', () => ({ notifyAndRecord }));
 
 /**
  * A different IP per request. The rate limiter is a module-level `Map` capped at
@@ -58,7 +64,7 @@ describe('POST /api/contact', () => {
     vi.clearAllMocks();
   });
 
-  it('raises the admin notification before sending the email, not after', async () => {
+  it('stores the enquiry and rings the bell before it goes near the email', async () => {
     const { POST } = await import('@/app/api/contact/route');
     const response = await POST(submit());
 
@@ -69,6 +75,33 @@ describe('POST /api/contact', () => {
      * did the visitor.
      */
     expect(order).toEqual(['enquiry.create', 'raise', 'notify']);
+  });
+
+  it('still answers the visitor when the email cannot be sent', async () => {
+    notifyAndRecord.mockResolvedValueOnce(false);
+
+    const { POST } = await import('@/app/api/contact/route');
+    const response = await POST(submit());
+
+    /*
+     * The enquiry is stored either way, so the visitor is told the truth. The
+     * unsent mail is recorded as `notifiedAt: null` for the daily sweep, which
+     * is what makes answering early safe rather than merely fast.
+     */
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      message: 'Message sent. We will reply by email.',
+    });
+  });
+
+  it('does not fail the request when the email throws outright', async () => {
+    notifyAndRecord.mockRejectedValueOnce(new Error('SMTP refused the connection'));
+
+    const { POST } = await import('@/app/api/contact/route');
+
+    // Without a local await this would surface as an unhandled rejection.
+    const response = await POST(submit());
+    expect(response.status).toBe(200);
   });
 
   it('answers a honeypot submission without storing or sending anything', async () => {

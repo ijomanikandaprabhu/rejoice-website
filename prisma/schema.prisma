@@ -243,7 +243,22 @@ model Enquiry {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
+  /// When the notification email for this enquiry was accepted by the mail
+  /// server. Null means it has not been sent yet.
+  ///
+  /// This is an OUTBOX, and it exists so the visitor does not have to wait for
+  /// Gmail. The form used to hold the response open for the whole send — 3.8s
+  /// measured live. Now the row is stored, the visitor is told, and the send
+  /// happens after the response; this column is what makes that safe rather
+  /// than hopeful. A send that never happens leaves the column null, which the
+  /// daily sweep finds and retries, and which is visible in the database rather
+  /// than lost.
+  notifiedAt DateTime?
+
   @@index([status, createdAt])
+  /// For the sweep: find the unsent, newest first. Partial would be tighter,
+  /// but Prisma cannot express one and the table is small.
+  @@index([notifiedAt])
 }
 
 /// What raised a notification. Kept small on purpose — a kind exists so the list
