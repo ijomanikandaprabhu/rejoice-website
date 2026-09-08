@@ -169,21 +169,34 @@ export const homeContent: HomeContent = {
 /**
  * Streaming platforms carrying Rejoice music, shown in the homepage ring.
  *
+ * WEBP HERE, PNG ON DISK BESIDE IT, and the pair is deliberate.
+ *
+ * These were the ten source PNGs, and they were the heaviest thing on the
+ * homepage: 699 kB, served at full size to every phone, for marks drawn at 122
+ * CSS pixels at their largest. The site's image handler returns local files
+ * untouched — see `lib/images/youtubeLoader.ts` for why — so the file on disk is
+ * the file downloaded. Re-exported at 384px they come to 90 kB.
+ *
+ * The PNGs stay because `seedBuiltInPlatformsAction` still reads them: it parses
+ * dimensions out of a PNG header and stores the bytes as `image/png`. That
+ * button is one-time setup and has already been used, so it was not worth a
+ * hand-written WebP header parser to retire files no visitor ever fetches.
+ *
  * Order here is the order they fan out in, going clockwise from the right.
  * Every `logo` is empty for now, so each tile renders its name — see the
  * `Platform` type above for how to swap in the real marks.
  */
 export const platforms: Platform[] = [
-  { name: 'Spotify', logo: '/brand/platforms/spotify.png', url: '' },
-  { name: 'Apple Music', logo: '/brand/platforms/apple-music.png', url: '' },
-  { name: 'iTunes', logo: '/brand/platforms/itunes.png', url: '' },
-  { name: 'Amazon Music', logo: '/brand/platforms/amazon-music.png', url: '' },
-  { name: 'JioSaavn', logo: '/brand/platforms/jiosaavn.png', url: '' },
-  { name: 'Gaana', logo: '/brand/platforms/gaana.png', url: '' },
-  { name: 'Raaga', logo: '/brand/platforms/raaga.png', url: '' },
-  { name: 'Resso', logo: '/brand/platforms/resso.png', url: '' },
-  { name: 'Wynk', logo: '/brand/platforms/wynk.png', url: '' },
-  { name: 'YouTube Music', logo: '/brand/platforms/youtube-music.png', url: '' },
+  { name: 'Spotify', logo: '/brand/platforms/spotify.webp', url: '' },
+  { name: 'Apple Music', logo: '/brand/platforms/apple-music.webp', url: '' },
+  { name: 'iTunes', logo: '/brand/platforms/itunes.webp', url: '' },
+  { name: 'Amazon Music', logo: '/brand/platforms/amazon-music.webp', url: '' },
+  { name: 'JioSaavn', logo: '/brand/platforms/jiosaavn.webp', url: '' },
+  { name: 'Gaana', logo: '/brand/platforms/gaana.webp', url: '' },
+  { name: 'Raaga', logo: '/brand/platforms/raaga.webp', url: '' },
+  { name: 'Resso', logo: '/brand/platforms/resso.webp', url: '' },
+  { name: 'Wynk', logo: '/brand/platforms/wynk.webp', url: '' },
+  { name: 'YouTube Music', logo: '/brand/platforms/youtube-music.webp', url: '' },
 ];
 
 /**

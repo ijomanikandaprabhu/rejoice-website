@@ -121,7 +121,8 @@ export async function addPlatformAction(
 
   const { name } = parsed.data;
   const slug = slugify(name);
-  if (!slug) return { ok: false, errors: { name: 'Use a name with some letters or numbers in it.' } };
+  if (!slug)
+    return { ok: false, errors: { name: 'Use a name with some letters or numbers in it.' } };
 
   const clash = await prisma.platform.findFirst({ where: { OR: [{ name }, { slug }] } });
   if (clash) return { ok: false, errors: { name: `${clash.name} is already in the list.` } };
@@ -497,6 +498,14 @@ export async function bulkSetSongVisibilityAction(formData: FormData): Promise<v
  *
  * These files predate the registry — `/songs` used to be a static grid of them
  * — so an empty registry can be filled without hunting down ten logo files.
+ */
+/*
+ * PNG, while the homepage now shows the WebP copies of these same marks.
+ *
+ * `pngSize` below reads a PNG header and the asset is stored as `image/png`, so
+ * this list has to stay on the format it can actually parse. The homepage was
+ * moved to WebP because it serves 699 kB of these to every visitor; this runs
+ * once, from the admin, and downloads nothing to anybody.
  */
 const BUILT_IN = [
   ['Spotify', 'spotify.png'],
