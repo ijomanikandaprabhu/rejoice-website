@@ -473,11 +473,23 @@ test.describe('Regressions found by eye', () => {
     await page.getByLabel('Tell Us About Your Project').fill('Checking the WhatsApp link.');
 
     /*
-     * The button is NOT clicked. Clicking opens wa.me and submits the form —
-     * this suite is read-only by construction, and a test that depends on a
-     * third-party site being up fails for reasons that have nothing to do with
-     * this project. `window.open` is replaced so the URL can be read without
-     * either happening.
+     * BLOCKED BEFORE THE CLICK, and this is not belt-and-braces — the first
+     * version of this test stored eight real enquiries and sent eight real
+     * emails before anyone noticed.
+     *
+     * The WhatsApp button deliberately submits the form as well as opening the
+     * link: WhatsApp is an additional route to the label, not a replacement for
+     * the enquiry being recorded. Correct behaviour, and fatal here — this file
+     * says at the top that it is read-only by construction and can run six times
+     * over without leaving a trace, and that has to stay true or the claim is
+     * worse than no claim.
+     */
+    await page.route('**/api/contact', (route) => route.abort());
+
+    /*
+     * The link is read rather than followed. Clicking through would make the
+     * suite depend on wa.me being up and on WhatsApp's markup, so `window.open`
+     * is replaced and the URL it was given is inspected instead.
      */
     await page.evaluate(() => {
       (window as unknown as { __opened: string[] }).__opened = [];
