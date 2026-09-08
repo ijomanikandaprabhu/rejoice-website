@@ -139,10 +139,20 @@ export function PageHero({
          * white and measures ~10:1, which absorbs the wordmark's 0.09 fill
          * without trouble, but the same fill behind `site-muted` body text
          * drops it to 4.28:1 — under AA.
+         *
+         * `bottom-auto` is load-bearing. `.footer-giant-text` is shared with the
+         * footer, where the word is anchored to the bottom edge, so the class
+         * carries `bottom: 0`. Inherited here alongside `top`, that pins BOTH
+         * edges and stretches the box to fill the gap — measured on Contact:
+         * 614px tall for 176px of text. `-translate-y-1/2` then lifted it by
+         * half of the STRETCHED height, throwing the word up under the header
+         * where it was clipped by the top of the section instead of sitting
+         * behind the heading. Releasing `bottom` lets the box be the size of its
+         * text again, which is what the centring assumes.
          */
         <span
           aria-hidden="true"
-          className="footer-giant-text pointer-events-none absolute left-1/2 top-[25%] z-0 hidden -translate-x-1/2 -translate-y-1/2 select-none whitespace-nowrap font-black uppercase md:block"
+          className="footer-giant-text pointer-events-none absolute bottom-auto left-1/2 top-[25%] z-0 hidden -translate-x-1/2 -translate-y-1/2 select-none whitespace-nowrap font-black uppercase md:block"
           style={{ fontSize: 'clamp(4rem, 17vw, 15rem)' }}
         >
           {wordmark}

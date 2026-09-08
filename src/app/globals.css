@@ -81,7 +81,22 @@
   }
 
   html {
-    scroll-behavior: smooth;
+    /*
+     * NO `scroll-behavior: smooth` here, and it has to stay that way.
+     *
+     * The App Router scrolls to the top of the new page on navigation. With
+     * smooth scrolling declared on `html` that becomes an ANIMATION, and the
+     * animation is abandoned the moment the incoming page renders — so the
+     * visitor lands wherever they happened to be. Measured on the live site:
+     * scrolled 2,000px down Contact, clicked About Us, arrived 2,499px down
+     * About Us. With this rule gone the same click arrives at 0.
+     *
+     * Nothing was relying on it. There is not one `href="#…"` in the codebase,
+     * `BackToTop` passes its own `behavior` to `scrollTo`, `SiteLoader` passes
+     * `'instant'` (written to defeat this very rule), `ShortsFeed` passes its
+     * own to `scrollIntoView`, and `.rail-viewport` sets `auto` explicitly.
+     * Smooth scrolling per call site still works; only the blanket rule is out.
+     */
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
 
