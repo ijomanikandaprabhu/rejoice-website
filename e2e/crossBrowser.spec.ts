@@ -154,9 +154,7 @@ async function driftableRail(page: Page): Promise<Locator | null> {
     /* The component's own headroom guard (`half < clientWidth + 24`): a rail
        shorter than this correctly never drifts, so asserting that it does would
        be testing the wrong thing. */
-    const hasHeadroom = await rail.evaluate(
-      (el) => el.scrollWidth / 2 >= el.clientWidth + 24,
-    );
+    const hasHeadroom = await rail.evaluate((el) => el.scrollWidth / 2 >= el.clientWidth + 24);
     if (hasHeadroom) return rail;
   }
 
@@ -394,5 +392,145 @@ test.describe('The channel rails', () => {
         message: 'The rail never resumed after the swipe — the pause has latched.',
       })
       .toBeGreaterThan(held + 2);
+  });
+});
+
+/**
+ * The things a person spotted, that nothing was watching.
+ *
+ * Every layout fault found in this project recently was found by looking: the
+ * hero image floating in mid-air on a phone, a slab of dead space beside it,
+ * 699 kB of logos drawn at 66 pixels. The suite happily passed through all of
+ * them, because it only asked whether pages overflow and whether images decode.
+ *
+ * These are narrow on purpose. A screenshot comparison would catch more and
+ * would also fail on every deliberate change, which is how a visual suite ends
+ * up disabled. Each of these instead pins one property that was actually wrong
+ * once, and that has an obvious right answer.
+ */
+test.describe('Regressions found by eye', () => {
+  test('the songs hero reaches the corner on a phone, and stays off the heading', async ({
+    page,
+  }) => {
+    await page.goto('/songs', { waitUntil: 'load' });
+    await settled(page);
+
+    test.skip(!(await isNarrow(page)), 'The stacked hero image only exists below lg.');
+
+    /*
+     * The VISIBLE one. Both copies are in the markup — the absolutely
+     * positioned desktop image is `hidden lg:block`, and it comes first — so
+     * `.first()` picks the one with no layout box at this width.
+     */
+    const image = page.locator('section img:visible').first();
+    test.skip((await image.count()) === 0, 'No hero image configured.');
+    await expect(image).toBeVisible();
+
+    const box = await image.evaluate((el) => {
+      const wrap = el.parentElement as HTMLElement;
+      const section = wrap.closest('section') as HTMLElement;
+      const r = wrap.getBoundingClientRect();
+      const s = section.getBoundingClientRect();
+      const heading = (section.querySelector('h1') as HTMLElement).getBoundingClientRect();
+      return {
+        toRight: Math.round(s.right - r.right),
+        toBottom: Math.round(s.bottom - r.bottom),
+        clearsHeading: r.top >= heading.bottom,
+      };
+    });
+
+    /*
+     * It bleeds to the bottom-right corner. Sat in the flow with the container's
+     * padding beneath it, the arm — which the source file already crops — ended
+     * in mid-air and read as a cut-out pasted onto the page.
+     *
+     * A few pixels of slack: engines round a percentage-based offset differently,
+     * and this is asserting "against the corner", not an exact number.
+     */
+    expect(box.toRight, 'hero image should meet the right edge').toBeLessThanOrEqual(12);
+    expect(box.toBottom, 'hero image should meet the section bottom').toBeLessThanOrEqual(12);
+
+    /*
+     * And it sits BELOW the copy. It used to be a background behind the words,
+     * where "Your Favourite Platform." ran across the lit face of the phone —
+     * measured then at 300px of overlap on a 640px screen.
+     */
+    expect(box.clearsHeading, 'hero image should not overlap the heading').toBe(true);
+  });
+
+  test('the contact form offers WhatsApp, and builds a real link', async ({ page }) => {
+    await page.goto('/contact', { waitUntil: 'load' });
+    await settled(page);
+
+    const send = page.getByRole('button', { name: 'Send Enquiry' });
+    const whatsapp = page.getByRole('button', { name: 'Send on WhatsApp' });
+
+    await expect(send).toBeVisible();
+    await expect(whatsapp).toBeVisible();
+
+    await page.getByLabel('Name', { exact: true }).fill('Cross Browser Check');
+    await page.getByLabel('Email Address').fill('cross@example.com');
+    await page.getByLabel('Tell Us About Your Project').fill('Checking the WhatsApp link.');
+
+    /*
+     * The button is NOT clicked. Clicking opens wa.me and submits the form —
+     * this suite is read-only by construction, and a test that depends on a
+     * third-party site being up fails for reasons that have nothing to do with
+     * this project. `window.open` is replaced so the URL can be read without
+     * either happening.
+     */
+    await page.evaluate(() => {
+      (window as unknown as { __opened: string[] }).__opened = [];
+      window.open = (url?: string | URL) => {
+        (window as unknown as { __opened: string[] }).__opened.push(String(url));
+        return null;
+      };
+    });
+
+    await whatsapp.click();
+
+    const opened = await page.evaluate(
+      () => (window as unknown as { __opened: string[] }).__opened,
+    );
+
+    expect(opened, 'the WhatsApp button should open one link').toHaveLength(1);
+    expect(opened[0], 'addressed to a wa.me number').toMatch(/^https:\/\/wa\.me\/\d{7,15}\?text=/);
+
+    const message = decodeURIComponent(opened[0].split('?text=')[1]);
+    // Written as the visitor, which is the whole reason it is a separate builder.
+    expect(message).toContain('Cross Browser Check');
+    expect(message).toContain('Checking the WhatsApp link.');
+  });
+
+  test('no page ships an unreasonable weight of images', async ({ page }) => {
+    /*
+     * The check that would have caught 699 kB of streaming-platform logos being
+     * downloaded to every phone for marks drawn at 66 pixels. Nothing was
+     * broken, nothing overflowed, no error was logged — it was simply enormous,
+     * and no assertion in this file had an opinion about size.
+     *
+     * The budget is deliberately generous. It is a tripwire for something having
+     * gone badly wrong, not a performance target: the homepage legitimately
+     * carries a background video and a wall of thumbnails, and a budget that
+     * argues with ordinary content gets raised until it means nothing.
+     */
+    const BUDGET_KB = 400;
+
+    let bytes = 0;
+    const onResponse = (response: import('@playwright/test').Response) => {
+      const type = response.headers()['content-type'] ?? '';
+      if (!type.startsWith('image/')) return;
+      bytes += Number(response.headers()['content-length'] ?? 0);
+    };
+
+    page.on('response', onResponse);
+    await page.goto('/', { waitUntil: 'load' });
+    await settled(page);
+    page.off('response', onResponse);
+
+    expect(
+      Math.round(bytes / 1024),
+      'the homepage is downloading far more image data than it should',
+    ).toBeLessThan(BUDGET_KB);
   });
 });
