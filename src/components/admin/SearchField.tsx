@@ -50,15 +50,37 @@ export function SearchField({
    * navigation it just triggered, chasing its own tail.
    */
   const paramsRef = useRef(searchParams);
-  paramsRef.current = searchParams;
+  /*
+   * Kept current from an effect, not assigned during render. A ref written
+   * while rendering is a value React cannot see changing, and the ref is only
+   * ever READ from `apply` — which runs from a keystroke or the debounce
+   * timer, both long after this has settled.
+   */
+  useEffect(() => {
+    paramsRef.current = searchParams;
+  }, [searchParams]);
 
   /** What the URL already says, so we never navigate to where we already are. */
   const appliedRef = useRef(defaultValue);
 
-  // The URL can change from elsewhere — Reset, or switching channel. Follow it.
+  /*
+   * The URL can change from elsewhere — Reset, or switching channel. Follow it.
+   *
+   * Adjusted DURING render rather than from an effect. React re-runs this
+   * component immediately, before the browser paints, so the field never shows
+   * the stale value for a frame; an effect would set state after the paint and
+   * cost a visible second render. This is React's own documented shape for
+   * "reset state when a prop changes".
+   */
+  const [lastDefault, setLastDefault] = useState(defaultValue);
+  if (defaultValue !== lastDefault) {
+    setLastDefault(defaultValue);
+    setValue(defaultValue);
+  }
+
+  /* The ref half, which cannot happen during render. See `paramsRef` above. */
   useEffect(() => {
     appliedRef.current = defaultValue;
-    setValue(defaultValue);
   }, [defaultValue]);
 
   const apply = (next: string) => {

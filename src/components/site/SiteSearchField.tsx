@@ -62,10 +62,21 @@ export function SiteSearchField({
    */
   const applied = React.useRef(query);
 
-  // The URL can change from elsewhere — Clear, or a paginated link. Follow it.
+  /*
+   * The URL can change from elsewhere — Clear, or a paginated link. Follow it.
+   *
+   * Adjusted during render, which React re-runs before painting, so the field
+   * never shows the old term for a frame. The ref half moves to an effect,
+   * because a ref written during render is a change React cannot observe.
+   */
+  const [lastQuery, setLastQuery] = React.useState(query);
+  if (query !== lastQuery) {
+    setLastQuery(query);
+    setValue(query);
+  }
+
   React.useEffect(() => {
     applied.current = query;
-    setValue(query);
   }, [query]);
 
   const push = React.useCallback(

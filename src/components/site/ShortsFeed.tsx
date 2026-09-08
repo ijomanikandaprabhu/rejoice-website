@@ -1,5 +1,6 @@
 'use client';
 
+import { useReducedMotion } from 'framer-motion';
 import { ChevronDown, ChevronUp, LayoutGrid, Play, Volume2, VolumeX } from 'lucide-react';
 import Image from 'next/image';
 import * as React from 'react';
@@ -9,6 +10,11 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import type { VideoCardData } from '@/features/youtube/queries';
 import { cn } from '@/lib/utils';
 import { EMBED_ORIGIN, embedUrl } from '@/lib/utils/videoDisplay';
+
+/** A store that never changes, for a value simply read off `window` once. */
+function subscribeToNothing() {
+  return () => {};
+}
 
 /**
  * How many items either side of the active one keep a live player.
@@ -79,7 +85,14 @@ export function ShortsFeed({ videos }: { videos: VideoCardData[] }) {
    */
   const [pending, setPending] = React.useState<number | null>(null);
   const [muted, setMuted] = React.useState(true);
-  const [reduceMotion, setReduceMotion] = React.useState(false);
+  /*
+   * Framer Motion's hook rather than a hand-rolled `matchMedia` effect. It
+   * subscribes to the same query and is what the rest of the site already uses
+   * (`ui/typed-text.tsx`, `site/ChannelSpotlight.tsx`), so the behaviour is one
+   * implementation instead of two. It reports `null` before it has read the
+   * preference, which is the same "assume motion is fine" default as before.
+   */
+  const reduceMotion = useReducedMotion() ?? false;
   // Reduced-motion visitors opt a single item in by pressing play.
   const [optedIn, setOptedIn] = React.useState<number | null>(null);
   /*
@@ -88,8 +101,13 @@ export function ShortsFeed({ videos }: { videos: VideoCardData[] }) {
    * would produce a different `src` on the client and a hydration mismatch.
    * Posters render first either way, which is the cheaper first paint.
    */
-  const [origin, setOrigin] = React.useState<string | null>(null);
-  React.useEffect(() => setOrigin(window.location.origin), []);
+  const origin = React.useSyncExternalStore(
+    subscribeToNothing,
+    () => window.location.origin,
+    // The server has no origin, and `null` is what the render below tests for
+    // before it will mount a player.
+    () => null,
+  );
 
   /*
    * Which players have actually started. Until a player reports playing, its
@@ -115,14 +133,6 @@ export function ShortsFeed({ videos }: { videos: VideoCardData[] }) {
 
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, []);
-
-  React.useEffect(() => {
-    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setReduceMotion(query.matches);
-    const onChange = () => setReduceMotion(query.matches);
-    query.addEventListener('change', onChange);
-    return () => query.removeEventListener('change', onChange);
   }, []);
 
   /* Which item is on screen. Rooted on the scroller, not the viewport. */
@@ -233,16 +243,34 @@ export function ShortsFeed({ videos }: { videos: VideoCardData[] }) {
     (index: number, smooth = true) => {
       const el = itemRefs.current[index];
       if (el)
-        el.scrollIntoView({ behavior: !smooth || reduceMotion ? 'auto' : 'smooth', block: 'start' });
+        el.scrollIntoView({
+          behavior: !smooth || reduceMotion ? 'auto' : 'smooth',
+          block: 'start',
+        });
     },
     [reduceMotion],
   );
 
+  /*
+   * Opening an item from the grid, in two beats.
+   *
+   * `openAt` can only ask — it sets the target and switches the view. The
+   * scroller it needs to move does not exist until the feed has rendered, so
+   * the move itself has to happen after that render. This effect is that second
+   * beat: scroll to the item, then commit it as active and clear the request.
+   *
+   * eslint-disable, and deliberately: `set-state-in-effect` is aimed at effects
+   * that compute a value they could have derived. This one is not computing
+   * anything — it is committing a transition that had to wait for the DOM to
+   * exist. There is no render-time form of "scroll a node that is not mounted
+   * yet".
+   */
   React.useEffect(() => {
     if (view !== 'feed' || pending === null) return;
     // Jump rather than glide: this is a view change, not a step through the
     // feed, and animating past 40 items would look like a fault.
     goTo(pending, false);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
     setActive(pending);
     setPending(null);
   }, [view, pending, goTo]);
@@ -316,6 +344,11 @@ export function ShortsFeed({ videos }: { videos: VideoCardData[] }) {
          */
         className="no-scrollbar h-full snap-y snap-mandatory overflow-y-auto overscroll-contain"
       >
+        {/* eslint-disable-next-line react-hooks/refs -- `autoplayAtMount` below is
+            read here on purpose; see its declaration. The decision must be made
+            once per frame and never recomputed, because it lives in the iframe's
+            `src` and a changed `src` reloads the player mid-watch. State would
+            recompute it; that is the bug this ref exists to prevent. */}
         {videos.map((video, i) => {
           const live =
             origin !== null && (!reduceMotion ? Math.abs(i - active) <= NEIGHBOURS : optedIn === i);

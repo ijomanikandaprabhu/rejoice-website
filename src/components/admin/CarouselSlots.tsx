@@ -57,17 +57,25 @@ export function CarouselSlots({ initial }: { initial: VideoPick[] }) {
    * may only have one — and the list comes back empty for a search that does
    * have matches.
    */
-  React.useEffect(() => {
+  const [lastQuery, setLastQuery] = React.useState(query);
+  if (query !== lastQuery) {
+    setLastQuery(query);
     setPage(1);
-  }, [query]);
+  }
 
   // Debounced so typing does not fire a query per keystroke against ~1,700 rows.
   React.useEffect(() => {
     if (openSlot === null) return;
     let cancelled = false;
-    setLoading(true);
 
     const timer = setTimeout(async () => {
+      /*
+       * Inside the timer, not above it. Set synchronously as the effect ran, it
+       * asked for a re-render on every keystroke — including the ones the
+       * debounce exists to throw away. Here it marks the moment a request is
+       * actually made, which is what the spinner is reporting anyway.
+       */
+      if (!cancelled) setLoading(true);
       try {
         const found = await searchAdminVideosAction(query, page);
         if (cancelled) return;

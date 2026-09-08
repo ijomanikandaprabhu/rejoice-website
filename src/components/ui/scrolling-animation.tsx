@@ -60,7 +60,14 @@ type ScrollRingProps = {
 export function ScrollRing({ items, eyebrow, heading, lead, className }: ScrollRingProps) {
   const sectionRef = React.useRef<HTMLElement | null>(null);
   const [progress, setProgress] = React.useState(0);
+
   const [reduceMotion, setReduceMotion] = React.useState(false);
+  /*
+   * Reduced motion means "already finished", and that is a fact about the
+   * current render rather than something to store. Derived, so there is one
+   * source of truth and no extra render to get there.
+   */
+  const shownProgress = reduceMotion ? 1 : progress;
 
   React.useEffect(() => {
     const query = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -71,10 +78,12 @@ export function ScrollRing({ items, eyebrow, heading, lead, className }: ScrollR
   }, []);
 
   React.useEffect(() => {
-    if (reduceMotion) {
-      setProgress(1);
-      return;
-    }
+    /*
+     * Nothing is set here for reduced motion — the finished state is DERIVED
+     * below instead. Writing `setProgress(1)` from an effect asked React for a
+     * second render to reach a value that was already knowable during the first.
+     */
+    if (reduceMotion) return;
 
     let frame = 0;
 
@@ -123,18 +132,17 @@ export function ScrollRing({ items, eyebrow, heading, lead, className }: ScrollR
    * Spread over 0.9 of the section rather than 0.75, which lengthens that slow
    * final approach further.
    */
-  const t = Math.min(progress / 0.9, 1);
+  const t = Math.min(shownProgress / 0.9, 1);
   const fan = 1 - Math.pow(1 - t, 3);
 
   /*
-   * Keyed off raw progress, not `fan`. The easing above reaches high values
+   * Keyed off raw shownProgress, not `fan`. The easing above reaches high values
    * very early, so a threshold on `fan` would uncover the heading almost
    * immediately.
    */
-  const textVisible = progress > 0.5;
+  const textVisible = shownProgress > 0.5;
 
   const step = items.length > 0 ? (Math.PI * 2) / items.length : 0;
-
 
   return (
     <section

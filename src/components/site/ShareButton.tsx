@@ -1,7 +1,7 @@
 'use client';
 
 import { Check, ExternalLink, Link2, Share2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ShinyButton } from '@/components/ui/shiny-button';
@@ -52,6 +52,11 @@ function prefersNativeShare(): boolean {
   return window.matchMedia('(pointer: coarse)').matches;
 }
 
+/** A store that never changes, for values simply read off `window` once. */
+function subscribeToNothing() {
+  return () => {};
+}
+
 export function ShareButton({
   title,
   url: urlProp,
@@ -64,11 +69,23 @@ export function ShareButton({
 }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [pageUrl, setPageUrl] = useState('');
-
-  // Read on mount, not during render: `window` does not exist on the server, and
-  // this keeps the markup identical on both sides.
-  useEffect(() => setPageUrl(window.location.href), []);
+  /*
+   * The page's own address, read from the browser.
+   *
+   * `useSyncExternalStore` rather than state filled in by a mount effect. The
+   * constraint is unchanged — `window` does not exist on the server, so the
+   * server snapshot is the empty string and the markup matches on both sides —
+   * but this reaches the value without asking React for a second render to
+   * store something it could simply read.
+   *
+   * The subscribe function does nothing because nothing here has to react to
+   * the address changing: the component is inside the page it shares.
+   */
+  const pageUrl = useSyncExternalStore(
+    subscribeToNothing,
+    () => window.location.href,
+    () => '',
+  );
 
   const url = urlProp ?? pageUrl;
 

@@ -33,32 +33,6 @@ const config = [
   },
   ...nextCoreWebVitals,
   prettier,
-
-  /*
-   * Two rules kept as warnings rather than errors, deliberately and
-   * temporarily.
-   *
-   * `set-state-in-effect` and `refs` arrive with the React 19 hooks plugin.
-   * They are good rules, and they flag eleven places in code that predates them
-   * by a long way: the shorts feed, the scroll animations, the search debounce.
-   * Every one of those is working, and several were hard to get right across
-   * engines in the first place.
-   *
-   * The upgrade they came in with exists to clear a security advisory. Folding
-   * an eleven-site refactor of animation and input-timing code into it would
-   * multiply the risk and make the change impossible to review — and the review
-   * is the only thing standing between this and a broken live site.
-   *
-   * So they warn: still printed on every run, still impossible to miss, and not
-   * blocking a security fix. Worth working through as its own change, where a
-   * regression in the shorts player can be traced to the commit that caused it.
-   */
-  {
-    rules: {
-      'react-hooks/set-state-in-effect': 'warn',
-      'react-hooks/refs': 'warn',
-    },
-  },
 ];
 
 export default config;
