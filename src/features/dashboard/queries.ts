@@ -67,11 +67,30 @@ export async function getCatalogueTotals(channelId?: ChannelScope): Promise<Cata
     totalVideos,
     visibleVideos,
     hiddenVideos: totalVideos - visibleVideos,
-    publishedShare: totalVideos > 0 ? Math.round((visibleVideos / totalVideos) * 100) : 0,
+    publishedShare: publishedShare(visibleVideos, totalVideos),
     shorts,
     longForm: totalVideos - shorts,
     newEnquiries,
   };
+}
+
+/**
+ * How much of the catalogue is on the website, as a percentage.
+ *
+ * Neither end may lie, and rounding lies at both. `Math.round` reported 1,656
+ * of 1,662 as "100% of the catalogue" — six videos hidden and the dashboard
+ * saying none were. The same rounding in reverse turns one public video out of
+ * a thousand into "0%", which reads as "nothing is live" when something is.
+ *
+ * So: floor it, and let 100 mean every single one; then lift a non-zero share
+ * off the floor, so "some" never displays as "none". Exact 0 and exact 100 are
+ * the only values that survive unchanged, which is the point — they are the two
+ * the owner would act on.
+ */
+export function publishedShare(visible: number, total: number): number {
+  if (total <= 0 || visible <= 0) return 0;
+  if (visible >= total) return 100;
+  return Math.max(1, Math.floor((visible / total) * 100));
 }
 
 export type AudienceTotals = {
