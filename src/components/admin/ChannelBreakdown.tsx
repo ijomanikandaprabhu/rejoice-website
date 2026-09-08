@@ -37,11 +37,7 @@ function num(value: number | null) {
 
 export function ChannelBreakdown({ channels }: { channels: ChannelBreakdownRow[] }) {
   if (channels.length === 0) {
-    return (
-      <p className="py-8 text-center text-sm text-panel-muted">
-        No channels connected yet.
-      </p>
-    );
+    return <p className="py-8 text-center text-sm text-panel-muted">No channels connected yet.</p>;
   }
 
   return (
@@ -66,9 +62,7 @@ export function ChannelBreakdown({ channels }: { channels: ChannelBreakdownRow[]
               <TableCell>
                 <Link href="/admin/youtube-channels" className="flex items-center gap-2.5">
                   <Avatar className="size-8 shrink-0">
-                    {channel.thumbnail ? (
-                      <AvatarImage src={channel.thumbnail} alt="" />
-                    ) : null}
+                    {channel.thumbnail ? <AvatarImage src={channel.thumbnail} alt="" /> : null}
                     <AvatarFallback className="bg-panel-alt text-xs text-panel-muted">
                       {channel.name.slice(0, 2).toUpperCase()}
                     </AvatarFallback>

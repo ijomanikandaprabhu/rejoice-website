@@ -45,7 +45,11 @@ export function ChannelAvatars({
      * OS tooltip a second after the styled one, stacked on top of it.
      */
     <TooltipProvider delayDuration={200}>
-      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filter by channel">
+      <div
+        className="flex flex-wrap items-center gap-2"
+        role="group"
+        aria-label="Filter by channel"
+      >
         {channels.map((channel) => {
           const active = channel.id === current;
 

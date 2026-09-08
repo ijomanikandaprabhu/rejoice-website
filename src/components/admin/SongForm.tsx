@@ -60,14 +60,14 @@ export function SongForm({
         </CardHeader>
 
         {/*
-          * Cover on the left, the words on the right. The artwork is what
-          * identifies a release, so it leads rather than sitting off to one
-          * side of a form.
-          *
-          * A fixed column for the cover rather than an even split: it is a
-          * 240px square and a half-width column would leave it stranded in
-          * whitespace on a wide screen.
-          */}
+         * Cover on the left, the words on the right. The artwork is what
+         * identifies a release, so it leads rather than sitting off to one
+         * side of a form.
+         *
+         * A fixed column for the cover rather than an even split: it is a
+         * 240px square and a half-width column would leave it stranded in
+         * whitespace on a wide screen.
+         */}
         <CardContent className="grid gap-6 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start">
           <ImageUploadField
             name="cover"
@@ -166,10 +166,10 @@ export function SongForm({
                   className="grid gap-2 sm:grid-cols-[minmax(0,12rem)_1fr] sm:items-center"
                 >
                   {/*
-                    * The platform is fixed, so it travels as a hidden field
-                    * rather than a control. The action pairs it with the URL
-                    * beside it by position.
-                    */}
+                   * The platform is fixed, so it travels as a hidden field
+                   * rather than a control. The action pairs it with the URL
+                   * beside it by position.
+                   */}
                   <input type="hidden" name="link.platformId" value={platform.id} />
 
                   <label
@@ -199,10 +199,10 @@ export function SongForm({
       </Card>
 
       {/*
-        * Right-aligned, with Cancel first so the confirming button is furthest
-        * right — where the eye finishes, and where the next thing to press
-        * after filling a form down the page is expected to be.
-        */}
+       * Right-aligned, with Cancel first so the confirming button is furthest
+       * right — where the eye finishes, and where the next thing to press
+       * after filling a form down the page is expected to be.
+       */}
       <div className="flex items-center justify-end gap-3">
         <Button asChild variant="ghost">
           <Link href="/admin/songs">Cancel</Link>

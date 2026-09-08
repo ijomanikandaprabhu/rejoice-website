@@ -4,11 +4,7 @@ import { revalidatePath } from 'next/cache';
 
 import { requireAdmin } from '@/lib/auth/guard';
 import { disconnect } from '@/services/youtube/analyticsService';
-import {
-  carouselSettingsSchema,
-  fieldErrors,
-  contactSettingsSchema,
-} from '@/lib/validation';
+import { carouselSettingsSchema, fieldErrors, contactSettingsSchema } from '@/lib/validation';
 import { getSocialSettings, saveSetting, type SocialLink } from './queries';
 import { sanitizeSvg } from '@/lib/utils/svg';
 import { slugify } from '@/lib/utils';
@@ -79,7 +75,10 @@ export async function saveCarouselSettingsAction(
   revalidatePath('/admin/settings');
 
   const n = parsed.data.videoIds.length;
-  return { ok: true, message: n === 0 ? 'Carousel cleared.' : `Carousel saved — ${n} video${n === 1 ? '' : 's'}.` };
+  return {
+    ok: true,
+    message: n === 0 ? 'Carousel cleared.' : `Carousel saved — ${n} video${n === 1 ? '' : 's'}.`,
+  };
 }
 
 /**
@@ -157,14 +156,22 @@ export async function saveSocialLinksAction(
  * at myaccount.google.com/permissions, and saying so is more honest than
  * implying this button reached into their Google account (Rule 5).
  */
-export async function disconnectYouTubeAnalyticsAction(formData: FormData): Promise<void> {
+export async function disconnectYouTubeAnalyticsAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   await requireAdmin();
 
   // One channel at a time — every other connection stays.
   const channelId = String(formData.get('channelId') ?? '');
-  if (!channelId) return;
+  if (!channelId) return { ok: false, message: 'No channel was named, so nothing changed.' };
 
   await disconnect(channelId);
   revalidatePath('/admin/settings');
   revalidatePath('/admin');
+
+  return {
+    ok: true,
+    message: 'Analytics disconnected. Views and revenue will stop updating for that channel.',
+  };
 }

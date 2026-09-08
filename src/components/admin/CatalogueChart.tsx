@@ -49,7 +49,11 @@ export function CatalogueChart({ data }: { data: YearPoint[] }) {
   return (
     <div className="h-[220px] w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 8, right: 0, bottom: 0, left: 0 }} barCategoryGap="28%">
+        <BarChart
+          data={data}
+          margin={{ top: 8, right: 0, bottom: 0, left: 0 }}
+          barCategoryGap="28%"
+        >
           <XAxis
             dataKey="year"
             tickLine={false}

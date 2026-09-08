@@ -244,8 +244,51 @@ export function ActionForm({
 }
 
 /**
+ * `useFormState` plus the toast, for the one-click actions.
+ *
+ * Extracted because three places need exactly this — the row buttons, the
+ * enquiry bulk bar and the visibility bulk bar — and three copies of a
+ * `useEffect` that must depend on `state` rather than `state.message` is three
+ * chances to get that subtlety wrong. `useFormState` hands back a fresh object
+ * per submit, so hiding two songs in a row fires twice; keying on the string
+ * would swallow the second and look like the button had stopped working.
+ */
+export function useActionToast(
+  action: (prev: ActionState, formData: FormData) => Promise<ActionState>,
+) {
+  const [state, formAction] = useFormState(action, { ok: false });
+
+  useEffect(() => {
+    if (!state.message) return;
+    if (state.ok) {
+      toast.success(state.message);
+    } else {
+      // Failures outlive successes: something to read and act on should not
+      // vanish at the same speed as "Saved".
+      toast.error(state.message, { duration: 8000 });
+    }
+  }, [state]);
+
+  return formAction;
+}
+
+/**
  * A one-button form for actions that take no input (sync, delete, toggle).
  * `confirm` guards destructive actions with an AlertDialog before they run.
+ *
+ * ## It reports back now
+ *
+ * This used to take an action returning `void`, which meant it could not say
+ * anything at all — the row changed and that was the whole of the feedback.
+ * Measured in the running admin: marking an enquiry read said nothing, and a
+ * bulk "mark as read" across three rows said nothing either. Deleting an
+ * enquiry — the one irreversible thing in here — confirmed nothing.
+ *
+ * It shares `ActionForm`'s toast behaviour rather than inventing a second one,
+ * including the detail that the effect depends on `state` and not
+ * `state.message`: `useFormState` returns a fresh object per submit, so hiding
+ * two songs in a row still fires twice instead of looking like the button
+ * stopped working.
  */
 export function ActionButton({
   action,
@@ -257,7 +300,7 @@ export function ActionButton({
   confirm,
   className,
 }: {
-  action: (formData: FormData) => Promise<void>;
+  action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
   hiddenFields?: Record<string, string>;
   children: ReactNode;
   variant?: 'default' | 'secondary' | 'outline' | 'ghost' | 'destructive' | 'link';
@@ -267,6 +310,7 @@ export function ActionButton({
   className?: string;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
+  const formAction = useActionToast(action);
 
   const hidden = hiddenFields
     ? Object.entries(hiddenFields).map(([name, value]) => (
@@ -276,7 +320,7 @@ export function ActionButton({
 
   if (!confirm) {
     return (
-      <form action={action} className="inline-flex">
+      <form action={formAction} className="inline-flex">
         {hidden}
         <SubmitButton
           variant={variant}
@@ -291,7 +335,7 @@ export function ActionButton({
   }
 
   return (
-    <form ref={formRef} action={action} className="inline-flex">
+    <form ref={formRef} action={formAction} className="inline-flex">
       {hidden}
       <AlertDialog>
         <AlertDialogTrigger asChild>

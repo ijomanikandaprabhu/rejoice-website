@@ -113,7 +113,9 @@ export function RevenueChart({ data }: { data: MonthRevenue[] }) {
         <span className="text-xs text-panel-muted">
           Total over {data.length} month{data.length === 1 ? '' : 's'}
         </span>
-        <span className="text-sm font-semibold tabular-nums text-panel-fg">{formatMoney(total)}</span>
+        <span className="text-sm font-semibold tabular-nums text-panel-fg">
+          {formatMoney(total)}
+        </span>
       </div>
     </div>
   );

@@ -66,9 +66,7 @@ export function ChannelAvatarLink({
           <span className="sr-only">{name}</span>
         </Link>
       </TooltipTrigger>
-      <TooltipContent>
-        {active ? `${name} — click to show all channels` : name}
-      </TooltipContent>
+      <TooltipContent>{active ? `${name} — click to show all channels` : name}</TooltipContent>
     </Tooltip>
   );
 }

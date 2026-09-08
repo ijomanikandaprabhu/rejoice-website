@@ -134,8 +134,8 @@ export function CarouselSlots({ initial }: { initial: VideoPick[] }) {
           ) : (
             <>
               <span className="font-medium text-panel-fg">{chosen}</span> chosen, but only{' '}
-              <span className="font-medium text-panel-fg">{chosen - hiddenCount}</span> will
-              appear —{' '}
+              <span className="font-medium text-panel-fg">{chosen - hiddenCount}</span> will appear
+              —{' '}
               <span className="font-medium text-panel-negative">
                 {hiddenCount} {hiddenCount === 1 ? 'is' : 'are'} hidden
               </span>
@@ -215,8 +215,8 @@ export function CarouselSlots({ initial }: { initial: VideoPick[] }) {
               Choose a video for slot {openSlot === null ? '' : openSlot + 1}
             </DialogTitle>
             <DialogDescription>
-              Only videos the carousel can show are listed — newest first. Shorts are
-              left out because the carousel is landscape and would never display them.
+              Only videos the carousel can show are listed — newest first. Shorts are left out
+              because the carousel is landscape and would never display them.
             </DialogDescription>
           </DialogHeader>
 
@@ -252,11 +252,21 @@ export function CarouselSlots({ initial }: { initial: VideoPick[] }) {
                     className="flex w-full items-center gap-3 rounded-md p-2 text-left transition-colors hover:bg-white/5"
                   >
                     <span className="relative block h-12 w-20 shrink-0 overflow-hidden rounded bg-panel-alt">
-                      <Image src={video.thumbnail} alt="" fill sizes="80px" className="object-cover" />
+                      <Image
+                        src={video.thumbnail}
+                        alt=""
+                        fill
+                        sizes="80px"
+                        className="object-cover"
+                      />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="line-clamp-2 block text-sm text-panel-fg">{video.title}</span>
-                      <span className="block text-xs text-muted-foreground">{video.channelName}</span>
+                      <span className="line-clamp-2 block text-sm text-panel-fg">
+                        {video.title}
+                      </span>
+                      <span className="block text-xs text-muted-foreground">
+                        {video.channelName}
+                      </span>
                     </span>
                     {already ? (
                       <span className="shrink-0 text-[10px] uppercase tracking-wide text-panel-accent">

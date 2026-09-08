@@ -9,7 +9,12 @@ import { isMissingRow } from '@/lib/db/errors';
 import { prisma } from '@/lib/db/prisma';
 import { createLogger } from '@/lib/logger';
 import { clearedOverrides } from '@/lib/utils/videoDisplay';
-import { addChannelSchema, fieldErrors, updateChannelSchema, updateVideoSchema } from '@/lib/validation';
+import {
+  addChannelSchema,
+  fieldErrors,
+  updateChannelSchema,
+  updateVideoSchema,
+} from '@/lib/validation';
 import {
   connectChannel,
   disconnectChannel,
@@ -195,7 +200,10 @@ export async function disconnectChannelAction(
  */
 const BULK_ID_LIMIT = 100;
 
-export async function bulkSetVideoVisibilityAction(formData: FormData): Promise<void> {
+export async function bulkSetVideoVisibilityAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   await requireAdmin();
 
   const isVisible = formData.get('visible') === 'true';
@@ -211,11 +219,13 @@ export async function bulkSetVideoVisibilityAction(formData: FormData): Promise<
     });
   } else {
     const ids = formData.getAll('ids').map(String).filter(Boolean);
-    if (ids.length === 0 || ids.length > BULK_ID_LIMIT) return;
+    if (ids.length === 0 || ids.length > BULK_ID_LIMIT) {
+      return { ok: false, message: 'Nothing was changed — the selection was not valid.' };
+    }
     where = { id: { in: ids } };
   }
 
-  await prisma.youTubeVideo.updateMany({ where, data: { isVisible } });
+  const { count } = await prisma.youTubeVideo.updateMany({ where, data: { isVisible } });
 
   revalidatePath('/admin/youtube-content');
   /*
@@ -225,6 +235,20 @@ export async function bulkSetVideoVisibilityAction(formData: FormData): Promise<
    * would be hundreds of calls.
    */
   revalidatePublicVideoPages();
+
+  /*
+   * The count matters more here than anywhere else in the admin: in filter mode
+   * this acts on everything matching the search, which the operator never saw
+   * as a list. "412 videos hidden" is the only thing standing between a
+   * mis-set filter and a silent catalogue-wide change.
+   */
+  const noun = count === 1 ? 'video' : 'videos';
+  return {
+    ok: true,
+    message: isVisible
+      ? `${count} ${noun} now showing on the website.`
+      : `${count} ${noun} hidden from the website.`,
+  };
 }
 
 /** Undefined for an absent or empty field, so it never becomes a filter of ''. */
@@ -233,7 +257,10 @@ function str(value: FormDataEntryValue | null): string | undefined {
   return s.length > 0 ? s : undefined;
 }
 
-export async function toggleVideoVisibilityAction(formData: FormData): Promise<void> {
+export async function toggleVideoVisibilityAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   await requireAdmin();
 
   const id = String(formData.get('id') ?? '');
@@ -244,7 +271,7 @@ export async function toggleVideoVisibilityAction(formData: FormData): Promise<v
     // uses any more.
     select: { isVisible: true, youtubeVideoId: true },
   });
-  if (!video) return;
+  if (!video) return { ok: false, message: 'That video could not be found.' };
 
   await prisma.youTubeVideo.update({
     where: { id },
@@ -264,6 +291,12 @@ export async function toggleVideoVisibilityAction(formData: FormData): Promise<v
    * on it.
    */
   revalidatePath(`/videos/${video.youtubeVideoId}`);
+
+  /* The NEW state — `video.isVisible` is what it was a moment ago. */
+  return {
+    ok: true,
+    message: video.isVisible ? 'Hidden from the website.' : 'Now showing on the website.',
+  };
 }
 
 /** One row in the carousel picker's search results. */
@@ -323,10 +356,7 @@ export type VideoPickPage = {
   pageCount: number;
 };
 
-export async function searchAdminVideosAction(
-  query: string,
-  page = 1,
-): Promise<VideoPickPage> {
+export async function searchAdminVideosAction(query: string, page = 1): Promise<VideoPickPage> {
   await requireAdmin();
 
   const q = query.trim();
@@ -364,12 +394,12 @@ export async function searchAdminVideosAction(
       skip: (current - 1) * CAROUSEL_PICKER_PAGE_SIZE,
       take: CAROUSEL_PICKER_PAGE_SIZE,
       select: {
-      id: true,
-      youtubeTitle: true,
-      displayTitle: true,
-      youtubeThumbnail: true,
-      displayThumbnail: true,
-      youtubeVideoId: true,
+        id: true,
+        youtubeTitle: true,
+        displayTitle: true,
+        youtubeThumbnail: true,
+        displayThumbnail: true,
+        youtubeVideoId: true,
         isVisible: true,
         channel: { select: { name: true, isActive: true } },
       },

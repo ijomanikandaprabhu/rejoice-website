@@ -46,9 +46,7 @@ export function TrafficSources({ sources }: { sources: TrafficSource[] }) {
 
   if (total === 0) {
     return (
-      <p className="py-8 text-center text-sm text-panel-muted">
-        No traffic data for this period.
-      </p>
+      <p className="py-8 text-center text-sm text-panel-muted">No traffic data for this period.</p>
     );
   }
 

@@ -62,10 +62,13 @@ export function AdminLoader() {
        from navigation start without anything needing to be recorded. */
     const elapsed = () => performance.now();
 
-    const floor = window.setTimeout(() => {
-      if (document.readyState === 'complete') go();
-      else window.addEventListener('load', go, { once: true });
-    }, Math.max(0, HOLD_MS - elapsed()));
+    const floor = window.setTimeout(
+      () => {
+        if (document.readyState === 'complete') go();
+        else window.addEventListener('load', go, { once: true });
+      },
+      Math.max(0, HOLD_MS - elapsed()),
+    );
 
     const ceiling = window.setTimeout(go, Math.max(0, MAX_MS - elapsed()));
 

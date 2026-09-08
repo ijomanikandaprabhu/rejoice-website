@@ -13,13 +13,7 @@ import { cn, externalLinkProps } from '@/lib/utils';
  * accent always means "look here".
  */
 
-export function Panel({
-  className,
-  children,
-}: {
-  className?: string;
-  children: ReactNode;
-}) {
+export function Panel({ className, children }: { className?: string; children: ReactNode }) {
   return (
     <section
       className={cn(
@@ -102,7 +96,7 @@ export function StatPanel({
         </span>
       </div>
 
-      <p className="mt-3 text-[2rem] font-bold leading-none tabular-nums">
+      <p className="mt-3 text-[2rem] font-bold tabular-nums leading-none">
         {typeof value === 'number' ? value.toLocaleString() : value}
       </p>
 
@@ -169,9 +163,7 @@ export function ListRow({
     <div
       className={cn(
         'flex items-center gap-3 rounded-sm2 px-3 py-3 transition-colors',
-        highlighted
-          ? 'bg-panel-accent text-panel-bg'
-          : 'hover:bg-white/[0.04]',
+        highlighted ? 'bg-panel-accent text-panel-bg' : 'hover:bg-white/[0.04]',
       )}
     >
       {icon ? (

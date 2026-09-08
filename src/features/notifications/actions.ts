@@ -28,20 +28,3 @@ export async function markAllReadAction(): Promise<void> {
    */
   revalidatePath('/admin', 'layout');
 }
-
-export async function markReadAction(formData: FormData): Promise<void> {
-  await requireAdmin();
-
-  const id = String(formData.get('id') ?? '');
-  if (!id) return;
-
-  await prisma.notification.updateMany({
-    // `updateMany` rather than `update`: an id that no longer exists — swept by
-    // the seven-day clear between the page rendering and the click — is a
-    // no-op here, where `update` would throw.
-    where: { id, readAt: null },
-    data: { readAt: new Date() },
-  });
-
-  revalidatePath('/admin', 'layout');
-}

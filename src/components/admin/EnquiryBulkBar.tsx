@@ -2,7 +2,7 @@
 
 import { useRef } from 'react';
 
-import { SubmitButton } from '@/components/admin/ActionForm';
+import { SubmitButton, useActionToast, type ActionState } from '@/components/admin/ActionForm';
 import { ClearWhenDone, useBulk } from '@/components/admin/BulkSelection';
 import {
   AlertDialog,
@@ -32,8 +32,8 @@ export function EnquiryBulkBar({
   setStatusAction,
   deleteAction,
 }: {
-  setStatusAction: (formData: FormData) => Promise<void>;
-  deleteAction: (formData: FormData) => Promise<void>;
+  setStatusAction: (prev: ActionState, formData: FormData) => Promise<ActionState>;
+  deleteAction: (prev: ActionState, formData: FormData) => Promise<ActionState>;
 }) {
   const { selected, clear } = useBulk();
 
@@ -94,15 +94,17 @@ function StatusForm({
   pendingLabel,
   onDone,
 }: {
-  action: (formData: FormData) => Promise<void>;
+  action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
   ids: string[];
   status: string;
   label: string;
   pendingLabel: string;
   onDone: () => void;
 }) {
+  const formAction = useActionToast(action);
+
   return (
-    <form action={action} className="inline-flex">
+    <form action={formAction} className="inline-flex">
       <ClearWhenDone onDone={onDone} />
       <input type="hidden" name="status" value={status} />
       <HiddenIds ids={ids} />
@@ -119,14 +121,15 @@ function DeleteForm({
   ids,
   onDone,
 }: {
-  action: (formData: FormData) => Promise<void>;
+  action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
   ids: string[];
   onDone: () => void;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
+  const formAction = useActionToast(action);
 
   return (
-    <form ref={formRef} action={action} className="inline-flex">
+    <form ref={formRef} action={formAction} className="inline-flex">
       <ClearWhenDone onDone={onDone} />
       <HiddenIds ids={ids} />
 

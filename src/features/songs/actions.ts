@@ -443,16 +443,30 @@ const BULK_ID_LIMIT = 100;
  * has to be instant, and making the operator open the song and save to do it is
  * how a song stays live longer than intended.
  */
-export async function toggleSongVisibilityAction(formData: FormData): Promise<void> {
+export async function toggleSongVisibilityAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   await requireAdmin();
 
   const id = String(formData.get('id') ?? '');
-  const song = await prisma.song.findUnique({ where: { id }, select: { isVisible: true } });
-  if (!song) return;
+  const song = await prisma.song.findUnique({
+    where: { id },
+    select: { isVisible: true, title: true },
+  });
+  if (!song) return { ok: false, message: 'That song could not be found.' };
 
   await prisma.song.update({ where: { id }, data: { isVisible: !song.isVisible } });
 
   revalidateSongs();
+
+  /* The NEW state, not the old one — the message has to match what is now true. */
+  return {
+    ok: true,
+    message: song.isVisible
+      ? `${song.title} hidden from the website.`
+      : `${song.title} is now live.`,
+  };
 }
 
 /**
@@ -469,7 +483,10 @@ export async function toggleSongVisibilityAction(formData: FormData): Promise<vo
  * silent and severe: the server would match everything and "hide these three"
  * would hide the catalogue.
  */
-export async function bulkSetSongVisibilityAction(formData: FormData): Promise<void> {
+export async function bulkSetSongVisibilityAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   await requireAdmin();
 
   const isVisible = formData.get('visible') === 'true';
@@ -481,7 +498,9 @@ export async function bulkSetSongVisibilityAction(formData: FormData): Promise<v
     where = buildSongListWhere({ q: q || undefined });
   } else {
     const ids = formData.getAll('ids').map(String).filter(Boolean);
-    if (ids.length === 0 || ids.length > BULK_ID_LIMIT) return;
+    if (ids.length === 0 || ids.length > BULK_ID_LIMIT) {
+      return { ok: false, message: 'Nothing was changed — the selection was not valid.' };
+    }
     where = { id: { in: ids } };
   }
 
@@ -489,6 +508,12 @@ export async function bulkSetSongVisibilityAction(formData: FormData): Promise<v
 
   log.info(`${isVisible ? 'Showed' : 'Hid'} ${count} song${count === 1 ? '' : 's'}`);
   revalidateSongs();
+
+  const noun = count === 1 ? 'song' : 'songs';
+  return {
+    ok: true,
+    message: isVisible ? `${count} ${noun} now live.` : `${count} ${noun} hidden from the website.`,
+  };
 }
 
 /* ------------------------------------------------- the ten already shipped */

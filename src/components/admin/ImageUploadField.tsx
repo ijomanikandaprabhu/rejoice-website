@@ -183,11 +183,11 @@ export function ImageUploadField({
           </Button>
 
           {/*
-            * Only offered once something has been picked. On an existing song
-            * this undoes the new choice and leaves the stored artwork alone — a
-            * song cannot exist without a cover, so there is nothing here that
-            * would remove one.
-            */}
+           * Only offered once something has been picked. On an existing song
+           * this undoes the new choice and leaves the stored artwork alone — a
+           * song cannot exist without a cover, so there is nothing here that
+           * would remove one.
+           */}
           {picked ? (
             <Button
               type="button"

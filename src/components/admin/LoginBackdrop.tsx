@@ -58,7 +58,10 @@ export function LoginBackdrop() {
      * At z-0 the video paints above the wrapper's background, and the form sits
      * above the video on `relative z-10`.
      */
-    <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 select-none bg-site-night">
+    <div
+      aria-hidden="true"
+      className="pointer-events-none fixed inset-0 z-0 select-none bg-site-night"
+    >
       {/*
        * The clip gets a container at its OWN ratio, anchored to the top — this
        * is `site/HeroVideo`'s structure, and the reason the homepage has no bars.

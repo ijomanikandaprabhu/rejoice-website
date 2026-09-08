@@ -2,7 +2,7 @@
 
 import { useRef } from 'react';
 
-import { SubmitButton } from '@/components/admin/ActionForm';
+import { SubmitButton, useActionToast, type ActionState } from '@/components/admin/ActionForm';
 import { ClearWhenDone, useBulk } from '@/components/admin/BulkSelection';
 import {
   AlertDialog,
@@ -42,7 +42,7 @@ export function BulkBar({
   noun = 'videos',
   confirmDescription = 'This applies to every video matching the current filter, including those on other pages. Nothing on YouTube is changed.',
 }: {
-  action: (formData: FormData) => Promise<void>;
+  action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
   /** Rows matching the current filter, across every page. */
   total: number;
   pageIds: string[];
@@ -143,7 +143,7 @@ function BulkForm({
   confirmDescription,
   onDone,
 }: {
-  action: (formData: FormData) => Promise<void>;
+  action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
   visible: boolean;
   label: string;
   pendingLabel: string;
@@ -156,6 +156,11 @@ function BulkForm({
   onDone: () => void;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
+  /*
+   * Above the conditional return below, not inside either branch: a hook called
+   * in one branch and not the other changes the hook order between renders.
+   */
+  const formAction = useActionToast(action);
 
   const fields = (
     <>
@@ -188,7 +193,7 @@ function BulkForm({
 
   if (confirmCount === null) {
     return (
-      <form action={action} className="inline-flex">
+      <form action={formAction} className="inline-flex">
         <ClearWhenDone onDone={onDone} />
         {fields}
         <SubmitButton variant="outline" size="sm" pendingLabel={pendingLabel}>
@@ -199,7 +204,7 @@ function BulkForm({
   }
 
   return (
-    <form ref={formRef} action={action} className="inline-flex">
+    <form ref={formRef} action={formAction} className="inline-flex">
       <ClearWhenDone onDone={onDone} />
       {fields}
       <AlertDialog>

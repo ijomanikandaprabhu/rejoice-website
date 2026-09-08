@@ -90,9 +90,7 @@ export function PlatformDialog({ platforms }: { platforms: Platform[] }) {
 
           <div className="grid content-start gap-2">
             <p className="text-xs text-muted-foreground">
-              {platforms.length === 0
-                ? 'None registered'
-                : `${platforms.length} registered`}
+              {platforms.length === 0 ? 'None registered' : `${platforms.length} registered`}
             </p>
 
             {platforms.length === 0 ? (
@@ -101,10 +99,10 @@ export function PlatformDialog({ platforms }: { platforms: Platform[] }) {
               </p>
             ) : (
               /*
-                * Only the list scrolls, and it is capped at roughly six rows so
-                * the dialog stays the same height whether there are three
-                * platforms or thirty.
-                */
+               * Only the list scrolls, and it is capped at roughly six rows so
+               * the dialog stays the same height whether there are three
+               * platforms or thirty.
+               */
               <ul className="grid max-h-[15.5rem] gap-1.5 overflow-y-auto pr-1">
                 {platforms.map((platform) => (
                   <li
@@ -116,11 +114,11 @@ export function PlatformDialog({ platforms }: { platforms: Platform[] }) {
                     <span className="min-w-0 flex-1 truncate text-sm">{platform.name}</span>
 
                     {/*
-                      * The count is why a platform may refuse to be deleted, so
-                      * it sits next to the button that would refuse. Nothing is
-                      * drawn at zero: a dash beside the bin read as a second
-                      * control rather than as an absence.
-                      */}
+                     * The count is why a platform may refuse to be deleted, so
+                     * it sits next to the button that would refuse. Nothing is
+                     * drawn at zero: a dash beside the bin read as a second
+                     * control rather than as an absence.
+                     */}
                     {platform.songCount > 0 ? (
                       <span
                         title={`Used by ${platform.songCount} song${platform.songCount === 1 ? '' : 's'}`}
