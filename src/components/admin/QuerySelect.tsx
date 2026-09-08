@@ -70,12 +70,32 @@ export function QuerySelect({
       <SelectTrigger id={id} aria-label={ariaLabel} className={cn('w-full', className)}>
         <SelectValue />
       </SelectTrigger>
-      <SelectContent className="admin-theme rounded-sm2 border-white/[0.08] bg-panel-alt p-1.5 text-panel-fg shadow-panel data-[state=closed]:duration-100 data-[state=open]:duration-150">
+      {/*
+        The open and close are eased on the site's own curve rather than the
+        browser's default `ease`, and given a little longer to travel.
+
+        At 150ms on plain `ease` the panel arrived at full speed and stopped
+        dead, which is what "not smooth" describes — the motion has no
+        deceleration, so a zoom and a slide happening together read as a snap.
+        `EASE_HOUSE` (`src/lib/motion.ts`) is the curve the rest of the site
+        settles on: fast away, slow to land.
+
+        The close stays quicker than the open. A panel you have finished with
+        should get out of the way; one that is arriving is worth watching.
+
+        The reduced-motion block near the end of globals.css still overrides all
+        of this with `animation: none`, so nobody who asked for stillness gets a
+        longer animation out of it.
+      */}
+      <SelectContent className="admin-theme ease-[cubic-bezier(0.22,1,0.36,1)] data-[state=open]:duration-[220ms] rounded-sm2 border-white/[0.08] bg-panel-alt p-1.5 text-panel-fg shadow-panel data-[state=closed]:duration-150">
         {options.map((option) => (
           <SelectItem
             key={option.value}
             value={option.value}
-            className="cursor-pointer rounded-input py-2 pl-3 pr-9 text-sm text-panel-fg outline-none transition-colors focus:bg-white/[0.1] focus:text-panel-fg focus-visible:outline-none data-[state=checked]:text-panel-accent"
+            /* No `focus:bg-*` here: the highlight is owned by one rule in
+               globals.css so the two cannot drift apart. This one lost to it
+               on specificity anyway, which is the confusing way to find out. */
+            className="cursor-pointer rounded-input py-2 pl-3 pr-9 text-sm text-panel-fg outline-none transition-colors focus:text-panel-fg focus-visible:outline-none data-[state=checked]:text-panel-accent"
           >
             {option.label}
           </SelectItem>

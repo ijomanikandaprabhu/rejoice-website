@@ -283,28 +283,36 @@
   }
 
   /*
-   * The replacement, and the reason it is a bar rather than a background.
+   * The current row, marked by its background alone.
    *
-   * shadcn marks the current row with `focus:bg-accent`. Measured in the
-   * running admin, that is rgb(35,35,36) on an rgb(27,27,29) panel — 1.10:1,
-   * which is no indicator at all. A focus indicator wants 3:1, and reaching
-   * that with background alone needs about #666668: a heavy grey slab across
-   * every row you pass.
+   * There WAS a 2px lime bar down the left edge here, and the history is worth
+   * keeping because the trade-off is real. shadcn's own `focus:bg-accent` is
+   * rgb(35,35,36) on an rgb(27,27,29) panel — 1.10:1, invisible, no indicator at
+   * all. The bar was the answer: one edge carrying roughly 15:1 while the
+   * background stayed quiet.
    *
-   * An indicator is allowed to be one edge instead, so the contrast is carried
-   * by a 2px lime bar (roughly 15:1 against this panel) and the background lift
-   * is left free to be subtle — enough to read as a row, not enough to shout.
+   * The owner asked for it removed. Radix highlights on hover as well as on
+   * arrow-key, so that edge chased the pointer down every list, and on a
+   * three-item dropdown it read as damage rather than as guidance.
    *
-   * `:focus` as well as `[data-highlighted]`: Radix sets the attribute, but the
-   * two disagree in enough edge cases that pairing them is cheaper than finding
-   * out which.
+   * So the contrast moves into the background instead, which is the other place
+   * it is allowed to live. 0.16 white over this panel lands near rgb(64,64,65):
+   * far above the 1.10:1 it replaces and unmistakable as "this row", while
+   * staying short of the ~0.34 white it would take to hit a formal 3:1 — that is
+   * a pale slab, and the owner is removing an indicator for being too loud.
+   *
+   * A keyboard user is not left with nothing, which was the original worry: the
+   * row they are on is plainly lit, and in the select the chosen row also turns
+   * lime through `data-[state=checked]:text-panel-accent`.
+   *
+   * `:focus` as well as `[data-highlighted]`: Radix sets both, and they disagree
+   * in enough edge cases that pairing them is cheaper than finding out which.
    */
   .admin-theme [role='menuitem'][data-highlighted],
   .admin-theme [role='option'][data-highlighted],
   .admin-theme [role='menuitem']:focus,
   .admin-theme [role='option']:focus {
-    background-color: rgba(255, 255, 255, 0.06);
-    box-shadow: inset 2px 0 0 theme('colors.panel.accent');
+    background-color: rgba(255, 255, 255, 0.16);
   }
 
   ::selection {
