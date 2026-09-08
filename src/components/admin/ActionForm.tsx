@@ -138,7 +138,37 @@ export function ActionForm({
   confirmTitle?: string;
   confirmLabel?: string;
 }) {
-  const [state, formAction] = useActionState(action, { ok: false });
+  /*
+   * The result is announced INSIDE the action, not from an effect on `state`.
+   * See `announce` below for why: an effect dies with its component, and some
+   * of these forms are removed by the very action they just ran — the channel
+   * disconnect card is gone the moment the channel is.
+   *
+   * `state` is still needed here, for the field errors published to context.
+   */
+  /*
+   * `onSuccess` through a ref, kept current from an effect rather than written
+   * during render — a render-time ref write is a change React cannot see, and
+   * the rule that says so is an error here.
+   *
+   * The ref exists because callers pass an inline arrow: naming `onSuccess`
+   * directly in the action below would capture whichever identity that render
+   * produced, and re-create the action on every render for no gain.
+   */
+  const onSuccessRef = useRef(onSuccess);
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+  }, [onSuccess]);
+
+  const [state, formAction] = useActionState(
+    async (prev: ActionState, formData: FormData) => {
+      const result = await action(prev, formData);
+      announce(result);
+      if (result.ok && result.message) onSuccessRef.current?.();
+      return result;
+    },
+    { ok: false },
+  );
   const formRef = useRef<HTMLFormElement>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -155,44 +185,24 @@ export function ActionForm({
   const confirmedRef = useRef(false);
 
   /*
-   * Action feedback goes to a toast rather than a banner inside the form.
+   * The one case `announce` cannot cover: a save rejected with field errors and
+   * NO message.
    *
-   * The dependency is `state`, not `state.message`: `useActionState` hands back a
-   * fresh object on every submit, so an action that legitimately returns the
-   * same message twice still fires twice. Keying on the string would swallow
-   * the second one and look like the button had stopped working.
+   * Those failures are silent by design — the detail belongs inline under the
+   * offending input via <FieldError>, since a floating message cannot point at
+   * a field. But several forms carry a validation rule with no <FieldError>
+   * beside it, and then nothing happened at all: the spinner finished and the
+   * form sat there looking saved.
    *
-   * Nothing fires on mount because the initial state carries no message.
-   *
-   * Field-level errors are deliberately NOT toasted in detail — they stay inline
-   * under their input via <FieldError>, since a floating message cannot point at
-   * which field is wrong.
-   *
-   * But a rejected save must never be *silent*. Several forms carried fields
-   * with a validation rule and no <FieldError> beside them, and because those
-   * failures also carry no `message`, the early return below meant the spinner
-   * simply finished and nothing happened at all. The fallback toast is the
-   * backstop: inline errors stay the real signal, and this guarantees the
-   * operator at least learns the save did not go through.
+   * It stays an effect because it depends on `state.errors`, which is what the
+   * component renders from — and a form that failed validation is still on
+   * screen by definition, so nothing here can unmount before it runs.
    */
   useEffect(() => {
-    if (!state.message) {
-      if (!state.ok && state.errors && Object.keys(state.errors).length > 0) {
-        toast.error('Not saved — check the highlighted fields.', { duration: 8000 });
-      }
-      return;
+    if (state.message) return;
+    if (!state.ok && state.errors && Object.keys(state.errors).length > 0) {
+      toast.error('Not saved — check the highlighted fields.', { duration: 8000 });
     }
-    if (state.ok) {
-      toast.success(state.message);
-      onSuccess?.();
-    } else {
-      // Failures outlive successes: something the operator has to read and act
-      // on should not vanish at the same speed as "Saved".
-      toast.error(state.message, { duration: 8000 });
-    }
-    // `onSuccess` is deliberately not a dependency: a caller passing an inline
-    // arrow would otherwise re-run this on every render and fire repeatedly.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
   return (
@@ -252,30 +262,49 @@ export function ActionForm({
 }
 
 /**
+ * Announce a result, from inside the action rather than from an effect.
+ *
+ * WHY NOT A `useEffect` ON THE STATE, which is the obvious shape and was the
+ * shape here: an effect belongs to the component, and a delete removes the
+ * component. Deleting an enquiry revalidates the list, the row — and the button
+ * inside it that owns the effect — unmounts in that same commit, and the effect
+ * for the new state never runs. So every action that made its own control
+ * disappear said nothing, which was exactly the set of irreversible ones:
+ * deleting an enquiry, deleting a song, disconnecting a channel, and both bulk
+ * deletes. Everything that merely toggled a row kept its button and toasted
+ * fine, which is why this looked like it worked.
+ *
+ * `toast` writes to sonner's own store, which outlives any component, so
+ * calling it here reports the result whether or not the caller survives it.
+ */
+function announce(result: ActionState) {
+  if (!result.message) return;
+  if (result.ok) {
+    toast.success(result.message);
+  } else {
+    // Failures outlive successes: something to read and act on should not
+    // vanish at the same speed as "Saved".
+    toast.error(result.message, { duration: 8000 });
+  }
+}
+
+/**
  * `useActionState` plus the toast, for the one-click actions.
  *
  * Extracted because three places need exactly this — the row buttons, the
- * enquiry bulk bar and the visibility bulk bar — and three copies of a
- * `useEffect` that must depend on `state` rather than `state.message` is three
- * chances to get that subtlety wrong. `useActionState` hands back a fresh object
- * per submit, so hiding two songs in a row fires twice; keying on the string
- * would swallow the second and look like the button had stopped working.
+ * enquiry bulk bar and the visibility bulk bar.
  */
 export function useActionToast(
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>,
 ) {
-  const [state, formAction] = useActionState(action, { ok: false });
-
-  useEffect(() => {
-    if (!state.message) return;
-    if (state.ok) {
-      toast.success(state.message);
-    } else {
-      // Failures outlive successes: something to read and act on should not
-      // vanish at the same speed as "Saved".
-      toast.error(state.message, { duration: 8000 });
-    }
-  }, [state]);
+  const [, formAction] = useActionState(
+    async (prev: ActionState, formData: FormData) => {
+      const result = await action(prev, formData);
+      announce(result);
+      return result;
+    },
+    { ok: false },
+  );
 
   return formAction;
 }

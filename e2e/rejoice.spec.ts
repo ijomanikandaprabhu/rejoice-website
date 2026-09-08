@@ -193,6 +193,14 @@ test.describe('Public website', () => {
     await row.getByRole('button', { name: 'Delete enquiry' }).click();
     await page.getByRole('button', { name: 'Continue' }).click();
     await expect(page.getByText(marker)).toHaveCount(0);
+
+    /*
+     * The delete must SAY so. Every other admin action toasts; delete is the
+     * one that cannot be undone, and it was the one saying nothing — the toast
+     * was fired from an effect inside the row being removed, so the component
+     * carrying it unmounted before the effect could run.
+     */
+    await expect(page.getByText('Enquiry deleted.')).toBeVisible();
   });
 });
 
