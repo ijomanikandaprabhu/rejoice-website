@@ -116,10 +116,30 @@ test.describe('Public website', () => {
 
     await page.getByRole('button', { name: contactForm.submitLabel }).click();
 
-    // Exact, not /message sent/i: the rate-limited response reads "Too many
-    // messages sent...", which the loose pattern matched — so a rejected
-    // submission passed here and failed further down instead.
-    await expect(page.getByText('Message sent. We will reply by email.')).toBeVisible();
+    /*
+     * Exact, not /message sent/i: the rate-limited response reads "Too many
+     * messages sent...", which the loose pattern matched — so a rejected
+     * submission passed here and failed further down instead.
+     *
+     * The generous timeout is NOT papering over a slow site, and it is worth
+     * saying why, because Playwright's 5s default sat right on the line and this
+     * test failed intermittently for days while being blamed on cold compiles
+     * and rate limits in turn. Measured locally: 3.7s, 4.5s, 4.9s.
+     *
+     * The cause is structural. In production the route answers before the email
+     * is sent — 0.2s measured live — because the platform keeps the function
+     * alive to finish the send afterwards. No local server offers that, so
+     * `runAfterResponse` deliberately falls back to awaiting Gmail, and the
+     * local response carries the full SMTP round trip that a real visitor never
+     * waits for. The 5s default was therefore timing a code path that does not
+     * exist on the live site.
+     *
+     * This assertion is about the visitor being told their message went through.
+     * The speed of it is measured against the live site, not here.
+     */
+    await expect(page.getByText('Message sent. We will reply by email.')).toBeVisible({
+      timeout: 20_000,
+    });
 
     await login(page);
     await page.goto('/admin/enquiries');

@@ -20,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { SavedToast } from '@/components/admin/SavedToast';
 import { pageSizes } from '@/config/app.config';
 import { cn, formatDate } from '@/lib/utils';
 import {
@@ -31,7 +32,7 @@ import { listPlatforms, listSongsForAdmin, mediaUrl } from '@/features/songs/que
 
 export const dynamic = 'force-dynamic';
 
-type SearchParams = { q?: string; page?: string; perPage?: string };
+type SearchParams = { q?: string; page?: string; perPage?: string; saved?: string };
 
 /**
  * Admin → Songs. The catalogue, as a table.
@@ -64,6 +65,9 @@ export default async function SongsAdminPage({ searchParams }: { searchParams: S
 
   return (
     <>
+      {/* Announces a save that finished with a redirect. */}
+      <SavedToast saved={searchParams.saved} />
+
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Songs</h1>
@@ -192,9 +196,7 @@ export default async function SongsAdminPage({ searchParams }: { searchParams: S
                           {song.artist ?? '—'}
                         </TableCell>
 
-                        <TableCell className="text-muted-foreground">
-                          {song.music ?? '—'}
-                        </TableCell>
+                        <TableCell className="text-muted-foreground">{song.music ?? '—'}</TableCell>
 
                         <TableCell className="whitespace-nowrap text-muted-foreground">
                           {song.releasedAt ? formatDate(song.releasedAt) : '—'}

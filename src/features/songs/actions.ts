@@ -314,7 +314,14 @@ export async function addSongAction(_prev: ActionState, formData: FormData): Pro
    * The success toast is lost to the navigation. The row being there is the
    * confirmation.
    */
-  redirect('/admin/songs');
+  /*
+   * The key travels in the address because a redirect leaves nothing to return:
+   * `redirect` throws, so this action's `ActionState` never reaches the form.
+   * `SavedToast` on the list page reads it and says so. Without it, saving moved
+   * the operator to the list in total silence, which was reported as the save
+   * not working.
+   */
+  redirect('/admin/songs?saved=song-added');
 }
 
 export async function updateSongAction(
@@ -400,7 +407,7 @@ export async function updateSongAction(
   revalidateSongs();
   revalidatePath(`/songs/${existing.slug}`);
 
-  redirect('/admin/songs');
+  redirect('/admin/songs?saved=song-updated');
 }
 
 export async function deleteSongAction(
