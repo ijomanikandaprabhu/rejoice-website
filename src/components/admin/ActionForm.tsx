@@ -1,8 +1,16 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import {
+  createContext,
+  useActionState,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { useFormStatus } from 'react-dom';
 import { toast } from 'sonner';
 
 import {
@@ -117,7 +125,7 @@ export function ActionForm({
    * dialog, which has to close itself afterwards.
    *
    * The result is already tracked here for the toast, so this is a handful of
-   * lines; the alternative is a second `useFormState` in every such dialog,
+   * lines; the alternative is a second `useActionState` in every such dialog,
    * which is how two copies of this logic start.
    */
   onSuccess?: () => void;
@@ -130,7 +138,7 @@ export function ActionForm({
   confirmTitle?: string;
   confirmLabel?: string;
 }) {
-  const [state, formAction] = useFormState(action, { ok: false });
+  const [state, formAction] = useActionState(action, { ok: false });
   const formRef = useRef<HTMLFormElement>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -149,7 +157,7 @@ export function ActionForm({
   /*
    * Action feedback goes to a toast rather than a banner inside the form.
    *
-   * The dependency is `state`, not `state.message`: `useFormState` hands back a
+   * The dependency is `state`, not `state.message`: `useActionState` hands back a
    * fresh object on every submit, so an action that legitimately returns the
    * same message twice still fires twice. Keying on the string would swallow
    * the second one and look like the button had stopped working.
@@ -244,19 +252,19 @@ export function ActionForm({
 }
 
 /**
- * `useFormState` plus the toast, for the one-click actions.
+ * `useActionState` plus the toast, for the one-click actions.
  *
  * Extracted because three places need exactly this — the row buttons, the
  * enquiry bulk bar and the visibility bulk bar — and three copies of a
  * `useEffect` that must depend on `state` rather than `state.message` is three
- * chances to get that subtlety wrong. `useFormState` hands back a fresh object
+ * chances to get that subtlety wrong. `useActionState` hands back a fresh object
  * per submit, so hiding two songs in a row fires twice; keying on the string
  * would swallow the second and look like the button had stopped working.
  */
 export function useActionToast(
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>,
 ) {
-  const [state, formAction] = useFormState(action, { ok: false });
+  const [state, formAction] = useActionState(action, { ok: false });
 
   useEffect(() => {
     if (!state.message) return;
@@ -286,7 +294,7 @@ export function useActionToast(
  *
  * It shares `ActionForm`'s toast behaviour rather than inventing a second one,
  * including the detail that the effect depends on `state` and not
- * `state.message`: `useFormState` returns a fresh object per submit, so hiding
+ * `state.message`: `useActionState` returns a fresh object per submit, so hiding
  * two songs in a row still fires twice instead of looking like the button
  * stopped working.
  */

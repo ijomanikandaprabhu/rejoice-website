@@ -132,7 +132,7 @@ export default async function VideoEditorPage(props: { params: Promise<{ id: str
 
         Why not on <ActionForm>, where it used to be: `updatedAt` changes on
         every successful save, so keying the form itself remounted the very
-        component that owns `useFormState` — throwing away the result before its
+        component that owns `useActionState` — throwing away the result before its
         toast could fire. "Website display details saved." was returned by the
         action every time and never once reached the screen, which is exactly
         what "edit and save not working" looks like from the outside.
