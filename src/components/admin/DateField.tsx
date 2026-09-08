@@ -102,6 +102,17 @@ export function DateField({
             reason. */}
         <PopoverContent className="admin-theme w-auto p-0" align="start">
           <Calendar
+            /*
+             * Transparent, so the calendar does not paint a second, darker box
+             * inside the popover's own panel — `bg-background` (#0C0C0D) sitting
+             * inside `bg-popover` (#1B1B1D) read as a frame nobody asked for.
+             *
+             * The generated component tries to handle this itself with
+             * `[[data-slot=popover-content]_&]:bg-transparent`, but this
+             * project's `popover.tsx` predates shadcn's `data-slot` convention
+             * and sets no such attribute, so that rule never matches.
+             */
+            className="bg-transparent"
             mode="single"
             selected={date}
             /*
