@@ -15,9 +15,10 @@ import { formatDate } from '@/lib/utils';
 
 export const revalidate = 300;
 
-type Params = { params: { videoId: string } };
+type Params = { params: Promise<{ videoId: string }> };
 
-export async function generateMetadata({ params }: Params): Promise<Metadata> {
+export async function generateMetadata(props: Params): Promise<Metadata> {
+  const params = await props.params;
   const video = await getPublicVideoBySlug(params.videoId);
   if (!video) return buildMetadata({ title: 'Video not found', noIndex: true });
 
@@ -41,7 +42,8 @@ function formatDuration(seconds: number | null): string | null {
 }
 
 
-export default async function VideoPage({ params }: Params) {
+export default async function VideoPage(props: Params) {
+  const params = await props.params;
   const video = await getPublicVideoBySlug(params.videoId);
 
   // A hidden video must not be reachable by guessing its URL.

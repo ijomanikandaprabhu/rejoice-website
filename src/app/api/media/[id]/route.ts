@@ -31,7 +31,8 @@ const CACHE_CONTROL = 'public, max-age=31536000, s-maxage=31536000, immutable';
 /** Only what the upload path is allowed to store, echoed back verbatim. */
 const SERVABLE = new Set(['image/webp', 'image/png', 'image/jpeg']);
 
-export async function GET(_request: Request, { params }: { params: { id: string } }) {
+export async function GET(_request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const asset = await prisma.mediaAsset.findUnique({
     where: { id: params.id },
     select: { bytes: true, mimeType: true },

@@ -93,10 +93,10 @@ export async function GET(request: Request) {
 
   const code = searchParams.get('code');
   const state = searchParams.get('state');
-  const expected = cookies().get(youtubeConfig.oauth.stateCookie)?.value;
+  const expected = (await cookies()).get(youtubeConfig.oauth.stateCookie)?.value;
 
   // Consumed either way: a state value must never be reusable.
-  cookies().delete(youtubeConfig.oauth.stateCookie);
+  (await cookies()).delete(youtubeConfig.oauth.stateCookie);
 
   // `<nonce>.<channelId>` — only the nonce is compared; see the authorise route.
   const [nonce, intendedChannel] = (state ?? '').split('.');

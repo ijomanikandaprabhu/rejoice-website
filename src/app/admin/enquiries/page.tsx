@@ -43,11 +43,12 @@ const STATUS_VARIANT = {
   READ: 'secondary',
 } as const;
 
-export default async function EnquiriesPage({
-  searchParams,
-}: {
-  searchParams: { status?: string; page?: string; perPage?: string };
-}) {
+export default async function EnquiriesPage(
+  props: {
+    searchParams: Promise<{ status?: string; page?: string; perPage?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const status = FILTERS.find((f) => f.value === searchParams.status)?.value ?? '';
   const page = Math.max(Number(searchParams.page ?? '1') || 1, 1);
   const take = resolvePerPage(searchParams.perPage, pageSizes.adminEnquiries);

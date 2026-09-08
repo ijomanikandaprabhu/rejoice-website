@@ -41,7 +41,8 @@ type SearchParams = { q?: string; page?: string; perPage?: string; saved?: strin
  * runs to thousands: the old page fetched every song on every visit and had no
  * way to find one.
  */
-export default async function SongsAdminPage({ searchParams }: { searchParams: SearchParams }) {
+export default async function SongsAdminPage(props: { searchParams: Promise<SearchParams> }) {
+  const searchParams = await props.searchParams;
   const page = Math.max(Number(searchParams.page ?? '1') || 1, 1);
   const take = resolvePerPage(searchParams.perPage, pageSizes.adminSongs);
   const q = searchParams.q ?? '';

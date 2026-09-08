@@ -59,11 +59,12 @@ export const metadata = buildMetadata({
  * and prepending needs no state in the player, no scroll-on-mount, and works
  * the same whether or not it was already here.
  */
-export default async function ShortsPage({
-  searchParams,
-}: {
-  searchParams: { v?: string };
-}) {
+export default async function ShortsPage(
+  props: {
+    searchParams: Promise<{ v?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const wanted = (searchParams.v ?? '').trim();
 
   const [newest, opened] = await Promise.all([

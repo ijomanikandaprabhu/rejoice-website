@@ -47,7 +47,7 @@ function DetailRow({
   value,
   href,
 }: {
-  icon: (props: { className?: string }) => JSX.Element;
+  icon: (props: { className?: string }) => React.JSX.Element;
   label: string;
   value: string;
   href?: string;
@@ -105,11 +105,12 @@ function DetailRow({
  * call to action, and two of them in a row is the mistake the About page made
  * before it was fixed.
  */
-export default async function ContactPage({
-  searchParams,
-}: {
-  searchParams: { service?: string };
-}) {
+export default async function ContactPage(
+  props: {
+    searchParams: Promise<{ service?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const [details, social] = await Promise.all([getContactDetails(), getSocialSettings()]);
   const { hero, form, details: detailsCopy, closing } = contactPage;
 

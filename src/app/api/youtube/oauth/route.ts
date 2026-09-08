@@ -49,7 +49,7 @@ export async function GET(request: Request) {
 
   // Only the nonce is stored: the channel hint travels in the URL and must not
   // be what the comparison is made against.
-  cookies().set(youtubeConfig.oauth.stateCookie, nonce, {
+  (await cookies()).set(youtubeConfig.oauth.stateCookie, nonce, {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',

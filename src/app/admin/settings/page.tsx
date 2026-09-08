@@ -65,12 +65,13 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
  * `config/content.config.ts`; the contact details here are the exception,
  * because they change without a deploy.
  */
-export default async function SettingsPage({
-  searchParams,
-}: {
-  // The OAuth callback returns here with the outcome in the query string.
-  searchParams?: { analytics?: string; reason?: string; channelName?: string; mismatch?: string };
-}) {
+export default async function SettingsPage(
+  props: {
+    // The OAuth callback returns here with the outcome in the query string.
+    searchParams?: Promise<{ analytics?: string; reason?: string; channelName?: string; mismatch?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await auth();
 
   const [

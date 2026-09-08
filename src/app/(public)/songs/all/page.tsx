@@ -27,7 +27,8 @@ export const revalidate = 300;
 
 type SearchParams = { q?: string; page?: string };
 
-export function generateMetadata({ searchParams }: { searchParams: SearchParams }) {
+export async function generateMetadata(props: { searchParams: Promise<SearchParams> }) {
+  const searchParams = await props.searchParams;
   return listingMetadata({
     title: 'All songs',
     description: 'Every release from Rejoice Gospel Communications, and where to hear it.',
@@ -37,7 +38,8 @@ export function generateMetadata({ searchParams }: { searchParams: SearchParams 
   });
 }
 
-export default async function AllSongsPage({ searchParams }: { searchParams: SearchParams }) {
+export default async function AllSongsPage(props: { searchParams: Promise<SearchParams> }) {
+  const searchParams = await props.searchParams;
   const query = (searchParams.q ?? '').trim();
   const page = Math.max(Number(searchParams.page ?? '1') || 1, 1);
   const take = pageSizes.songsAll;

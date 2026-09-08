@@ -24,9 +24,10 @@ import { formatDate } from '@/lib/utils';
 
 export const revalidate = 300;
 
-type Params = { params: { slug: string } };
+type Params = { params: Promise<{ slug: string }> };
 
-export async function generateMetadata({ params }: Params) {
+export async function generateMetadata(props: Params) {
+  const params = await props.params;
   const song = await getPublicSong(params.slug);
   if (!song) return buildMetadata({ title: 'Songs', path: '/songs' });
 
@@ -42,7 +43,8 @@ export async function generateMetadata({ params }: Params) {
   });
 }
 
-export default async function SongPage({ params }: Params) {
+export default async function SongPage(props: Params) {
+  const params = await props.params;
   const song = await getPublicSong(params.slug);
 
   if (!song) {

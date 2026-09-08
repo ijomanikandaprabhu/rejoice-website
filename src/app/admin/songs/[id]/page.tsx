@@ -15,7 +15,8 @@ export const maxDuration = 60;
  * The same `SongForm` the add page uses, so the two cannot drift into
  * disagreeing about what a song is.
  */
-export default async function EditSongPage({ params }: { params: { id: string } }) {
+export default async function EditSongPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const [song, platforms] = await Promise.all([getSongForAdmin(params.id), listPlatforms()]);
 
   if (!song) notFound();

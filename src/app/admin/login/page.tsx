@@ -28,7 +28,8 @@ export const metadata: Metadata = {
  * a form pinned high with a long empty space under it reads worse than a
  * centred one. The backdrop compensates with a heavier scrim at those widths.
  */
-export default function LoginPage({ searchParams }: { searchParams: { from?: string } }) {
+export default async function LoginPage(props: { searchParams: Promise<{ from?: string }> }) {
+  const searchParams = await props.searchParams;
   return (
     <div className="relative flex min-h-screen justify-center px-4 py-10 max-sm:items-center sm:pt-[9vh] lg:pt-[7vh]">
       <LoginBackdrop />

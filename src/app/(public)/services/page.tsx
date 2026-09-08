@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
  * from the shared kit in `components/site/iso`. Keyed by the service `id`, so an
  * offering with no scene yet falls back to the placeholder panel below.
  */
-const SCENES: Record<string, (props: { className?: string }) => JSX.Element> = {
+const SCENES: Record<string, (props: { className?: string }) => React.JSX.Element> = {
   'audio-production': IsoAudioCity,
   'video-production': IsoVideoCity,
   'ai-audio-production': IsoAiAudioCity,
@@ -48,7 +48,7 @@ function MediaPanel({
   scene: Scene,
 }: {
   image?: string;
-  scene?: (props: { className?: string }) => JSX.Element;
+  scene?: (props: { className?: string }) => React.JSX.Element;
 }) {
   return (
     <div className="relative border-b border-white/[0.08] px-6 pb-8 pt-8 md:px-8">

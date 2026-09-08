@@ -23,7 +23,7 @@ export type ActionState = { ok: boolean; message?: string; errors?: Record<strin
 
 /** Administrator login (section 8). Rate-limited per IP (section 37). */
 export async function loginAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const ip = clientIpFrom(headers());
+  const ip = clientIpFrom(await headers());
   const key = `login:${ip}`;
   const limit = rateLimit(key, rateLimits.login.limit, rateLimits.login.windowMs);
 

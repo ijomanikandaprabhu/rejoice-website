@@ -190,7 +190,7 @@ export function AboutTimeline() {
 /* ------------------------------------------------------------------ grid */
 
 /** The four scenes already built for the Services page, reused as card art. */
-const CARD_SCENES: Record<string, (props: { className?: string }) => JSX.Element> = {
+const CARD_SCENES: Record<string, (props: { className?: string }) => React.JSX.Element> = {
   worship: IsoAudioCity,
   kids: IsoAiVideoCity,
   film: IsoVideoCity,

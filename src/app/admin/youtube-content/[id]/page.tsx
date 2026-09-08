@@ -54,7 +54,8 @@ function Toggle({
   );
 }
 
-export default async function VideoEditorPage({ params }: { params: { id: string } }) {
+export default async function VideoEditorPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const video = await prisma.youTubeVideo.findUnique({
     where: { id: params.id },
     include: { channel: { select: { name: true } } },

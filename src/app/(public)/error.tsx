@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useFaultReport } from '@/components/common/useFaultReport';
 
 /**
@@ -41,9 +43,14 @@ export default function PublicError({
         <button type="button" onClick={reset} className="btn-primary">
           Try again
         </button>
-        <a href="/" className="btn-secondary">
+        {/*
+         * `Link`, not a bare `<a>`. This is an internal route, and a full page
+         * load is the slow way home — from an error screen especially, where the
+         * visitor is already waiting.
+         */}
+        <Link href="/" className="btn-secondary">
           Back to home
-        </a>
+        </Link>
       </div>
 
       {error.digest ? (

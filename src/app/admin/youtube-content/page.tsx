@@ -58,7 +58,8 @@ const FILTERS = [
   { value: 'ai', label: 'AI disclosed' },
 ];
 
-export default async function VideoContentPage({ searchParams }: { searchParams: SearchParams }) {
+export default async function VideoContentPage(props: { searchParams: Promise<SearchParams> }) {
+  const searchParams = await props.searchParams;
   const page = Math.max(Number(searchParams.page ?? '1') || 1, 1);
   const take = resolvePerPage(searchParams.perPage, pageSizes.adminVideos);
 

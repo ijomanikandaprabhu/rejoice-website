@@ -7,9 +7,11 @@ import { breadcrumbJsonLd, buildMetadata, listingMetadata } from '@/lib/seo';
 
 export const revalidate = 300;
 
-type Params = { params: { id: string }; searchParams: { page?: string; q?: string } };
+type Params = { params: Promise<{ id: string }>; searchParams: Promise<{ page?: string; q?: string }> };
 
-export async function generateMetadata({ params, searchParams }: Params) {
+export async function generateMetadata(props: Params) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const channel = await getPublicChannelBySlug(params.id);
   if (!channel) return buildMetadata({ title: 'Channel', path: `/creations/${params.id}` });
 
@@ -37,7 +39,9 @@ export async function generateMetadata({ params, searchParams }: Params) {
  * and paginated on it, it simply now asks for 30 rows instead of the Music
  * page's 12.
  */
-export default async function ChannelPage({ params, searchParams }: Params) {
+export default async function ChannelPage(props: Params) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const page = Math.max(Number(searchParams.page ?? '1') || 1, 1);
   const q = searchParams.q?.trim() ?? '';
 
