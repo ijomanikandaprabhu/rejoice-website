@@ -1,9 +1,15 @@
-import { Bell, Mail, RefreshCw } from 'lucide-react';
+import { Bell, Mail, RefreshCw, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
-import { ActionForm, SubmitButton } from '@/components/admin/ActionForm';
+import { ActionButton, ActionForm, SubmitButton } from '@/components/admin/ActionForm';
+import { BulkProvider, RowCheckbox, SelectAllCheckbox } from '@/components/admin/BulkSelection';
+import { NotificationBulkBar } from '@/components/admin/NotificationBulkBar';
 import { Panel } from '@/components/admin/Panels';
-import { markAllReadAction } from '@/features/notifications/actions';
+import {
+  bulkDeleteNotificationsAction,
+  deleteNotificationAction,
+  markAllReadAction,
+} from '@/features/notifications/actions';
 import { listNotifications, unreadCount } from '@/features/notifications/queries';
 import { NOTIFICATION_TTL_DAYS } from '@/features/notifications/notify';
 import { cn, externalLinkProps, formatDateTime } from '@/lib/utils';
@@ -29,7 +35,12 @@ export default async function NotificationsPage() {
   const [unread, items] = await Promise.all([unreadCount(), listNotifications(100)]);
 
   return (
-    <>
+    /*
+     * The provider wraps the HEADER as well as the list: "Select all" lives up
+     * beside "Mark all read", and a selection component outside the provider
+     * throws rather than degrading — which is exactly what it did.
+     */
+    <BulkProvider>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Notifications</h1>
@@ -39,14 +50,25 @@ export default async function NotificationsPage() {
           </p>
         </div>
 
-        {unread > 0 ? (
-          <ActionForm action={markAllReadAction}>
-            <SubmitButton variant="outline" size="sm" pendingLabel="Marking…">
-              Mark all read
-            </SubmitButton>
-          </ActionForm>
-        ) : null}
+        <div className="flex items-center gap-4">
+          {items.length > 0 ? (
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <SelectAllCheckbox ids={items.map((item) => item.id)} />
+              Select all
+            </label>
+          ) : null}
+
+          {unread > 0 ? (
+            <ActionForm action={markAllReadAction}>
+              <SubmitButton variant="outline" size="sm" pendingLabel="Marking…">
+                Mark all read
+              </SubmitButton>
+            </ActionForm>
+          ) : null}
+        </div>
       </div>
+
+      <NotificationBulkBar deleteAction={bulkDeleteNotificationsAction} />
 
       <Panel>
         {items.length === 0 ? (
@@ -102,25 +124,48 @@ export default async function NotificationsPage() {
                 </div>
               );
 
+              /*
+               * The link wraps the TEXT, not the row. It used to wrap
+               * everything, and a checkbox or a button inside an anchor is both
+               * invalid HTML and unusable — every click would navigate instead
+               * of ticking or deleting. So the three sit side by side and only
+               * the middle one is a link.
+               */
               return (
-                <li key={item.id}>
+                <li key={item.id} className="flex items-center gap-2 px-2">
+                  <RowCheckbox id={item.id} />
+
                   {item.href ? (
                     <Link
                       href={item.href}
-                      className="block rounded-sm2 px-2 transition-colors hover:bg-white/[0.04]"
+                      className="min-w-0 flex-1 rounded-sm2 px-1 transition-colors hover:bg-white/[0.04]"
                       {...externalLinkProps(item.href)}
                     >
                       {inner}
                     </Link>
                   ) : (
-                    <div className="px-2">{inner}</div>
+                    <div className="min-w-0 flex-1 px-1">{inner}</div>
                   )}
+
+                  {/* No confirmation for one: it is a note, it points at
+                      something this does not touch, and it would have cleared
+                      itself within the week anyway. */}
+                  <ActionButton
+                    action={deleteNotificationAction}
+                    hiddenFields={{ id: item.id }}
+                    variant="ghost"
+                    size="sm"
+                    pendingLabel="…"
+                    label="Delete notification"
+                  >
+                    <Trash2 className="size-4 text-destructive" />
+                  </ActionButton>
                 </li>
               );
             })}
           </ul>
         )}
       </Panel>
-    </>
+    </BulkProvider>
   );
 }
