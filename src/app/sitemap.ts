@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next';
 
 import { publicNav } from '@/config/app.config';
 import { listPublicSongs } from '@/features/songs/queries';
-import { getPublicVideoIds } from '@/features/youtube/queries';
+import { getChannelsWithVideos, getPublicVideoIds } from '@/features/youtube/queries';
 import { absoluteUrl } from '@/lib/seo';
 
 /**
@@ -82,6 +82,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: now,
       changeFrequency: 'yearly',
       priority: 0.3,
+    });
+  }
+
+  /*
+   * The channel pages, and the same trap once more: `/creations` is in
+   * `publicNav`, the channels beneath it are not, and nothing else adds them.
+   * Every one was linked from `/creations`, returned 200 and carried its own
+   * canonical and breadcrumbs while appearing in none of the sitemap's 1,536
+   * entries.
+   *
+   * `getChannelsWithVideos` rather than a query of its own: it already returns
+   * `handle ?? id`, which is the exact expression the channel page uses for its
+   * canonical, so the two cannot drift into disagreeing about the address. Zero
+   * videos per channel because only the slug is wanted here — the cards it
+   * would otherwise build are the expensive half.
+   */
+  for (const channel of await getChannelsWithVideos(0)) {
+    pages.push({
+      url: absoluteUrl(`/creations/${channel.slug}`),
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.7,
     });
   }
 
