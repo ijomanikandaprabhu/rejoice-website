@@ -107,15 +107,15 @@ export function SongGrid({
               </span>
             </span>
 
+            {/* The TITLE alone. The artist sat beneath it and is deliberately
+                gone: the cover art already carries the artist's name and face,
+                so the line repeated in words what the picture above it was
+                already saying, and it made every card two lines tall for it.
+                The credit is still on the song's own page. */}
             <span className="mt-3 block">
               <span className="block truncate text-sm font-medium text-site-fg">
                 {song.title}
               </span>
-              {song.artist ? (
-                <span className="mt-0.5 block truncate text-xs text-site-muted">
-                  {song.artist}
-                </span>
-              ) : null}
             </span>
           </Link>
         </li>

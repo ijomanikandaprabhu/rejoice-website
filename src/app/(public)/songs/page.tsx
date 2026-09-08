@@ -196,10 +196,13 @@ export default async function MusicPage() {
           </div>
         ) : null}
 
-        <div className="mt-12 max-w-2xl">
-          <p className="text-body leading-[1.7] text-site-fg">{musicPage.closing}</p>
-          <p className="mt-3 text-body leading-[1.7] text-site-muted">{musicPage.line}</p>
-        </div>
+        {/* The closing pair that sat here is gone. "Songs that inspire faith…"
+            was the SECOND printing of that same sentence on this page — the
+            hero above already carries it — and "Open any release to find it on
+            your platform of choice." explained a grid of covers that is plainly
+            already clickable. `musicPage.closing` is now unused; the string is
+            left in the config rather than deleted, so putting the line back is
+            a one-line change. */}
       </section>
 
       <div className="container-page pb-14 pt-8 sm:pb-20">
