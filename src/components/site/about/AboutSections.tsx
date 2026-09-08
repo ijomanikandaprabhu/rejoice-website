@@ -230,13 +230,17 @@ export function AboutGrid() {
               key={card.id}
               className="overflow-hidden rounded-[20px] border border-white/10 bg-site-surface"
             >
-              {/* 5:4 to match the card artwork, which is 1402x1122. At the
-                  16:10 this used to be, `object-cover` cut ~22% of each
-                  image's height — taking the signage off the top and the
-                  ground floors off the bottom. `object-cover` stays: with the
-                  frame matched it has nothing to crop, and it still guards
-                  against a future image of a different shape leaving bars. */}
-              <div className="relative aspect-[5/4] overflow-hidden bg-site-bg">
+              {/* SQUARE, to match the card artwork, which is 1254x1254.
+                  THIS RATIO TRACKS THE ARTWORK — it was 16:10, then 5:4 for a
+                  1402x1122 set, and each time the frame and the files drifted
+                  apart `object-cover` quietly ate the difference. At 5:4 against
+                  square files that was 20% of every image's height, taking the
+                  raised hands off the worship photo and the back child's head
+                  off the story one. If the pictures are ever replaced again,
+                  check their shape and change this with them.
+                  `object-cover` stays: matched, it has nothing to crop, and it
+                  still guards against an odd-sized file leaving bars. */}
+              <div className="relative aspect-square overflow-hidden bg-site-bg">
                 {card.image ? (
                   <Image
                     src={card.image}
