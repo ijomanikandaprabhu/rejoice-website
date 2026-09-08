@@ -132,8 +132,12 @@ export default async function SongPage({ params }: Params) {
               * the label's website. An empty line says less and means more.
               */}
             {/*
-              * The release date when there is one, otherwise the label's short
-              * name.
+              * The label's name, and the release date beside it when there is
+              * one.
+              *
+              * These used to be EITHER/OR, and entering the first release date
+              * made "Rejoice" vanish from above the title — the brand quietly
+              * traded away for a date, which is not a swap anyone asked for.
               *
               * "Rejoice", not "Rejoice Gospel Communications": the full name
               * ran wider than the title it sat above, and a visitor is already
@@ -141,11 +145,19 @@ export default async function SongPage({ params }: Params) {
               * full name still appears in the page's search description, where
               * it is doing real work.
               *
+              * STACKED, not joined by a separator. They sat on one line as
+              * "Rejoice · 2 September 2026" first; on two the date reads as its
+              * own fact rather than as a continuation of the label's name, and
+              * there is no punctuation left to strand when a song has no date.
+              *
               * The gap belongs to this line, not to the heading. As `mt-5` on
               * the title it would survive this being absent.
               */}
             <p className="t-label mb-5 text-site-muted">
-              {song.releasedAt ? formatDate(song.releasedAt) : 'Rejoice'}
+              Rejoice
+              {song.releasedAt ? (
+                <span className="mt-1 block">{formatDate(song.releasedAt)}</span>
+              ) : null}
             </p>
 
             <h1 className="t-h1">{song.title}</h1>
