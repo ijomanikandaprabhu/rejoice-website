@@ -98,53 +98,53 @@ export default async function MusicPage() {
          * the full width, exactly as it does on a phone.
          */}
         {/*
-         * A band, not the whole viewport, and only this element is inside it.
+         * THE WINDOW'S OWN RIGHT EDGE, at every width. Do not cap it.
          *
-         * Pinned to the window's own right edge the hand kept drifting away
-         * from the words as the monitor got wider — at 1920 it ended up with
-         * several hundred pixels of empty black between the copy and the
-         * phone, which reads as two unrelated halves rather than one scene.
-         * Capping the band at 100rem keeps them in the same picture. Below
-         * 1600px the band IS the viewport, so nothing changes there.
+         * This was briefly bounded to a centred 100rem band, on the reasoning
+         * that the phone drifts away from the copy on an ultra-wide monitor.
+         * That was wrong twice over. Measured against the live site, the cap put
+         * a band of genuinely empty black to the RIGHT of the picture — 55px at
+         * 1700, 205px at 2000 — which is the fault it was meant to prevent,
+         * arriving on the other side. And the space it was protecting was never
+         * empty: `.music-light` covers the whole section, so what sits between
+         * the words and the phone is the lit ramp this hero is built around.
+         *
+         * Below 1600px a cap does nothing at all, which is exactly why it
+         * survived review — every width checked was under it.
          */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-[1] mx-auto w-full max-w-[100rem]"
-        >
-          {musicPage.heroImage ? (
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute -bottom-[10%] right-0 hidden h-[118%] w-[46%] lg:block"
-            >
-              <Image
-                src={musicPage.heroImage}
-                alt=""
-                fill
-                priority
-                sizes="(min-width: 1024px) 46vw, 0px"
-                /*
-                 * `object-right-bottom`, not `object-bottom`, and the box sits at
-                 * `right-0` rather than pushed past the edge.
-                 *
-                 * The image is portrait (1024x1536) inside a box whose shape
-                 * follows the window, so on a WIDE, SHORT monitor the box is far
-                 * wider than the picture and `contain` centred it — leaving the
-                 * hand floating in the middle of the right half with a band of
-                 * empty black beside it. Measured at 1920x720: an 879px box
-                 * holding a 385px image, so roughly 250px of nothing on either
-                 * side, and the box itself hanging 76px past the section.
-                 *
-                 * Anchoring the picture to its box's right edge, and the box to
-                 * the section's, makes the hand reach in from the edge at every
-                 * window shape. On a tall window the box is narrower than the
-                 * picture's aspect, so the width is the limit, there is no
-                 * horizontal slack, and this changes nothing.
-                 */
-                className="object-contain object-right-bottom"
-              />
-            </div>
-          ) : null}
-        </div>
+        {musicPage.heroImage ? (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -bottom-[10%] right-0 z-[1] hidden h-[118%] w-[46%] lg:block"
+          >
+            <Image
+              src={musicPage.heroImage}
+              alt=""
+              fill
+              priority
+              sizes="(min-width: 1024px) 46vw, 0px"
+              /*
+               * `object-right-bottom`, not `object-bottom`, and the box sits at
+               * `right-0` rather than pushed past the edge.
+               *
+               * The image is portrait (1024x1536) inside a box whose shape
+               * follows the window, so on a WIDE, SHORT monitor the box is far
+               * wider than the picture and `contain` centred it — leaving the
+               * hand floating in the middle of the right half with a band of
+               * empty black beside it. Measured at 1920x720: an 879px box
+               * holding a 385px image, so roughly 250px of nothing on either
+               * side, and the box itself hanging 76px past the section.
+               *
+               * Anchoring the picture to its box's right edge, and the box to
+               * the section's, makes the hand reach in from the edge at every
+               * window shape. On a tall window the box is narrower than the
+               * picture's aspect, so the width is the limit, there is no
+               * horizontal slack, and this changes nothing.
+               */
+              className="object-contain object-right-bottom"
+            />
+          </div>
+        ) : null}
 
         <div className="container-page relative z-10 flex min-h-[68vh] flex-col justify-center py-14 sm:py-16">
           <div>
