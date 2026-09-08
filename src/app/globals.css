@@ -246,6 +246,52 @@
     outline-offset: 2px;
   }
 
+  /*
+   * ...except on popup surfaces, where a 2px lime ring is the wrong shape for
+   * the job.
+   *
+   * Radix moves focus into a menu the moment it opens, so the rule above drew a
+   * box around the ENTIRE dropdown, and another around whichever row was
+   * current — which from the outside reads as stray green lines across the
+   * panel rather than as "you are here". A panel that has just appeared does
+   * not need a ring to announce itself.
+   *
+   * NOT a tidy-up. The rows below get a replacement indicator, and removing one
+   * without the other leaves a keyboard user with nothing.
+   */
+  .admin-theme [role='menu']:focus-visible,
+  .admin-theme [role='listbox']:focus-visible,
+  .admin-theme [role='dialog']:focus-visible,
+  .admin-theme [role='menuitem']:focus-visible,
+  .admin-theme [role='option']:focus-visible {
+    outline: none;
+  }
+
+  /*
+   * The replacement, and the reason it is a bar rather than a background.
+   *
+   * shadcn marks the current row with `focus:bg-accent`. Measured in the
+   * running admin, that is rgb(35,35,36) on an rgb(27,27,29) panel — 1.10:1,
+   * which is no indicator at all. A focus indicator wants 3:1, and reaching
+   * that with background alone needs about #666668: a heavy grey slab across
+   * every row you pass.
+   *
+   * An indicator is allowed to be one edge instead, so the contrast is carried
+   * by a 2px lime bar (roughly 15:1 against this panel) and the background lift
+   * is left free to be subtle — enough to read as a row, not enough to shout.
+   *
+   * `:focus` as well as `[data-highlighted]`: Radix sets the attribute, but the
+   * two disagree in enough edge cases that pairing them is cheaper than finding
+   * out which.
+   */
+  .admin-theme [role='menuitem'][data-highlighted],
+  .admin-theme [role='option'][data-highlighted],
+  .admin-theme [role='menuitem']:focus,
+  .admin-theme [role='option']:focus {
+    background-color: rgba(255, 255, 255, 0.06);
+    box-shadow: inset 2px 0 0 theme('colors.panel.accent');
+  }
+
   ::selection {
     background: theme('colors.site.accent');
     color: theme('colors.site.fg');
@@ -583,7 +629,11 @@
    * glass box-shadow did not apply at all. Two classes is 0-2-0 and settles it.
    */
   .admin-theme .admin-glass-field {
-    background: linear-gradient(145deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.025) 100%);
+    background: linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.07) 0%,
+      rgba(255, 255, 255, 0.025) 100%
+    );
     border: 1px solid rgba(255, 255, 255, 0.14);
     box-shadow:
       0 10px 30px -10px rgba(0, 0, 0, 0.6),
@@ -796,7 +846,11 @@
    * page. Everything below is written against the public site's own colours.
    */
   .footer-glass-pill {
-    background: linear-gradient(145deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.015) 100%);
+    background: linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.05) 0%,
+      rgba(255, 255, 255, 0.015) 100%
+    );
     border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow:
       0 10px 30px -10px rgba(0, 0, 0, 0.6),
@@ -807,7 +861,11 @@
   }
 
   .footer-glass-pill:hover {
-    background: linear-gradient(145deg, rgba(255, 109, 41, 0.14) 0%, rgba(255, 255, 255, 0.03) 100%);
+    background: linear-gradient(
+      145deg,
+      rgba(255, 109, 41, 0.14) 0%,
+      rgba(255, 255, 255, 0.03) 100%
+    );
     border-color: rgba(255, 109, 41, 0.45);
     box-shadow:
       0 20px 40px -10px rgba(0, 0, 0, 0.7),
@@ -942,7 +1000,7 @@
        * The rim does more work than any other value here. A circle on a dark
        * ground reads by its edge, and at 0.07 there was no edge to read.
        */
-      inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+        inset 0 0 0 1px rgba(255, 255, 255, 0.2);
 
     /*
      * 24 seconds a turn — slow enough that you notice only if you look, which
@@ -1047,7 +1105,6 @@
     animation-play-state: running;
   }
 
-
   /* Faint rule grid, faded out top and bottom. */
   .footer-bg-grid {
     background-size: 60px 60px;
@@ -1109,11 +1166,7 @@
      * sinks further, and the media query below explains why.
      */
     bottom: 0;
-    background: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.16) 13%,
-      rgba(255, 255, 255, 0) 100%
-    );
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 13%, rgba(255, 255, 255, 0) 100%);
     background-repeat: no-repeat;
     -webkit-background-clip: text;
     background-clip: text;
@@ -1493,7 +1546,12 @@
  * lights the letterforms themselves instead of tracing an outline over them.
  */
 .spot-layer {
-  -webkit-mask-image: radial-gradient(closest-side, #000 0%, rgba(0, 0, 0, 0.55) 45%, transparent 100%);
+  -webkit-mask-image: radial-gradient(
+    closest-side,
+    #000 0%,
+    rgba(0, 0, 0, 0.55) 45%,
+    transparent 100%
+  );
   mask-image: radial-gradient(closest-side, #000 0%, rgba(0, 0, 0, 0.55) 45%, transparent 100%);
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
@@ -1536,5 +1594,7 @@
   animation: none;
   -webkit-mask-position: var(--spot-x, 50%) var(--spot-y, 50%);
   mask-position: var(--spot-x, 50%) var(--spot-y, 50%);
-  transition: -webkit-mask-position 0.18s ease-out, mask-position 0.18s ease-out;
+  transition:
+    -webkit-mask-position 0.18s ease-out,
+    mask-position 0.18s ease-out;
 }
