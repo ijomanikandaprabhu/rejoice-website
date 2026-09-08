@@ -1,5 +1,6 @@
 'use client';
 
+import { motion, useReducedMotion } from 'framer-motion';
 import { ExternalLink, LogOut, Search } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -17,6 +18,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { NotificationBell } from '@/components/admin/NotificationBell';
 import { adminNav } from '@/config/app.config';
 import type { NotificationRow } from '@/features/notifications/queries';
+import { pillTransition } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
 /**
@@ -43,9 +45,32 @@ export function AdminTopBar({
   markAllRead: () => Promise<void>;
 }) {
   const pathname = usePathname();
+  const reduce = useReducedMotion();
 
   const isActive = (href: string) =>
     href === '/admin' ? pathname === '/admin' : pathname.startsWith(href);
+
+  /*
+   * The active background, as a sibling behind the label rather than the link's
+   * own `bg-*`. Framer can then slide ONE element between nav items instead of
+   * one pill blinking off while another blinks on.
+   *
+   * `layoutId` differs per nav because BOTH navs are always mounted — `hidden`
+   * and `lg:hidden` only toggle `display`. Sharing an id would make Framer treat
+   * them as the same element and animate the pill between the two rows, through
+   * the zero-size rect that a `display: none` node measures as.
+   *
+   * Reduced motion is checked in JS on purpose: the global CSS rule cannot see a
+   * JS-driven animation. Duration 0 still places the pill correctly.
+   */
+  const pill = (id: string) => (
+    <motion.span
+      layoutId={id}
+      aria-hidden
+      className="absolute inset-0 rounded-pill bg-panel-alt"
+      transition={reduce ? { duration: 0 } : pillTransition}
+    />
+  );
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-panel-bg/90 backdrop-blur-xl">
@@ -68,13 +93,12 @@ export function AdminTopBar({
               href={item.href}
               aria-current={isActive(item.href) ? 'page' : undefined}
               className={cn(
-                'rounded-pill px-3.5 py-2 text-sm transition-colors duration-200',
-                isActive(item.href)
-                  ? 'bg-panel-alt text-panel-fg'
-                  : 'text-panel-muted hover:text-panel-fg',
+                'relative rounded-pill px-3.5 py-2 text-sm transition-colors duration-200',
+                isActive(item.href) ? 'text-panel-fg' : 'text-panel-muted hover:text-panel-fg',
               )}
             >
-              {item.label}
+              {isActive(item.href) && pill('admin-nav-pill-lg')}
+              <span className="relative">{item.label}</span>
             </Link>
           ))}
         </nav>
@@ -201,13 +225,12 @@ export function AdminTopBar({
             href={item.href}
             aria-current={isActive(item.href) ? 'page' : undefined}
             className={cn(
-              'shrink-0 rounded-pill px-3.5 py-1.5 text-sm transition-colors',
-              isActive(item.href)
-                ? 'bg-panel-alt text-panel-fg'
-                : 'text-panel-muted hover:text-panel-fg',
+              'relative shrink-0 rounded-pill px-3.5 py-1.5 text-sm transition-colors',
+              isActive(item.href) ? 'text-panel-fg' : 'text-panel-muted hover:text-panel-fg',
             )}
           >
-            {item.label}
+            {isActive(item.href) && pill('admin-nav-pill-sm')}
+            <span className="relative">{item.label}</span>
           </Link>
         ))}
       </nav>

@@ -31,7 +31,9 @@ function AdminOpeningScreen() {
       <AdminLoader />
       <noscript
         dangerouslySetInnerHTML={{
-          __html: '<style>[data-admin-loader]{display:none!important}</style>',
+          __html:
+            '<style>[data-admin-loader]{display:none!important}' +
+            '[data-admin-screen]{opacity:1!important;transform:none!important}</style>',
         }}
       />
     </>
@@ -87,23 +89,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         markAllRead={markAllReadAction}
       />
       {/*
-       * `flex flex-col gap-5`, not `space-y-5`.
-       *
-       * `space-y-*` compiles to `> :not([hidden]) ~ :not([hidden])` — a DIRECT
-       * CHILD selector. The Settings screen wraps several cards in
-       * `<ActionForm className="contents">` so one form can cover more than one
-       * card, and `display: contents` removes the form's box, which takes those
-       * cards out of that selector's reach. Measured: every card inside such a
-       * form had `margin-top: 0px` while its siblings had 20px, so three cards
-       * sat flush against the one above.
-       *
-       * Flex `gap` fixes it at the root: `display: contents` promotes those
-       * grandchildren to flex items of this element, so they are spaced like any
-       * other card. A margin utility cannot reach them at all.
+       * The flex column that spaces these cards lives on `AdminScreen`, one
+       * level down, NOT here — see the long note in that component. It is load
+       * bearing: the Settings screen relies on being a direct child of whatever
+       * carries the `gap`, and this element is no longer that.
        */}
-      <main className="mx-auto flex w-full max-w-[86rem] flex-col gap-5 px-4 py-6 sm:px-6">
-        {children}
-      </main>
+      <main className="mx-auto w-full max-w-[86rem] px-4 py-6 sm:px-6">{children}</main>
       <AdminToaster />
       {/*
        * In the LAYOUT rather than on the dashboard, so it fires whichever admin
