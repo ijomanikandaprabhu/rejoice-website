@@ -2,7 +2,6 @@
 
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-import { useInView } from 'framer-motion';
 import { useEffect, useRef } from 'react';
 
 import { contactPage } from '@/config/content.config';
@@ -29,31 +28,9 @@ import { contactPage } from '@/config/content.config';
  */
 export function ContactMap({ address }: { address: string }) {
   const container = useRef<HTMLDivElement>(null);
-  const wrapper = useRef<HTMLDivElement>(null);
   const { lat, lng, zoom } = contactPage.map;
 
-  /*
-   * Nothing below is fetched until the map is nearly on screen.
-   *
-   * MapLibre is ~1.5 MB — the single heaviest thing the site serves, and more
-   * than the rest of this page put together. It sits below the hero, the
-   * enquiry form and the contact details, so a visitor who came here to send an
-   * enquiry was paying for a map they had not scrolled to and might never see.
-   *
-   * The 200px margin is the point: loading starts before the map is visible, so
-   * it is already drawing by the time it is reached rather than appearing late.
-   * Same hook and same reasoning as `RailAutoScroll`.
-   *
-   * `once` matters as much as the margin. Without it this goes false again on
-   * the way past, the effect re-runs, and the cleanup below tears the map down
-   * — so it would rebuild and re-download every time it left the viewport,
-   * which is worse than never having deferred it. With `once` the value latches
-   * true on first sight and the map is built exactly once.
-   */
-  const nearlyVisible = useInView(wrapper, { margin: '200px 0px', once: true });
-
   useEffect(() => {
-    if (!nearlyVisible) return;
     if (!container.current) return;
 
     let map: import('maplibre-gl').Map | undefined;
@@ -152,22 +129,18 @@ export function ContactMap({ address }: { address: string }) {
       cancelled = true;
       map?.remove();
     };
-  }, [lat, lng, zoom, nearlyVisible]);
+  }, [lat, lng, zoom]);
 
   return (
     /* No border, no fill, no rounding: the canvas fades out at its edges
        instead (see `.map-fade` in globals.css), and an outline would draw back
        the rectangle the fade exists to remove. */
-    <div ref={wrapper} className="map-fade relative">
-      {/* The height is fixed whether or not the map has arrived, so deferring
-          it moves nothing on the page. `bg-white/5` fills the reserved box in
-          the meantime: without it the wait reads as a hole rather than as a
-          panel about to be drawn. */}
+    <div className="map-fade relative">
       <div
         ref={container}
         role="img"
         aria-label={`Map showing Rejoice Gospel Communications at ${address}`}
-        className="h-[340px] w-full bg-white/5 sm:h-[460px]"
+        className="h-[340px] w-full sm:h-[460px]"
       />
 
       {/* Directions still belong to a mapping app, so the link out stays. It
