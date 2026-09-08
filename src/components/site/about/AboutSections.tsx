@@ -221,7 +221,12 @@ export function AboutGrid() {
         </div>
       </div>
 
-      <div className="mt-14 grid gap-6 sm:grid-cols-2">
+      {/* All four across on a wide screen. At two columns the artwork is square
+          and half the container wide, which made each card taller than the copy
+          it carries and pushed the fourth one well below the fold. Four keeps
+          the set readable as one row; `sm` stays at two, because a quarter of a
+          tablet is narrower than the caption underneath it. */}
+      <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((card) => {
           const Scene = CARD_SCENES[card.id];
 
