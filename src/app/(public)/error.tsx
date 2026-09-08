@@ -1,10 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
-
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('public-error');
+import { useFaultReport } from '@/components/common/useFaultReport';
 
 /**
  * Error boundary for the public site.
@@ -25,17 +21,20 @@ export default function PublicError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    log.error('Unhandled error on a public page', error);
-  }, [error]);
+  /*
+   * Reports to the server as well as the console, so a page that starts
+   * failing overnight sends an email rather than waiting for somebody to
+   * mention it. See `useFaultReport`.
+   */
+  useFaultReport('public-page', error);
 
   return (
     <div className="container-page flex min-h-[70vh] flex-col items-center justify-center py-24 text-center">
       <p className="t-label">Something went wrong</p>
       <h1 className="t-h1 mt-5">This page could not be loaded</h1>
       <p className="mt-4 max-w-md text-body leading-[1.7] text-site-muted">
-        The problem is on our side, not yours. Try again. If it keeps happening, please get in
-        touch and we will look into it.
+        The problem is on our side, not yours. Try again. If it keeps happening, please get in touch
+        and we will look into it.
       </p>
 
       <div className="mt-9 flex flex-wrap items-center justify-center gap-3">

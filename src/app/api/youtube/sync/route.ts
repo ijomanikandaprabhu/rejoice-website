@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { sweepUnsentEnquiries } from '@/features/enquiries/notify';
+import { reportFault } from '@/features/monitoring/report';
 
 import { isYouTubeConfigured, youtubeConfig } from '@/config/youtube.config';
 import { clearOldNotifications } from '@/features/notifications/notify';
@@ -51,6 +52,11 @@ async function runSync(request: Request) {
     await sweepUnsentEnquiries();
   } catch (error) {
     log.error('Enquiry sweep failed', error);
+    await reportFault({
+      scope: 'enquiry-sweep',
+      message: 'The nightly retry of unsent enquiry notifications failed.',
+      error,
+    });
   }
 
   if (!isYouTubeConfigured()) {

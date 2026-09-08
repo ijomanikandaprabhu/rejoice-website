@@ -1,12 +1,8 @@
 'use client';
 
 import { AlertTriangle } from 'lucide-react';
-import { useEffect } from 'react';
-
 import { Button } from '@/components/ui/button';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('admin-error');
+import { useFaultReport } from '@/components/common/useFaultReport';
 
 /**
  * Error boundary for the admin portal.
@@ -23,9 +19,12 @@ export default function AdminError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    log.error('Unhandled error in the admin portal', error);
-  }, [error]);
+  /*
+   * Reports to the server as well as the console, so a page that starts
+   * failing overnight sends an email rather than waiting for somebody to
+   * mention it. See `useFaultReport`.
+   */
+  useFaultReport('admin-page', error);
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">

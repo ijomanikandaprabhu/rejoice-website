@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { rateLimits } from '@/config/app.config';
 import { notifyAndRecord } from '@/features/enquiries/notify';
+import { reportFault } from '@/features/monitoring/report';
 import { raise } from '@/features/notifications/notify';
 import { runAfterResponse } from '@/lib/afterResponse';
 import { prisma } from '@/lib/db/prisma';
@@ -65,6 +66,16 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     log.error('Failed to store enquiry', error);
+    /*
+     * Reported by email, because this is the most expensive fault the site has:
+     * somebody tried to make contact and the message went nowhere. There is no
+     * row to find later and no address to reply to — the only trace is this.
+     */
+    await reportFault({
+      scope: 'contact-api',
+      message: 'An enquiry could not be saved. Someone tried to write in and the message was lost.',
+      error,
+    });
     return NextResponse.json(
       { message: 'We could not save your message. Please try again shortly.' },
       { status: 500 },
