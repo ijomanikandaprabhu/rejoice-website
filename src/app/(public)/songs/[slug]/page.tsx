@@ -150,16 +150,21 @@ export default async function SongPage({ params }: Params) {
 
             <h1 className="t-h1">{song.title}</h1>
 
+            {/*
+             * BOTH credits are labelled, and they have to stay that way as a
+             * pair. The artist line used to be a bare name with "Music:" spelled
+             * out beneath it, which read as though the first name were the
+             * song's and the second an afterthought — worst of all when the same
+             * person performed and wrote it, where the page simply said the name
+             * twice with only one of them explained. Same muted label, same
+             * bright value, so each line says what it is.
+             */}
             {song.artist ? (
-              <p className="mt-4 text-body leading-[1.7] text-site-fg">{song.artist}</p>
+              <p className="mt-4 text-body leading-[1.7] text-site-muted">
+                Artist: <span className="text-site-fg">{song.artist}</span>
+              </p>
             ) : null}
 
-            {/*
-             * Labelled, unlike the artist above it. The artist line is the
-             * performer and reads as the name under a title; an unlabelled
-             * second name would read as a second performer rather than as the
-             * person who wrote the music.
-             */}
             {song.music ? (
               <p className="mt-2 text-body leading-[1.7] text-site-muted">
                 Music: <span className="text-site-fg">{song.music}</span>
