@@ -24,12 +24,31 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-/** Shows the imported YouTube value next to the field that overrides it (section 16). */
+/**
+ * Shows the imported YouTube value next to the field that overrides it
+ * (section 16).
+ *
+ * `min-w-0` and `[overflow-wrap:anywhere]` are what keep this page on a phone,
+ * and neither is optional.
+ *
+ * A grid item defaults to `min-width: auto`, meaning it refuses to shrink below
+ * its own min-content width — and min-content here is the longest thing that
+ * cannot be broken. YouTube descriptions are full of such things: this very
+ * video's carries a divider of 146 unbroken dashes, and hashtag chains and bare
+ * URLs do the same. `break-words` does not help, because `overflow-wrap:
+ * break-word` breaks a long word when it is LAID OUT but is ignored when the
+ * browser computes min-content, so the column was still sized to all 146.
+ *
+ * The column then dragged the description textarea beside it out with it: 375px
+ * of screen, 421px of page, and an admin who had to scroll sideways to finish
+ * typing. `min-w-0` lets the item shrink; `anywhere` is the wrap mode that
+ * counts for min-content, so the dashes break instead of pushing.
+ */
 function Original({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border bg-muted/50 p-3">
+    <div className="min-w-0 rounded-md border bg-muted/50 p-3">
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 whitespace-pre-line break-words text-sm">
+      <p className="mt-1 whitespace-pre-line text-sm [overflow-wrap:anywhere]">
         {value || <span className="italic text-muted-foreground">Empty</span>}
       </p>
     </div>
@@ -96,7 +115,11 @@ export default async function VideoEditorPage(props: { params: Promise<{ id: str
           />
 
           <div className="min-w-0 flex-1">
-            <p className="font-medium">{resolved.title}</p>
+            {/* `anywhere`, because a YouTube title is not prose: it can be one
+                unbroken 240px run of tags or a URL, and the box around it is
+                107px wide on a phone. `min-w-0` on the parent lets the box
+                shrink; without this the text inside pushes straight through it. */}
+            <p className="font-medium [overflow-wrap:anywhere]">{resolved.title}</p>
             <p className="mt-1 text-sm text-muted-foreground">
               {video.channel.name} · {formatDate(video.youtubePublishedAt)}
             </p>
