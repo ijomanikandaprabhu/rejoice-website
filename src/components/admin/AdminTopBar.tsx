@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import type { ActionState } from '@/components/admin/ActionForm';
 import { NotificationBell } from '@/components/admin/NotificationBell';
 import { adminNav } from '@/config/app.config';
 import type { NotificationRow } from '@/features/notifications/queries';
@@ -42,7 +43,7 @@ export function AdminTopBar({
    * beside it, so the count rides along rather than adding a second trip.
    */
   notifications: { unread: number; items: NotificationRow[] };
-  markAllRead: () => Promise<void>;
+  markAllRead: (prev: ActionState, formData: FormData) => Promise<ActionState>;
 }) {
   const pathname = usePathname();
   const reduce = useReducedMotion();

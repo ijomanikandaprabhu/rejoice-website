@@ -1,7 +1,7 @@
 import { Bell, Mail, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 
-import { SubmitButton } from '@/components/admin/ActionForm';
+import { ActionForm, SubmitButton } from '@/components/admin/ActionForm';
 import { Panel } from '@/components/admin/Panels';
 import { markAllReadAction } from '@/features/notifications/actions';
 import { listNotifications, unreadCount } from '@/features/notifications/queries';
@@ -40,11 +40,11 @@ export default async function NotificationsPage() {
         </div>
 
         {unread > 0 ? (
-          <form action={markAllReadAction}>
+          <ActionForm action={markAllReadAction}>
             <SubmitButton variant="outline" size="sm" pendingLabel="Marking…">
               Mark all read
             </SubmitButton>
-          </form>
+          </ActionForm>
         ) : null}
       </div>
 
@@ -86,7 +86,9 @@ export default async function NotificationsPage() {
                     {item.body ? (
                       <p className="mt-0.5 line-clamp-2 text-xs text-panel-muted">{item.body}</p>
                     ) : null}
-                    <p className="mt-1 text-xs text-panel-muted">{formatDateTime(item.createdAt)}</p>
+                    <p className="mt-1 text-xs text-panel-muted">
+                      {formatDateTime(item.createdAt)}
+                    </p>
                   </div>
 
                   {/* A dot, not the word "unread": the row is already weighted

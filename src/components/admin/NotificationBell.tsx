@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useActionToast, type ActionState } from '@/components/admin/ActionForm';
 import type { NotificationRow } from '@/features/notifications/queries';
 import { cn, externalLinkProps, formatDateTime } from '@/lib/utils';
 
@@ -49,9 +50,17 @@ export function NotificationBell({
   unread: number;
   items: NotificationRow[];
   /** Server action, passed down so this file holds no data access. */
-  onMarkAllRead: () => Promise<void>;
+  onMarkAllRead: (prev: ActionState, formData: FormData) => Promise<ActionState>;
 }) {
   const preview = items.slice(0, PREVIEW);
+
+  /*
+   * Through `useActionToast`, so the result is announced from inside the action
+   * rather than from an effect here. This popover closes as soon as the count
+   * reaches zero, which unmounts everything in it — an effect would die with it
+   * and the confirmation would never appear. Same reasoning as the row buttons.
+   */
+  const markAllRead = useActionToast(onMarkAllRead);
 
   return (
     <DropdownMenu>
@@ -95,10 +104,12 @@ export function NotificationBell({
 
           {unread > 0 ? (
             /*
-             * A form, not an onClick: this is a server action, and a form is
-             * what makes it work before hydration and without JavaScript.
+             * A form, not an onClick, so the button submits rather than
+             * carrying a handler. It no longer works without JavaScript — this
+             * menu is a Radix popover that cannot be opened without it, so
+             * there was never a no-JS path to this button in the first place.
              */
-            <form action={onMarkAllRead}>
+            <form action={markAllRead}>
               <button
                 type="submit"
                 className="text-xs text-panel-muted transition-colors hover:text-panel-fg"
