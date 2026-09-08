@@ -44,7 +44,21 @@ const DialogContent = React.forwardRef<
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+      {/*
+        `focus-visible:ring`, not `focus:ring`, which is what shipped.
+
+        Radix moves focus to this button as the dialog opens. With a plain
+        `focus:` rule that painted a 2px accent ring around the X the instant the
+        dialog appeared, for someone who had just clicked with a mouse and has no
+        use for a focus indicator — it read as a stray stroke on the artwork
+        rather than as "you are here".
+
+        `focus-visible` is the browser's own judgement of whether the ring is
+        wanted: still drawn for anyone arriving by keyboard, who genuinely needs
+        to see where focus went, and silent for the pointer. It is what every
+        other control in `components/ui` already uses.
+      */}
+      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
