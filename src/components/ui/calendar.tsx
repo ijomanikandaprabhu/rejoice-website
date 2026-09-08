@@ -6,10 +6,93 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from "lucide-react"
-import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker"
+import {
+  DayButton,
+  DayPicker,
+  getDefaultClassNames,
+  type DropdownProps,
+} from "react-day-picker"
 
 import { cn } from "@/lib/utils"
 import { Button, buttonVariants } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+
+/**
+ * ADAPTED after generation — do not re-run `npx shadcn add calendar` over it
+ * without re-applying these, because the upstream file is written for a project
+ * this one is not.
+ *
+ *   1. TAILWIND v3, NOT v4. The generated component used `has-focus:`,
+ *      `shadow-xs` and the `rtl:**:[...]` arbitrary variant, none of which
+ *      compile here — so the caption's border, ring and focus state silently did
+ *      not exist.
+ *
+ *   2. THE MONTH AND YEAR DROPDOWNS ARE OURS. Upstream renders a real `<select>`
+ *      as `absolute inset-0 opacity-0` over a fake label, so clicking it opens
+ *      the OPERATING SYSTEM's list — unstyleable by CSS, in the wrong colours,
+ *      and tall enough to spill out over the form underneath. The `Dropdown`
+ *      override below replaces it with the same Radix select the rest of the
+ *      admin uses. Overriding `Dropdown` alone is enough: `MonthsDropdown` and
+ *      `YearsDropdown` both delegate to it.
+ */
+
+/**
+ * The caption's month / year control.
+ *
+ * `react-day-picker` hands over a NATIVE SELECT's props — numeric `value`, and
+ * an `onChange` typed as a select's change handler — while Radix hands back a
+ * bare string. The bridge is the cast below: rdp only ever reads
+ * `event.target.value`, so a whole synthetic event would be ceremony around the
+ * one field it looks at.
+ */
+function CalendarDropdown({
+  options,
+  value,
+  onChange,
+  disabled,
+  "aria-label": ariaLabel,
+}: DropdownProps) {
+  return (
+    <Select
+      value={value != null ? String(value) : undefined}
+      onValueChange={(next) =>
+        onChange?.({
+          target: { value: next },
+        } as React.ChangeEvent<HTMLSelectElement>)
+      }
+      disabled={disabled}
+    >
+      <SelectTrigger
+        aria-label={ariaLabel}
+        className="h-8 w-auto gap-1 border-input px-2 text-sm font-medium focus:ring-1"
+      >
+        <SelectValue />
+      </SelectTrigger>
+
+      {/* `admin-theme` because Radix portals this to `<body>`, outside the admin
+          subtree — the same reason `FormSelect` re-applies it. Capped in height
+          so nearly forty years scroll instead of covering the page. */}
+      <SelectContent className="admin-theme max-h-[15rem]">
+        {options?.map((option) => (
+          <SelectItem
+            key={option.value}
+            value={String(option.value)}
+            disabled={option.disabled}
+            className="cursor-pointer rounded-input py-2 pl-3 pr-9 text-sm text-panel-fg outline-none transition-colors focus:bg-white/[0.1] focus:text-panel-fg focus-visible:outline-none data-[state=checked]:text-panel-accent"
+          >
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
 
 function Calendar({
   className,
@@ -29,12 +112,20 @@ function Calendar({
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn(
-        "bg-background group/calendar p-3 [--cell-size:2rem] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent",
-        String.raw`rtl:**:[.rdp-button\_next>svg]:rotate-180`,
-        String.raw`rtl:**:[.rdp-button\_previous>svg]:rotate-180`,
+        // `--cell-size` sizes the days AND the whole caption row, which is
+        // written in `h-[--cell-size]` throughout: raise it and the calendar
+        // gets roomier as one piece. 2rem read cramped inside the popover.
+        "bg-background group/calendar p-3 [--cell-size:2.25rem] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent",
+        // The two `rtl:**:[...]` rules that were here are gone: `**:` is a
+        // Tailwind v4 variant and compiles to nothing in v3, and this site is
+        // single-language LTR by design (architecture doc §32).
         className
       )}
       captionLayout={captionLayout}
+      // Slide between months rather than snapping. The class names below are
+      // what make it visible — rdp ships its own keyframes in a stylesheet this
+      // project never imports.
+      animate
       formatters={{
         formatMonthDropdown: (date) =>
           date.toLocaleString("default", { month: "short" }),
@@ -69,14 +160,16 @@ function Calendar({
           "flex h-[--cell-size] w-full items-center justify-center gap-1.5 text-sm font-medium",
           defaultClassNames.dropdowns
         ),
-        dropdown_root: cn(
-          "has-focus:border-ring border-input shadow-xs has-focus:ring-ring/50 has-focus:ring-[3px] relative rounded-md border",
-          defaultClassNames.dropdown_root
-        ),
-        dropdown: cn(
-          "bg-popover absolute inset-0 opacity-0",
-          defaultClassNames.dropdown
-        ),
+        /*
+         * A plain wrapper now. The border, ring and focus state moved to the
+         * `SelectTrigger` in `CalendarDropdown`, which already has them — and
+         * the classes that used to be here (`has-focus:`, `shadow-xs`) were
+         * Tailwind v4 and compiled to nothing in this project anyway.
+         */
+        dropdown_root: cn("relative", defaultClassNames.dropdown_root),
+        // No `absolute inset-0 opacity-0`: there is no native select left to
+        // hide behind a label.
+        dropdown: cn(defaultClassNames.dropdown),
         caption_label: cn(
           "select-none font-medium",
           captionLayout === "label"
@@ -122,6 +215,35 @@ function Calendar({
           defaultClassNames.disabled
         ),
         hidden: cn("invisible", defaultClassNames.hidden),
+
+        /*
+         * The month transition. "before" is the month to the left and "after"
+         * the one to the right, so stepping FORWARD exits the old grid leftwards
+         * and brings the new one in from the right.
+         *
+         * SINGLE CLASS NAMES, and not the `animate-in fade-in slide-in-from-*`
+         * stack used everywhere else in this project. `react-day-picker` adds
+         * and removes these through `classList`, which throws
+         * `InvalidCharacterError` on any string containing a space — a utility
+         * stack here takes the whole calendar down, as the first attempt did.
+         * The keyframes are in globals.css beside the class definitions.
+         */
+        /*
+         * The EXIT pair reads inverted, and that is rdp's naming, not a typo.
+         * "before"/"after" describes where the ENTERING month sits, so stepping
+         * forward pairs `weeks_after_enter` with `weeks_before_exit` — the new
+         * month arrives from the right while the old one leaves to the left.
+         * Mapping these the obvious way sends both months rightwards at once.
+         */
+        weeks_before_enter: "cal-enter-from-left",
+        weeks_before_exit: "cal-exit-to-left",
+        weeks_after_enter: "cal-enter-from-right",
+        weeks_after_exit: "cal-exit-to-right",
+        caption_before_enter: "cal-fade-in",
+        caption_before_exit: "cal-fade-out",
+        caption_after_enter: "cal-fade-in",
+        caption_after_exit: "cal-fade-out",
+
         ...classNames,
       }}
       components={{
@@ -155,6 +277,9 @@ function Calendar({
             <ChevronDownIcon className={cn("size-4", className)} {...props} />
           )
         },
+        // Replaces the native `<select>` for BOTH month and year: rdp's
+        // `MonthsDropdown` and `YearsDropdown` each delegate to `Dropdown`.
+        Dropdown: CalendarDropdown,
         DayButton: CalendarDayButton,
         WeekNumber: ({ children, ...props }) => {
           return (

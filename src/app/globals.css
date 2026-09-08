@@ -382,6 +382,90 @@
     @apply rounded-panel border border-white/[0.06] bg-panel-alt p-5;
   }
 
+  /* ---- Calendar month transitions -------------------------------------- */
+
+  /*
+   * The slide between months in `ui/calendar.tsx`.
+   *
+   * ONE CLASS PER STATE, and that is the whole reason these exist as hand-written
+   * CSS rather than the `animate-in fade-in slide-in-from-right-4` stack used
+   * everywhere else in this project. `react-day-picker` adds and removes these
+   * through `classList`, which throws `InvalidCharacterError` on any string
+   * containing a space — a multi-class utility stack takes the calendar down
+   * with it, which is exactly what happened the first time.
+   *
+   * `react-day-picker` ships equivalent keyframes in its own stylesheet, but
+   * this project never imports it.
+   *
+   * Each ENTER ends on the element's natural state and each EXIT starts there,
+   * so the global `prefers-reduced-motion` rule at the end of this file — which
+   * sets `animation: none` — leaves the grid rendered in place rather than
+   * stranded on a transparent first frame.
+   */
+  .cal-enter-from-right {
+    animation: calendarEnterRight 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .cal-enter-from-left {
+    animation: calendarEnterLeft 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .cal-exit-to-left {
+    animation: calendarExitLeft 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .cal-exit-to-right {
+    animation: calendarExitRight 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .cal-fade-in {
+    animation: calendarFadeIn 200ms ease-out;
+  }
+
+  .cal-fade-out {
+    animation: calendarFadeOut 200ms ease-in;
+  }
+
+  @keyframes calendarEnterRight {
+    from {
+      opacity: 0;
+      transform: translateX(1rem);
+    }
+  }
+
+  @keyframes calendarEnterLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-1rem);
+    }
+  }
+
+  @keyframes calendarExitLeft {
+    to {
+      opacity: 0;
+      transform: translateX(-1rem);
+    }
+  }
+
+  @keyframes calendarExitRight {
+    to {
+      opacity: 0;
+      transform: translateX(1rem);
+    }
+  }
+
+  @keyframes calendarFadeIn {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes calendarFadeOut {
+    to {
+      opacity: 0;
+    }
+  }
+
   /* ---- Fades to the page background ----------------------------------- */
 
   /*

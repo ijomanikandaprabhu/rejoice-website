@@ -96,10 +96,21 @@ export function DateField({
           </Button>
         </PopoverTrigger>
 
-        <PopoverContent className="w-auto p-0" align="start">
+        {/* `admin-theme` because Radix portals this to `<body>`, outside the
+            admin subtree — without it the calendar renders in the public site's
+            font and border treatment. `FormSelect` re-applies it for the same
+            reason. */}
+        <PopoverContent className="admin-theme w-auto p-0" align="start">
           <Calendar
             mode="single"
             selected={date}
+            /*
+             * Open on the month of the date already chosen, not on today.
+             * Without this, reopening a song released in 2027 showed September
+             * 2026 with the selection nowhere in sight, and the only way to see
+             * it was to navigate back to it.
+             */
+            defaultMonth={date}
             onSelect={(next) => {
               setDate(next);
               // Close on choosing: the popover has done its job, and leaving it
@@ -117,7 +128,19 @@ export function DateField({
              */
             startMonth={new Date(1990, 0)}
             endMonth={new Date(new Date().getFullYear() + 2, 11)}
-            autoFocus
+            /*
+             * NO `autoFocus`, and it is a straight trade against the month
+             * slide, not an oversight.
+             *
+             * `useAnimation` in react-day-picker bails outright when a day is
+             * focused — `if (animatingRef.current || isSameMonth || focused)
+             * return` — and `autoFocus` focuses one on mount and keeps one
+             * focused from then on, so the transition could never play once.
+             *
+             * Little is lost: Radix's focus scope already moves focus into the
+             * popover when it opens, so the control is still reachable and
+             * escapable from the keyboard; a day just is not pre-selected.
+             */
           />
         </PopoverContent>
       </Popover>
