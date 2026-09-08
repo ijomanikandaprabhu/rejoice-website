@@ -43,11 +43,9 @@ const STATUS_VARIANT = {
   READ: 'secondary',
 } as const;
 
-export default async function EnquiriesPage(
-  props: {
-    searchParams: Promise<{ status?: string; page?: string; perPage?: string }>;
-  }
-) {
+export default async function EnquiriesPage(props: {
+  searchParams: Promise<{ status?: string; page?: string; perPage?: string }>;
+}) {
   const searchParams = await props.searchParams;
   const status = FILTERS.find((f) => f.value === searchParams.status)?.value ?? '';
   const page = Math.max(Number(searchParams.page ?? '1') || 1, 1);
@@ -259,6 +257,7 @@ export default async function EnquiriesPage(
                           variant="ghost"
                           size="sm"
                           confirm="This deletes the enquiry permanently."
+                          label="Delete enquiry"
                         >
                           <Trash2 className="size-4 text-destructive" />
                         </ActionButton>

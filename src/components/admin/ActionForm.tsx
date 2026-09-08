@@ -307,6 +307,7 @@ export function ActionButton({
   pendingLabel = 'Working…',
   confirm,
   className,
+  label,
 }: {
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
   hiddenFields?: Record<string, string>;
@@ -316,6 +317,19 @@ export function ActionButton({
   pendingLabel?: string;
   confirm?: string;
   className?: string;
+  /**
+   * The button's name when `children` is an icon and nothing else.
+   *
+   * An icon-only button has no accessible name at all: a screen reader
+   * announces "button" and stops, which for the three delete buttons in this
+   * admin means the irreversible control is the one that says least. It also
+   * cannot be addressed by role and name, so a test has to reach for it by
+   * position.
+   *
+   * Not required, because a button whose children are words already has a name
+   * and repeating it here would only let the two drift apart.
+   */
+  label?: string;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const formAction = useActionToast(action);
@@ -335,6 +349,7 @@ export function ActionButton({
           size={size}
           pendingLabel={pendingLabel}
           className={className}
+          ariaLabel={label}
         >
           {children}
         </SubmitButton>
@@ -347,7 +362,13 @@ export function ActionButton({
       {hidden}
       <AlertDialog>
         <AlertDialogTrigger asChild>
-          <Button type="button" variant={variant} size={size} className={className}>
+          <Button
+            type="button"
+            variant={variant}
+            size={size}
+            className={className}
+            aria-label={label}
+          >
             {children}
           </Button>
         </AlertDialogTrigger>

@@ -145,15 +145,54 @@ test.describe('Public website', () => {
     await page.goto('/admin/enquiries');
     await expect(page.getByText(marker)).toBeVisible();
 
-    // Mark it read, then confirm the status filter reflects it.
-    //
-    // There are only two states since the Resolved status was dropped, and the
-    // per-row label is abbreviated to fit the table column — "Read", not
-    // "Mark as read", which is the bulk bar's wording.
-    await page.getByRole('button', { name: 'Read', exact: true }).first().click();
+    /*
+     * Mark it read, then confirm the status filter reflects it.
+     *
+     * There are only two states since the Resolved status was dropped, and the
+     * per-row label is abbreviated to fit the table column — "Read", not
+     * "Mark as read", which is the bulk bar's wording.
+     *
+     * Scoped to THIS enquiry's row, not `.first()`. `.first()` is whichever row
+     * the table happens to put at the top, which is only the new one while the
+     * table holds nothing else. It marked a different enquiry read as soon as
+     * anything else was present — including this test's own leavings from an
+     * earlier run — and then failed below looking for a marker it had never
+     * touched. That is the intermittent failure here, and it is not timing.
+     */
+    const enquiryRow = page.getByRole('row').filter({ hasText: marker });
+    await enquiryRow.getByRole('button', { name: 'Read', exact: true }).click();
+
+    /*
+     * Wait for the row to actually change before navigating.
+     *
+     * Clicking posts a server action; going straight to the filtered URL raced
+     * it and arrived before the write had landed, so the enquiry was still NEW
+     * and the assertion below failed on a marker that was about to be correct.
+     * The button flipping to "Unread" is the row confirming the new state, and
+     * it is the state the next line depends on.
+     */
+    await expect(enquiryRow.getByRole('button', { name: 'Unread', exact: true })).toBeVisible();
 
     await page.goto('/admin/enquiries?status=READ');
     await expect(page.getByText(marker)).toBeVisible();
+
+    /*
+     * Delete it again, and this is not tidiness.
+     *
+     * This test posts a REAL enquiry through the real route every time it runs:
+     * a row in the database and an email to the owner's actual inbox. Without
+     * this it left both behind on every pass, forever — 41 rows had built up
+     * before anyone counted, from four days of runs.
+     *
+     * The email cannot be recalled, so the row is the part that can be cleaned
+     * up, and deleting through the UI rather than the database means the suite
+     * keeps needing nothing but a browser — and exercises the delete button on
+     * the way past, which nothing else covered.
+     */
+    const row = page.getByRole('row').filter({ hasText: marker });
+    await row.getByRole('button', { name: 'Delete enquiry' }).click();
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await expect(page.getByText(marker)).toHaveCount(0);
   });
 });
 
