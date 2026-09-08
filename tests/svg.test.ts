@@ -43,7 +43,9 @@ describe('sanitizeSvg', () => {
   });
 
   it('strips foreignObject, which can carry arbitrary HTML', () => {
-    const out = clean('<svg><foreignObject><body><img src=x onerror=alert(1)></body></foreignObject></svg>');
+    const out = clean(
+      '<svg><foreignObject><body><img src=x onerror=alert(1)></body></foreignObject></svg>',
+    );
     expect(out).not.toMatch(/foreignObject/i);
     expect(out).not.toContain('onerror');
   });

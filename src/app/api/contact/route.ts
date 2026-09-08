@@ -69,25 +69,15 @@ export async function POST(request: Request) {
   }
 
   /*
-   * Notify AFTER the row is committed, and never let it fail the request.
+   * The bell BEFORE the email, which is the point of this ordering: it is one
+   * local insert of a few milliseconds, and it used to sit behind a network call
+   * to Google that took seconds.
    *
-   * The enquiry is safely stored by this point. If SMTP is misconfigured or
-   * Gmail is refusing connections, the visitor must still be told their message
-   * went through — because it did. `notifyNewEnquiry` swallows its own errors;
-   * this is awaited rather than fired-and-forgotten because a serverless
-   * function can be frozen the moment the response returns, which would drop
-   * the send mid-flight.
-   */
-  await notifyNewEnquiry({ name, email, phone, subject, message });
-
-  /*
-   * And a notification behind the bell, which is a different job from the
-   * email: the mail reaches whoever reads that inbox, the bell reaches whoever
-   * is in the admin. Either one alone leaves a gap.
-   *
-   * `raise` swallows its own errors for the same reason `notifyNewEnquiry`
-   * does — the enquiry is already stored, and nothing about a note can be
-   * allowed to tell the visitor their message failed.
+   * It is a different job from the email — the mail reaches whoever reads that
+   * inbox, the bell reaches whoever is in the admin. Either one alone leaves a
+   * gap. `raise` swallows its own errors because the enquiry is already stored,
+   * and nothing about a note can be allowed to tell the visitor their message
+   * failed.
    */
   await raise({
     kind: 'ENQUIRY',
@@ -95,6 +85,23 @@ export async function POST(request: Request) {
     body: subject || message.slice(0, 140),
     href: '/admin/enquiries',
   });
+
+  /*
+   * The email LAST, because it is the only slow step and nothing waits on it.
+   *
+   * The enquiry is safely stored by this point. If SMTP is misconfigured or
+   * Gmail is refusing connections, the visitor must still be told their message
+   * went through — because it did. `notifyNewEnquiry` swallows its own errors.
+   *
+   * Still awaited rather than fired-and-forgotten: a serverless function can be
+   * frozen the moment the response returns, which would drop the send
+   * mid-flight. The supported escape is `waitUntil`, which Next 14 exposes no
+   * public API for — and the library version fails SILENTLY when it cannot find
+   * the platform's request context, buying a fast form at the price of emails
+   * quietly ceasing to arrive. The transport's connection pool and timeouts are
+   * what make awaiting this affordable instead; see `services/mail/mailer.ts`.
+   */
+  await notifyNewEnquiry({ name, email, phone, subject, message });
 
   return NextResponse.json({ message: 'Message sent. We will reply by email.' });
 }

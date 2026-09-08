@@ -1,6 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { buildEnquiryEmail } from '@/features/enquiries/notify';
+import { buildEnquiryEmail, notifyNewEnquiry } from '@/features/enquiries/notify';
+
+const sendMail = vi.fn();
+vi.mock('@/services/mail/mailer', () => ({ sendMail: (...args: unknown[]) => sendMail(...args) }));
+vi.mock('@/features/settings/queries', () => ({
+  getGeneralSettings: async () => ({ contactEmail: 'rejoicegospelcommunications@gmail.com' }),
+}));
 
 const TO = 'rejoicegospelcommunications@gmail.com';
 
@@ -53,5 +59,59 @@ describe('buildEnquiryEmail', () => {
     expect(text).not.toContain('Phone:');
     expect(text).not.toContain('Subject:');
     expect(text).toContain('Hello');
+  });
+});
+
+/**
+ * The guarantee the contact route depends on and does not make itself: a mail
+ * problem must never turn a stored enquiry into a failure for the visitor.
+ *
+ * The route awaits this function with no try/catch of its own, so if the
+ * swallowing here were ever removed, someone whose message WAS saved would be
+ * told it was not. That is the worst outcome the contact form has.
+ */
+describe('notifyNewEnquiry', () => {
+  const enquiry = {
+    name: 'Blessy Catherine',
+    email: 'blessy@example.com',
+    phone: '',
+    subject: '',
+    message: 'We would like a quote for a worship video.',
+  };
+
+  beforeEach(() => {
+    sendMail.mockReset();
+    vi.stubEnv('SMTP_USER', 'sender@example.com');
+    vi.stubEnv('SMTP_PASSWORD', 'app-password');
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it('does not throw when the send fails', async () => {
+    sendMail.mockRejectedValue(new Error('SMTP refused the connection'));
+
+    await expect(notifyNewEnquiry(enquiry)).resolves.toBeUndefined();
+  });
+
+  it('logs a fixed token on failure, so the logs can be searched for it', async () => {
+    sendMail.mockRejectedValue(new Error('SMTP refused the connection'));
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await notifyNewEnquiry(enquiry);
+
+    expect(error.mock.calls.flat().join(' ')).toContain('ENQUIRY_MAIL_FAILED');
+  });
+
+  it('does not throw when SMTP is not configured at all', async () => {
+    vi.stubEnv('SMTP_USER', '');
+    vi.stubEnv('SMTP_PASSWORD', '');
+
+    await expect(notifyNewEnquiry(enquiry)).resolves.toBeUndefined();
+    expect(sendMail).not.toHaveBeenCalled();
   });
 });

@@ -72,6 +72,13 @@ export function buildEnquiryEmail(enquiry: EnquiryNotification, to: string) {
  * here is caught and logged.
  */
 export async function notifyNewEnquiry(enquiry: EnquiryNotification): Promise<void> {
+  /*
+   * Timed, because this is the slowest thing in the request and the only way
+   * anyone will notice it drifting again is if the number is in the log. It
+   * once reached 9.5 seconds without a single line saying so.
+   */
+  const startedAt = Date.now();
+
   try {
     if (!isMailConfigured()) {
       log.info('SMTP is not configured; skipping the enquiry notification.');
@@ -85,8 +92,17 @@ export async function notifyNewEnquiry(enquiry: EnquiryNotification): Promise<vo
     }
 
     await sendMail(buildEnquiryEmail(enquiry, contactEmail));
-    log.info(`Notified ${contactEmail} of an enquiry from ${enquiry.email}`);
+    log.info(
+      `Notified ${contactEmail} of an enquiry from ${enquiry.email} in ${Date.now() - startedAt}ms`,
+    );
   } catch (error) {
-    log.error('Could not send the enquiry notification', error);
+    /*
+     * `ENQUIRY_MAIL_FAILED` is a fixed token to search the logs for. The message
+     * itself will be reworded one day; something stable has to survive that.
+     */
+    log.error(
+      `ENQUIRY_MAIL_FAILED after ${Date.now() - startedAt}ms: could not send the enquiry notification`,
+      error,
+    );
   }
 }

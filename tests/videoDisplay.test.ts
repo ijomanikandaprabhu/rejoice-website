@@ -157,7 +157,12 @@ describe('buildMetaDescription', () => {
 
   it('ignores a list of streaming platforms', () => {
     const out = buildMetaDescription(
-      ['Listen to "Neerae" on your favorite Streaming Platforms.', 'Gaana -', 'Spotify -', 'Wynk -'].join('\n'),
+      [
+        'Listen to "Neerae" on your favorite Streaming Platforms.',
+        'Gaana -',
+        'Spotify -',
+        'Wynk -',
+      ].join('\n'),
       TITLE,
     );
     expect(out).not.toMatch(/spotify|gaana|wynk/i);
@@ -175,7 +180,10 @@ describe('buildMetaDescription', () => {
   });
 
   it('falls back to the title, without its hashtags, when nothing survives', () => {
-    const out = buildMetaDescription('#Shorts #worship\n\n' + '='.repeat(80), 'மௌனமாய் இருக்காதே #Shorts');
+    const out = buildMetaDescription(
+      '#Shorts #worship\n\n' + '='.repeat(80),
+      'மௌனமாய் இருக்காதே #Shorts',
+    );
     expect(out).toBe('மௌனமாய் இருக்காதே');
   });
 

@@ -71,12 +71,20 @@ const prismaMock = {
         return { count };
       },
     ),
-    update: vi.fn(async ({ where, data }: { where: { youtubeVideoId: string }; data: Record<string, unknown> }) => {
-      const existing = db.videos.get(where.youtubeVideoId) ?? {};
-      const merged = { ...existing, ...data };
-      db.videos.set(where.youtubeVideoId, merged);
-      return merged;
-    }),
+    update: vi.fn(
+      async ({
+        where,
+        data,
+      }: {
+        where: { youtubeVideoId: string };
+        data: Record<string, unknown>;
+      }) => {
+        const existing = db.videos.get(where.youtubeVideoId) ?? {};
+        const merged = { ...existing, ...data };
+        db.videos.set(where.youtubeVideoId, merged);
+        return merged;
+      },
+    ),
   },
   siteSetting: {
     upsert: vi.fn().mockResolvedValue({}),
@@ -170,7 +178,9 @@ beforeEach(() => {
 
 describe('syncChannel', () => {
   it('imports new videos', async () => {
-    fetchUploadsPage.mockResolvedValue(onePage([upload('vid1', 'Worship Song'), upload('vid2', 'Gospel Release')]));
+    fetchUploadsPage.mockResolvedValue(
+      onePage([upload('vid1', 'Worship Song'), upload('vid2', 'Gospel Release')]),
+    );
 
     const result = await syncChannel('chan-1');
 
@@ -204,9 +214,9 @@ describe('syncChannel', () => {
     expect(db.videos.get('vid1')?.isShort).toBe(true);
 
     // Second pass: the detail lookup missed this video.
-    fetchUploadsPage.mockResolvedValue(onePage([
-      { ...upload('vid1', 'A Short'), isShort: null, durationSeconds: null },
-    ]));
+    fetchUploadsPage.mockResolvedValue(
+      onePage([{ ...upload('vid1', 'A Short'), isShort: null, durationSeconds: null }]),
+    );
     await syncChannel('chan-1');
 
     expect(db.videos.get('vid1')?.isShort).toBe(true);

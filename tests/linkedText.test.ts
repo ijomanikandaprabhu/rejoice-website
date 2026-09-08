@@ -41,7 +41,9 @@ describe('splitLinks', () => {
   });
 
   it('leaves sentence punctuation out of the link', () => {
-    expect(links('Watch at https://youtu.be/zt64P35-F-4.')).toEqual(['https://youtu.be/zt64P35-F-4']);
+    expect(links('Watch at https://youtu.be/zt64P35-F-4.')).toEqual([
+      'https://youtu.be/zt64P35-F-4',
+    ]);
     expect(links('Watch at https://youtu.be/zt64P35-F-4, then subscribe')).toEqual([
       'https://youtu.be/zt64P35-F-4',
     ]);

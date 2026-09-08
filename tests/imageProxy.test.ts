@@ -14,7 +14,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  *     metered function time this whole change was made to protect.
  */
 
-import loader, { ACCEPTED_VARIANTS, AVATAR_SIZES, VIDEO_VARIANTS } from '@/lib/images/youtubeLoader';
+import loader, {
+  ACCEPTED_VARIANTS,
+  AVATAR_SIZES,
+  VIDEO_VARIANTS,
+} from '@/lib/images/youtubeLoader';
 import { resetRateLimit } from '@/lib/utils/rateLimit';
 
 const { GET } = await import('@/app/api/image/route');
@@ -106,9 +110,15 @@ describe('the route refuses everything else, without fetching', () => {
     ['another host entirely', 'https://evil.example.com/x.jpg'],
     ['a lookalike host', 'https://i.ytimg.com.evil.example.com/vi/0Qj2AIw8o3E/hqdefault.jpg'],
     ['plain http', 'http://i.ytimg.com/vi/0Qj2AIw8o3E/hqdefault.jpg'],
-    ['a variant name YouTube does not publish', 'https://i.ytimg.com/vi/0Qj2AIw8o3E/oardefault.jpg'],
+    [
+      'a variant name YouTube does not publish',
+      'https://i.ytimg.com/vi/0Qj2AIw8o3E/oardefault.jpg',
+    ],
     ['a webp under the jpeg directory', 'https://i.ytimg.com/vi/0Qj2AIw8o3E/maxresdefault.webp'],
-    ['a jpeg under the webp directory', 'https://i.ytimg.com/vi_webp/0Qj2AIw8o3E/maxresdefault.jpg'],
+    [
+      'a jpeg under the webp directory',
+      'https://i.ytimg.com/vi_webp/0Qj2AIw8o3E/maxresdefault.jpg',
+    ],
     ['an invented directory', 'https://i.ytimg.com/vi_raw/0Qj2AIw8o3E/maxresdefault.jpg'],
     ['an id of the wrong length', 'https://i.ytimg.com/vi/0Qj2AIw8o3/hqdefault.jpg'],
     ['a deeper path', 'https://i.ytimg.com/vi/0Qj2AIw8o3E/extra/hqdefault.jpg'],
@@ -157,8 +167,7 @@ describe('the route protects itself from a flood', () => {
   it('refuses an upstream response that is not an image', async () => {
     vi.stubGlobal(
       'fetch',
-      async () =>
-        new Response('<html>', { status: 200, headers: { 'content-type': 'text/html' } }),
+      async () => new Response('<html>', { status: 200, headers: { 'content-type': 'text/html' } }),
     );
 
     expect((await call(targetFor(THUMBNAIL, 480))).status).toBe(502);
