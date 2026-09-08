@@ -148,7 +148,17 @@ export default async function SettingsPage({
 
   const adminEmail = admin?.email ?? session?.user?.email ?? '';
   const adminUserId = admin?.userId ?? null;
-  const socialRows = social.links;
+  /*
+   * One blank row after the saved ones, so a new account can be added.
+   *
+   * Without it the card could only edit or clear what was already there — the
+   * description told the administrator how to REMOVE a row and never how to add
+   * one, because there was no way. `saveSocialLinksAction` already handled it:
+   * it derives the id from the name (`rawId || slugify(label)`) when the hidden
+   * id comes through empty, and drops any row left nameless. Only the form was
+   * missing.
+   */
+  const socialRows = [...social.links, { id: '', label: '', url: '', svg: '' }];
 
   /*
    * Hydrate the saved ids into cards for the picker, keeping the SAVED ORDER —
@@ -465,13 +475,18 @@ export default async function SettingsPage({
           <CardHeader>
             <CardTitle>Social links</CardTitle>
             <CardDescription>
-              Upload an SVG icon and set the address for each account. Clear the name to remove a
-              row, and leave the address empty to hide it from the website.
+              Upload an SVG icon and set the address for each account. Fill in the empty row at the
+              bottom to add another. Clear the name to remove a row, and leave the address empty to
+              hide it from the website.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {socialRows.map((link, index) => (
-              <div key={link.id} className="grid gap-4 sm:grid-cols-[auto,1fr,1fr]">
+              /* Keyed by index, not id: the blank row has no id yet. */
+              <div
+                key={link.id || `new-${index}`}
+                className="grid gap-4 sm:grid-cols-[auto,1fr,1fr]"
+              >
                 <input type="hidden" name="social.id" value={link.id} />
 
                 <div className="flex items-center gap-3">
@@ -482,7 +497,7 @@ export default async function SettingsPage({
                       <img src={svgToDataUri(link.svg)} alt="" className="size-5" />
                     ) : (
                       <span className="text-[10px] font-semibold uppercase text-muted-foreground">
-                        {link.label.slice(0, 2)}
+                        {link.label.slice(0, 2) || '+'}
                       </span>
                     )}
                   </span>
