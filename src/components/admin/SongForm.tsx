@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { ActionForm, Field, FieldError, SubmitButton } from '@/components/admin/ActionForm';
+import { DateField } from '@/components/admin/DateField';
 import { ImageUploadField } from '@/components/admin/ImageUploadField';
 import { PlatformLogo } from '@/components/admin/PlatformLogo';
 import { Button } from '@/components/ui/button';
@@ -23,11 +24,6 @@ export type SongFormValues = {
   coverId: string;
   links: Array<{ platformId: string; url: string }>;
 };
-
-/** `<input type="date">` wants exactly YYYY-MM-DD, in the UTC day it was stored as. */
-function dateInputValue(date: Date | null | undefined): string {
-  return date ? date.toISOString().slice(0, 10) : '';
-}
 
 /**
  * Add or edit a song. ONE component for both, so the two forms cannot drift
@@ -82,9 +78,24 @@ export function SongForm({
             sizes={{ cover: COVER_SIZE }}
           />
 
+          {/*
+           * `autoComplete="off"` on every text field here, and it is not
+           * cosmetic. These are catalogue fields, not the visitor's own name and
+           * address, so a browser has nothing useful to offer — and it will
+           * offer something anyway. Caught during testing: Chrome filled the
+           * empty Music field with the value typed into Artist, and the next
+           * save wrote "Roshan shelton" into the music credit of a song nobody
+           * had touched. A silent wrong value is worse than an empty one.
+           */}
           <div className="grid content-start gap-4">
             <Field label="Title" htmlFor="title">
-              <Input id="title" name="title" defaultValue={song?.title ?? ''} required />
+              <Input
+                id="title"
+                name="title"
+                autoComplete="off"
+                defaultValue={song?.title ?? ''}
+                required
+              />
               <FieldError name="title" />
             </Field>
 
@@ -92,6 +103,7 @@ export function SongForm({
               <Input
                 id="artist"
                 name="artist"
+                autoComplete="off"
                 placeholder="Optional"
                 defaultValue={song?.artist ?? ''}
               />
@@ -104,6 +116,7 @@ export function SongForm({
               <Input
                 id="music"
                 name="music"
+                autoComplete="off"
                 placeholder="Optional"
                 defaultValue={song?.music ?? ''}
               />
@@ -113,12 +126,7 @@ export function SongForm({
             {/* Sorts the public listing and the admin table, newest first. A
                 song left undated sorts to the bottom rather than the top. */}
             <Field label="Release date" htmlFor="releasedAt">
-              <Input
-                id="releasedAt"
-                name="releasedAt"
-                type="date"
-                defaultValue={dateInputValue(song?.releasedAt)}
-              />
+              <DateField id="releasedAt" name="releasedAt" defaultValue={song?.releasedAt} />
               <FieldError name="releasedAt" />
             </Field>
 
