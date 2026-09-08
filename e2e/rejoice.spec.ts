@@ -302,3 +302,54 @@ test('the scheduled sync endpoint refuses an unauthenticated request', async ({ 
   const res = await request.get('/api/youtube/sync');
   expect(res.status()).toBe(401);
 });
+
+/**
+ * Social links: the icon upload.
+ *
+ * Both halves of a reported fault. An icon was chosen for a row whose Name was
+ * left empty; the row was dropped without a word and the form still said
+ * "Social links saved.", so the upload looked like it had worked and the icon
+ * never reached the site.
+ */
+test.describe('Social links', () => {
+  /* Deliberately minimal, and a real SVG: it has to survive `sanitizeSvg`. */
+  const ICON = Buffer.from(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>',
+  );
+
+  test('an icon chosen for a nameless row is refused, not silently dropped', async ({ page }) => {
+    await login(page);
+    await page.goto('/admin/settings');
+
+    // The spare row at the bottom is the one for adding a link. Its file input
+    // is the last of them.
+    const iconInputs = page.locator('input[type="file"][name$=".icon"]');
+    await iconInputs.last().setInputFiles({
+      name: 'test-icon.svg',
+      mimeType: 'image/svg+xml',
+      buffer: ICON,
+    });
+
+    // The preview must show the chosen file BEFORE saving — this is what was
+    // missing, and why a wrong or ignored file could not be spotted.
+    const preview = page.locator('img[src^="data:image/svg+xml"]').last();
+    await expect(preview).toBeVisible();
+
+    // Name left empty on purpose. This must not report success.
+    await page.getByRole('button', { name: 'Save social links' }).click();
+
+    await expect(page.getByText('Give this link a name, such as WhatsApp.')).toBeVisible();
+    await expect(page.getByText('Social links saved.')).toHaveCount(0);
+  });
+
+  test('a completely empty row is still dropped without complaint', async ({ page }) => {
+    await login(page);
+    await page.goto('/admin/settings');
+
+    // Touch nothing: the spare row is empty, and saving must simply succeed.
+    await page.getByRole('button', { name: 'Save social links' }).click();
+
+    await expect(page.getByText('Social links saved.')).toBeVisible();
+    await expect(page.getByText('Give this link a name, such as WhatsApp.')).toHaveCount(0);
+  });
+});

@@ -106,9 +106,27 @@ export async function saveSocialLinksAction(
     const label = String(formData.get(`social.${index}.label`) ?? '').trim();
     const url = String(formData.get(`social.${index}.url`) ?? '').trim();
 
-    // A row with no label is a row the administrator cleared out. Drop it
-    // rather than storing a nameless entry.
-    if (!label) continue;
+    const file = formData.get(`social.${index}.icon`);
+    const hasNewIcon = file instanceof File && file.size > 0;
+
+    /*
+     * A row with no name.
+     *
+     * Empty in every field, it is the spare row at the bottom, or one the
+     * administrator cleared out to delete. Dropping it is right.
+     *
+     * But a row carrying an address or a freshly chosen icon is somebody
+     * halfway through adding a link, and dropping THAT silently is how an icon
+     * gets uploaded, discarded, and reported as "Social links saved." — which
+     * is exactly what happened with the WhatsApp icon. Say what is missing
+     * instead.
+     */
+    if (!label) {
+      if (url || hasNewIcon) {
+        errors[`social.${index}.label`] = 'Give this link a name, such as WhatsApp.';
+      }
+      continue;
+    }
 
     if (label.length > 40) {
       errors[`social.${index}.label`] = 'Keep the name under 40 characters.';
@@ -123,9 +141,8 @@ export async function saveSocialLinksAction(
     const id = rawId || slugify(label) || String(index);
     let svg = byId.get(id)?.svg ?? '';
 
-    const file = formData.get(`social.${index}.icon`);
-    if (file instanceof File && file.size > 0) {
-      const result = sanitizeSvg(await file.text());
+    if (hasNewIcon) {
+      const result = sanitizeSvg(await (file as File).text());
       if (!result.ok) {
         errors[`social.${index}.icon`] = result.error;
         continue;

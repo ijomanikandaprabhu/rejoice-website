@@ -9,6 +9,7 @@ import {
   SubmitButton,
 } from '@/components/admin/ActionForm';
 import { CarouselSlots } from '@/components/admin/CarouselSlots';
+import { SocialIconPreview } from '@/components/admin/SocialIconPreview';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,7 +41,6 @@ import {
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db/prisma';
 import { formatDateTime } from '@/lib/utils';
-import { svgToDataUri } from '@/lib/utils/svg';
 import { getConnections } from '@/services/youtube/analyticsService';
 import { getLastSyncRecord } from '@/services/youtube/videoSyncService';
 
@@ -491,17 +491,13 @@ export default async function SettingsPage(
                 <input type="hidden" name="social.id" value={link.id} />
 
                 <div className="flex items-center gap-3">
-                  <span className="grid size-11 shrink-0 place-items-center rounded-full border bg-muted">
-                    {link.svg ? (
-                      // An <img>, never inlined: see src/lib/utils/svg.ts.
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={svgToDataUri(link.svg)} alt="" className="size-5" />
-                    ) : (
-                      <span className="text-[10px] font-semibold uppercase text-muted-foreground">
-                        {link.label.slice(0, 2) || '+'}
-                      </span>
-                    )}
-                  </span>
+                  {/* Shows the chosen file as well as the saved one, so an
+                      upload is visible before it is committed. */}
+                  <SocialIconPreview
+                    inputId={`social-icon-${index}`}
+                    savedSvg={link.svg}
+                    label={link.label}
+                  />
                 </div>
 
                 <Field label="Name" htmlFor={`social-label-${index}`}>
