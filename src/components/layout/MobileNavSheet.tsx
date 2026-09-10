@@ -36,6 +36,27 @@ import { cn } from '@/lib/utils';
  * The primitives directly, not `components/ui/dialog.tsx`: that wrapper is a
  * centred `max-w-lg` card with its own close button in the corner, which is the
  * opposite of this.
+ *
+ * ## Why the surface is OPAQUE
+ *
+ * It shipped as `bg-site-bg/95` with a backdrop blur — the header's material,
+ * which was the design intent. On /creations the carousel's white prev/next
+ * arrows were plainly visible through it, sitting across "About Us".
+ *
+ * That was NOT a stacking problem, though it looks exactly like one and was
+ * first diagnosed as one. `elementFromPoint` at the arrows' own centres already
+ * answered with the sheet: they were behind it and unclickable. They were simply
+ * VISIBLE — a bright white chevron on a black page reading through the last 5%.
+ * A test asking "what is on top" passed while the fault was on screen; only a
+ * screenshot found it.
+ *
+ * So the sheet is opaque. Translucency is right for the header, where seeing the
+ * film through the bar is the point; a full-screen menu has nothing behind it
+ * worth showing, and everything behind it worth hiding.
+ *
+ * `z-[300]` stays as well, though it was not the cause: above the carousel's
+ * `z-[200]`, below `SiteLoader`'s `z-[1000]`. The ladder is page content and its
+ * controls (≤200), this menu (300), the loading screen (1000).
  */
 export function MobileNavSheet({ items, siteName }: { items: NavItem[]; siteName: string }) {
   const [open, setOpen] = useState(false);
@@ -92,9 +113,12 @@ export function MobileNavSheet({ items, siteName }: { items: NavItem[]; siteName
       <AnimatePresence>
         {open ? (
           <DialogPrimitive.Portal forceMount>
+            {/* Opaque, and beneath the content — it is what guarantees nothing
+                shows through during the fade, when the content itself is still
+                partly transparent. */}
             <DialogPrimitive.Overlay asChild forceMount>
               <motion.div
-                className="fixed inset-0 z-50 bg-black/40 md:hidden"
+                className="fixed inset-0 z-[300] bg-site-bg md:hidden"
                 initial={reduce ? false : { opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={reduce ? undefined : { opacity: 0 }}
@@ -109,7 +133,7 @@ export function MobileNavSheet({ items, siteName }: { items: NavItem[]; siteName
                  * menu should read as the bar expanding to fill the screen, not
                  * as a different panel arriving on top of it.
                  */
-                className="fixed inset-0 z-50 flex flex-col bg-site-bg/95 backdrop-blur-2xl md:hidden"
+                className="fixed inset-0 z-[300] flex flex-col bg-site-bg md:hidden"
                 initial={reduce ? false : { opacity: 0, y: -12 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={reduce ? undefined : { opacity: 0, y: -8 }}

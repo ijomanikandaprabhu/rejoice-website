@@ -624,4 +624,76 @@ test.describe('Regressions found by eye', () => {
 
     testInfo.annotations.push({ type: 'note', description: 'mobile nav sheet' });
   });
+
+  /*
+   * The sheet has to cover the page's own controls, not just its content.
+   *
+   * It shipped at `z-50` and the coverflow arrows on /creations (`z-[200]`)
+   * floated on top of the open menu. `SiteLoader` had already been bitten by
+   * the same buttons and left a comment about it — which is the argument for a
+   * test rather than a third comment.
+   *
+   * /creations specifically, because that is the only page carrying the
+   * carousel, and a check on any other page would pass while the bug was live.
+   */
+  test('nothing on the page shows through the open mobile menu', async ({ page }) => {
+    test.skip((page.viewportSize()?.width ?? 0) >= 768, 'the sheet is phone-only');
+
+    await page.goto('/creations', { waitUntil: 'load' });
+    await settled(page);
+    await page.getByRole('button', { name: 'Open menu' }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.waitForTimeout(700);
+
+    /*
+     * VISIBILITY, not stacking — and the distinction is the whole reason this
+     * test exists.
+     *
+     * The carousel's white arrows on /creations were plainly readable across
+     * the menu. It looked like a z-index fault and was first diagnosed as one.
+     * It was not: `elementFromPoint` at each arrow's centre already answered
+     * with the sheet, so they were behind it and unclickable. They were simply
+     * SHOWING THROUGH a surface that was 95% opaque. A test asking "what is on
+     * top" passed the whole time; a screenshot found it in one look.
+     *
+     * So this asserts the one property that makes show-through impossible: the
+     * sheet's own background is fully opaque. Cheap, stable, and it fails the
+     * moment somebody reaches for translucency again.
+     */
+    const alpha = await page.evaluate(() => {
+      const bg = getComputedStyle(document.querySelector('[role="dialog"]')!).backgroundColor;
+      const m = bg.match(/rgba?\(([^)]+)\)/);
+      if (!m) return null;
+      const parts = m[1].split(',').map((n) => parseFloat(n));
+      return parts.length === 4 ? parts[3] : 1;
+    });
+    expect(alpha, 'the menu must be opaque or the page reads through it').toBe(1);
+
+    // And the controls behind it must not be reachable either.
+    const reachable = await page.evaluate(() => {
+      const sheet = document.querySelector('[role="dialog"]')!;
+      return [...document.querySelectorAll<HTMLElement>('button, a')]
+        .filter((el) => {
+          if (sheet.contains(el)) return false;
+          const r = el.getBoundingClientRect();
+          if (r.width === 0 || r.height === 0) return false;
+          if (r.bottom < 0 || r.top > innerHeight) return false;
+          const top = document.elementFromPoint(
+            Math.round(r.left + r.width / 2),
+            Math.round(r.top + r.height / 2),
+          );
+          if (!top) return false;
+          /*
+           * Next's development toolbar is a portal that answers
+           * `elementFromPoint` over its own corner. It does not exist in a
+           * production build, so counting it would fail this test for a reason
+           * no visitor can ever meet.
+           */
+          if (top.tagName.startsWith('NEXTJS-')) return false;
+          return !sheet.contains(top);
+        })
+        .map((el) => el.getAttribute('aria-label') ?? el.tagName);
+    });
+    expect(reachable, 'page controls should not be clickable behind the menu').toEqual([]);
+  });
 });
