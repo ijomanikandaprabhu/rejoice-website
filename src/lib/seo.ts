@@ -448,12 +448,14 @@ export function collectionJsonLd({
   path,
   items = [],
   total,
+  about,
 }: {
   name: string;
   description: string;
   path: string;
   items?: { name: string; path: string }[];
   total?: number;
+  about?: { name: string; url: string | null; description: string | null; image: string | null };
 }) {
   const listed = items.slice(0, 60);
 
@@ -466,6 +468,26 @@ export function collectionJsonLd({
     inLanguage: 'en',
     isPartOf: { '@type': 'WebSite', name: appConfig.name, url: appConfig.url },
     publisher: { '@type': 'Organization', name: appConfig.name, url: appConfig.url },
+    /*
+     * What the collection is OF, when it is of something nameable — a channel
+     * page is a list of one channel's releases, and saying so is what connects
+     * this page to the YouTube channel it mirrors. `sameAs` carries that link;
+     * without it the two are just two places with a similar name.
+     *
+     * Every field is dropped when the database has no value, rather than sent
+     * empty: an `image: ''` asserts a picture exists and is at no address.
+     */
+    ...(about
+      ? {
+          about: {
+            '@type': 'Organization',
+            name: about.name,
+            ...(about.description ? { description: about.description } : {}),
+            ...(about.image ? { image: about.image } : {}),
+            ...(about.url ? { sameAs: [about.url] } : {}),
+          },
+        }
+      : {}),
     ...(listed.length > 0
       ? {
           mainEntity: {

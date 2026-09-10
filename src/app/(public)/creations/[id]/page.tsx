@@ -3,7 +3,7 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { ChannelPageBody } from '@/components/site/ChannelPageBody';
 import { pageSizes } from '@/config/app.config';
 import { getMusicVideos, getPublicChannelBySlug } from '@/features/youtube/queries';
-import { breadcrumbJsonLd, buildMetadata, listingMetadata } from '@/lib/seo';
+import { breadcrumbJsonLd, buildMetadata, collectionJsonLd, listingMetadata } from '@/lib/seo';
 
 export const revalidate = 300;
 
@@ -88,6 +88,44 @@ export default async function ChannelPage(props: Params) {
 
   return (
     <div className="container-page py-14 sm:py-20">
+      {/*
+        The channel's releases, described as the collection they are.
+
+        Not on a search: a `?q=` page is already `noindex` (see
+        `listingMetadata`), so describing a collection there would be markup
+        addressed to nobody. Paged views ARE described — page 5 is a real,
+        indexable slice, and `total` says how large the whole channel is so the
+        thirty on screen never read as the whole of it.
+
+        `about` names the YouTube channel this page mirrors, which is what ties
+        the two together rather than leaving them as two similarly named places.
+      */}
+      {q ? null : (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(
+              collectionJsonLd({
+                name: page > 1 ? `${channel.name}, page ${page}` : channel.name,
+                description: `Every ${channel.name} release published on the Rejoice website.`,
+                path: page > 1 ? `/creations/${slug}?page=${page}` : `/creations/${slug}`,
+                items: result.videos.map((video) => ({
+                  name: video.title,
+                  path: `/videos/${video.youtubeVideoId}`,
+                })),
+                total: result.total,
+                about: {
+                  name: channel.name,
+                  url: channel.url,
+                  description: channel.description,
+                  image: channel.thumbnail,
+                },
+              }),
+            ),
+          }}
+        />
+      )}
+
       {/* Home, Creations, this channel. The crumb always names page one of the
           channel, even on page 5 — the trail describes where the page sits in
           the site, not which slice of the list is on screen. */}

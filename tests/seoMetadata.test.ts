@@ -117,6 +117,36 @@ describe('collectionJsonLd', () => {
     }
   });
 
+  it('names what the collection is of, and links it to its source', () => {
+    // A channel page and the YouTube channel it mirrors are otherwise just two
+    // places with a similar name.
+    const ld = collectionJsonLd({
+      ...base,
+      items: items.slice(0, 2),
+      about: {
+        name: 'Rejoice Gospel Communications',
+        url: 'https://www.youtube.com/@rejoicegospelcommunications',
+        description: 'Tamil gospel music.',
+        image: 'https://example.test/avatar.jpg',
+      },
+    });
+    expect(ld.about?.name).toBe('Rejoice Gospel Communications');
+    expect(ld.about?.sameAs).toEqual(['https://www.youtube.com/@rejoicegospelcommunications']);
+  });
+
+  it('drops the fields a channel has no value for rather than sending them empty', () => {
+    // `image: ''` asserts a picture exists and is at no address.
+    const ld = collectionJsonLd({
+      ...base,
+      about: { name: 'Rejoice', url: null, description: null, image: null },
+    });
+    expect(ld.about).toEqual({ '@type': 'Organization', name: 'Rejoice' });
+  });
+
+  it('says nothing about a subject it was not given', () => {
+    expect(collectionJsonLd({ ...base, items }).about).toBeUndefined();
+  });
+
   it('numbers positions from one', () => {
     const ld = collectionJsonLd({ ...base, items: items.slice(0, 3) });
     expect(ld.mainEntity!.itemListElement.map((e) => e.position)).toEqual([1, 2, 3]);
