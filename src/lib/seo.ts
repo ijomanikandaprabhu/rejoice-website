@@ -416,3 +416,104 @@ export function servicesJsonLd(
     },
   };
 }
+
+/**
+ * CollectionPage for a listing (section 32).
+ *
+ * The six listing and story pages carried no structured data at all, which is
+ * the gap this closes. A listing is not an article and not a product: what it
+ * IS, in schema terms, is a page whose subject is an ordered set of things, and
+ * `CollectionPage` wrapping an `ItemList` is the vocabulary for exactly that.
+ *
+ * ## What goes in the list
+ *
+ * ONLY what the page actually renders. A page showing the newest thirty songs
+ * out of four hundred lists thirty; `total` then states the size of the
+ * collection separately, via `numberOfItems`, so the markup says "thirty of
+ * four hundred" rather than claiming the page holds them all. Listing every
+ * item regardless of what is on screen is the common way this markup starts
+ * disagreeing with the page, and disagreement is what gets structured data
+ * ignored.
+ *
+ * `ListItem` carries `url` and `name` only. Repeating each song's full
+ * `MusicRecording` here would duplicate what the song's own page already says
+ * far better, and the `url` is what lets the two be joined up.
+ *
+ * The list is capped at 60 — the largest page size in `pageSizes` — because a
+ * listing page's job here is to hand over links, not to be a feed export.
+ */
+export function collectionJsonLd({
+  name,
+  description,
+  path,
+  items = [],
+  total,
+}: {
+  name: string;
+  description: string;
+  path: string;
+  items?: { name: string; path: string }[];
+  total?: number;
+}) {
+  const listed = items.slice(0, 60);
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name,
+    description,
+    url: absoluteUrl(path),
+    inLanguage: 'en',
+    isPartOf: { '@type': 'WebSite', name: appConfig.name, url: appConfig.url },
+    publisher: { '@type': 'Organization', name: appConfig.name, url: appConfig.url },
+    ...(listed.length > 0
+      ? {
+          mainEntity: {
+            '@type': 'ItemList',
+            // The count of the whole collection when the caller knows it,
+            // otherwise of what is listed — never a number nothing measured.
+            numberOfItems: total ?? listed.length,
+            itemListOrder: 'https://schema.org/ItemListOrderDescending',
+            itemListElement: listed.map((item, index) => ({
+              '@type': 'ListItem',
+              position: index + 1,
+              name: item.name,
+              url: absoluteUrl(item.path),
+            })),
+          },
+        }
+      : {}),
+  };
+}
+
+/**
+ * AboutPage for /about-us (section 32).
+ *
+ * `AboutPage` rather than `Organization`: the homepage already publishes the
+ * Organization entity, and a second copy of it on another URL is how a search
+ * engine ends up with two companies of the same name. This says "this page is
+ * about that organisation" and points at it, which is the relationship that
+ * actually holds.
+ *
+ * `mainEntity` is a reference by `@id`, not a repeat of the details. The
+ * homepage is the one place they are stated.
+ */
+export function aboutJsonLd() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'AboutPage',
+    name: `About ${appConfig.name}`,
+    description: appConfig.description,
+    url: absoluteUrl('/about-us'),
+    inLanguage: 'en',
+    isPartOf: { '@type': 'WebSite', name: appConfig.name, url: appConfig.url },
+    mainEntity: {
+      '@type': 'Organization',
+      name: appConfig.name,
+      legalName: appConfig.legalName,
+      url: appConfig.url,
+      foundingDate: appConfig.foundingYear,
+      address: { '@type': 'PostalAddress', ...appConfig.place },
+    },
+  };
+}

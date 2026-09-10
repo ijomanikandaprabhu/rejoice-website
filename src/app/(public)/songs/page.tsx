@@ -6,7 +6,7 @@ import { SongGrid } from '@/components/site/SongGrid';
 import { ctaPanels, musicPage } from '@/config/content.config';
 import { pageSizes } from '@/config/app.config';
 import { listPublicSongsPage } from '@/features/songs/queries';
-import { buildMetadata } from '@/lib/seo';
+import { breadcrumbJsonLd, buildMetadata, collectionJsonLd } from '@/lib/seo';
 
 export const revalidate = 300;
 
@@ -39,6 +39,29 @@ export default async function MusicPage() {
 
   return (
     <>
+      {/* Thirty of `total` — see `collectionJsonLd` for why the two numbers
+          are stated separately rather than the list claiming to be everything. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(
+            collectionJsonLd({
+              name: 'Songs',
+              description:
+                'Listen to Rejoice Gospel Communications on Spotify, Apple Music, JioSaavn, Gaana and more.',
+              path: '/songs',
+              items: songs.map((song) => ({ name: song.title, path: `/songs/${song.slug}` })),
+              total,
+            }),
+          ),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbJsonLd([{ name: 'Songs', path: '/songs' }])),
+        }}
+      />
       {/*
        * The hero.
        *

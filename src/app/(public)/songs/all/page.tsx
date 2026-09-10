@@ -8,7 +8,7 @@ import { SongGrid } from '@/components/site/SongGrid';
 import { pageSizes } from '@/config/app.config';
 import { ctaPanels } from '@/config/content.config';
 import { listPublicSongsPage } from '@/features/songs/queries';
-import { listingMetadata } from '@/lib/seo';
+import { breadcrumbJsonLd, collectionJsonLd, listingMetadata } from '@/lib/seo';
 
 /**
  * Every song, paged and searchable.
@@ -63,6 +63,43 @@ export default async function AllSongsPage(props: { searchParams: Promise<Search
 
   return (
     <>
+      {/*
+        Only when there is no search running. A `?q=` page is already `noindex`
+        (see `listingMetadata`) because those URLs are thin and effectively
+        infinite; emitting a described collection on a page we are asking search
+        engines to ignore would be markup talking to nobody.
+
+        The list is this page of results, and `total` the whole catalogue.
+      */}
+      {query ? null : (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(
+              collectionJsonLd({
+                name: page > 1 ? `All songs, page ${page}` : 'All songs',
+                description:
+                  'Every release from Rejoice Gospel Communications, and where to hear it.',
+                path: page > 1 ? `/songs/all?page=${page}` : '/songs/all',
+                items: songs.map((song) => ({ name: song.title, path: `/songs/${song.slug}` })),
+                total,
+              }),
+            ),
+          }}
+        />
+      )}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(
+            breadcrumbJsonLd([
+              { name: 'Songs', path: '/songs' },
+              { name: 'All songs', path: '/songs/all' },
+            ]),
+          ),
+        }}
+      />
+
       <section className="container-page pb-16 pt-8 sm:pb-20 sm:pt-10">
         <BackButton href="/songs" label="Songs" ariaLabel="Back to songs" />
 

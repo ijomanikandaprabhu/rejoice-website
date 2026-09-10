@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { BackButton, EmptyPanel } from '@/components/site/Section';
 import { ShortsFeed } from '@/components/site/ShortsFeed';
 import { getPublicShort, getShortsVideos } from '@/features/youtube/queries';
-import { buildMetadata } from '@/lib/seo';
+import { breadcrumbJsonLd, buildMetadata, collectionJsonLd } from '@/lib/seo';
 
 /*
  * Cached for five minutes, like every other public page.
@@ -89,6 +89,40 @@ export default async function ShortsPage(
      * two nested scrollbars.
      */
     <div className="container-page flex h-[calc(100svh-4.5rem-1px)] flex-col py-6">
+      {/*
+        The sixty in the feed, described as the collection they are. `?v=` is
+        each one's real address — a Short has no page of its own — and when the
+        feed has been opened at a particular Short that one is first, so the
+        markup matches the order on screen rather than a canonical order the
+        visitor is not looking at.
+
+        No `total`: this page holds a fixed newest-sixty and never says how many
+        Shorts exist, so a count here would be a number nothing on the page
+        measured. `/shorts/all` is the page that knows.
+      */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(
+            collectionJsonLd({
+              name: 'Short Takes',
+              description: 'Every vertical release published on the Rejoice website.',
+              path: '/shorts',
+              items: videos.map((video) => ({
+                name: video.title,
+                path: `/shorts?v=${video.youtubeVideoId}`,
+              })),
+            }),
+          ),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbJsonLd([{ name: 'Short Takes', path: '/shorts' }])),
+        }}
+      />
+
       {/*
        * Bare icon, like the channel page's: the control sits in a header row
        * where the destination is obvious, so `BackButton`'s optional label is

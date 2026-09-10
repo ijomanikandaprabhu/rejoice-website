@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { searchTitle } from '@/lib/utils/videoDisplay';
-import { listingMetadata } from '@/lib/seo';
+import { aboutJsonLd, collectionJsonLd, listingMetadata } from '@/lib/seo';
 
 /**
  * Two rules that only exist because the live site was getting them wrong.
@@ -75,5 +75,60 @@ describe('listingMetadata', () => {
   it('carries no em dash in a paginated title', () => {
     // The public copy carries none, and a <title> is public copy.
     expect(listingMetadata({ ...base, page: 3 }).title).not.toContain('—');
+  });
+});
+
+/**
+ * The listing markup, whose whole risk is disagreeing with the page.
+ *
+ * Six pages carried no structured data at all until this went in. The failure
+ * mode for markup like this is not a crash — it is quietly claiming the page
+ * holds four hundred songs when thirty are drawn, which is the sort of thing
+ * that gets a site's structured data discounted wholesale.
+ */
+describe('collectionJsonLd', () => {
+  const items = Array.from({ length: 80 }, (_, i) => ({ name: `Song ${i}`, path: `/songs/s${i}` }));
+  const base = { name: 'Songs', description: 'Every release.', path: '/songs' };
+
+  it('states the size of the collection, not the size of the page', () => {
+    const ld = collectionJsonLd({ ...base, items: items.slice(0, 30), total: 412 });
+    expect(ld.mainEntity?.itemListElement).toHaveLength(30);
+    expect(ld.mainEntity?.numberOfItems).toBe(412);
+  });
+
+  it('falls back to what is listed when no total is known', () => {
+    // A number nothing measured is worse than a smaller true one.
+    const ld = collectionJsonLd({ ...base, items: items.slice(0, 12) });
+    expect(ld.mainEntity?.numberOfItems).toBe(12);
+  });
+
+  it('caps the list at the largest page size', () => {
+    expect(collectionJsonLd({ ...base, items }).mainEntity?.itemListElement).toHaveLength(60);
+  });
+
+  it('omits the list entirely rather than emitting an empty one', () => {
+    expect(collectionJsonLd({ ...base }).mainEntity).toBeUndefined();
+  });
+
+  it('gives every item an absolute URL', () => {
+    const ld = collectionJsonLd({ ...base, items: items.slice(0, 3) });
+    for (const entry of ld.mainEntity!.itemListElement) {
+      expect(entry.url).toMatch(/^https?:\/\//);
+    }
+  });
+
+  it('numbers positions from one', () => {
+    const ld = collectionJsonLd({ ...base, items: items.slice(0, 3) });
+    expect(ld.mainEntity!.itemListElement.map((e) => e.position)).toEqual([1, 2, 3]);
+  });
+});
+
+describe('aboutJsonLd', () => {
+  it('points at the organisation rather than declaring a second one', () => {
+    // Two Organization entities on two URLs is how one company becomes two.
+    const ld = aboutJsonLd();
+    expect(ld['@type']).toBe('AboutPage');
+    expect(ld.mainEntity['@type']).toBe('Organization');
+    expect(ld.url).toMatch(/\/about-us$/);
   });
 });

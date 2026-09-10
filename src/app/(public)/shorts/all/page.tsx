@@ -8,7 +8,7 @@ import { SiteSearchField } from '@/components/site/SiteSearchField';
 import { pageSizes } from '@/config/app.config';
 import { ctaPanels } from '@/config/content.config';
 import { getMusicVideos } from '@/features/youtube/queries';
-import { listingMetadata } from '@/lib/seo';
+import { breadcrumbJsonLd, collectionJsonLd, listingMetadata } from '@/lib/seo';
 
 /**
  * Every Short, paged and searchable.
@@ -66,6 +66,43 @@ export default async function AllShortsPage(props: { searchParams: Promise<Searc
 
   return (
     <>
+      {/* Same rule as /songs/all: nothing described on a searched, noindex URL. */}
+      {query ? null : (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(
+              collectionJsonLd({
+                name: page > 1 ? `All Shorts, page ${page}` : 'All Shorts',
+                description: 'Every vertical release from Rejoice Gospel Communications.',
+                path: page > 1 ? `/shorts/all?page=${page}` : '/shorts/all',
+                /*
+                 * A Short has no page of its own — the feed opens at one via
+                 * `?v=`, which is the address a card here links to, so it is
+                 * the address the markup gives too.
+                 */
+                items: videos.map((video) => ({
+                  name: video.title,
+                  path: `/shorts?v=${video.youtubeVideoId}`,
+                })),
+                total,
+              }),
+            ),
+          }}
+        />
+      )}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(
+            breadcrumbJsonLd([
+              { name: 'Short Takes', path: '/shorts' },
+              { name: 'All Shorts', path: '/shorts/all' },
+            ]),
+          ),
+        }}
+      />
+
       <section className="container-page pb-16 pt-8 sm:pb-20 sm:pt-10">
         <BackButton href="/shorts" label="Short Takes" ariaLabel="Back to the Shorts feed" />
 

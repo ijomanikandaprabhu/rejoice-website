@@ -7,7 +7,7 @@ import { CoverflowCarousel } from '@/components/ui/coverflow-carousel';
 import { LetterHover } from '@/components/ui/scale-letter';
 import { channelsHoverLine } from '@/features/content/queries';
 import { getCarouselVideos, getChannelsWithVideos } from '@/features/youtube/queries';
-import { buildMetadata } from '@/lib/seo';
+import { breadcrumbJsonLd, buildMetadata, collectionJsonLd } from '@/lib/seo';
 
 export const revalidate = 300;
 
@@ -23,6 +23,16 @@ export default async function ChannelsPage() {
     getCarouselVideos(10),
   ]);
 
+  const jsonLd = collectionJsonLd({
+    name: 'Creations',
+    description: 'The official Rejoice YouTube channels and their latest selected videos.',
+    path: '/creations',
+    // The channels, not the carousel: the carousel is a rotating selection of
+    // videos that each have their own page, whereas the channels are what this
+    // page is a directory OF.
+    items: channels.map((channel) => ({ name: channel.name, path: `/creations/${channel.slug}` })),
+  });
+
   return (
     /*
      * No `container-page` on the wrapper: the carousel below is full-bleed and
@@ -31,6 +41,17 @@ export default async function ChannelsPage() {
      * homepage for the same reason.
      */
     <div className="py-14 sm:py-20">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbJsonLd([{ name: 'Creations', path: '/creations' }])),
+        }}
+      />
+
       {/*
        * The page heading. Rendered by `LetterHover` as the real `h1` — the
        * ember panel that used to carry the h1 was removed, and a page with no

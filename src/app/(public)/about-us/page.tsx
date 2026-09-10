@@ -12,7 +12,7 @@ import {
 } from '@/components/site/about/AboutSections';
 import { CtaPanel } from '@/components/site/CtaPanel';
 import { ctaPanels } from '@/config/content.config';
-import { buildMetadata } from '@/lib/seo';
+import { aboutJsonLd, breadcrumbJsonLd, buildMetadata } from '@/lib/seo';
 
 export const revalidate = 300;
 
@@ -36,6 +36,22 @@ export const metadata = buildMetadata({
 export default function AboutPage() {
   return (
     <>
+      {/*
+        What this page is, for a search engine and for an assistant answering
+        "who are Rejoice". `AboutPage` pointing at the organisation the
+        homepage already describes, rather than a second copy of it.
+      */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(aboutJsonLd()) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbJsonLd([{ name: 'About Us', path: '/about-us' }])),
+        }}
+      />
+
       <AboutHero />
       <AboutStory />
       <AboutGrid />
