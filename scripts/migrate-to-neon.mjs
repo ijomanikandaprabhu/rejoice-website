@@ -16,7 +16,29 @@ import { PrismaClient } from '@prisma/client';
 import 'dotenv/config';
 
 const local = new PrismaClient();
-const neon = new PrismaClient({ datasources: { db: { url: process.env.DIRECT_URL } } });
+
+/*
+ * `NEON_DIRECT_URL` first, `DIRECT_URL` only as a fallback.
+ *
+ * Prisma reads `DIRECT_URL` by itself — `schema.prisma` sets
+ * `directUrl = env("DIRECT_URL")` — and every `prisma migrate` command uses it
+ * in preference to `DATABASE_URL`. So a developer machine holding a production
+ * value under that name has `npm run db:migrate` pointed at the live database
+ * and `prisma migrate reset` aimed at emptying it, with nothing on screen
+ * saying so.
+ *
+ * The address is therefore kept under a name Prisma does not look for, and this
+ * script — the one thing that legitimately wants to write to Neon from a
+ * laptop — asks for it explicitly. The fallback keeps the script working
+ * anywhere `DIRECT_URL` is already set on purpose, such as a deploy.
+ */
+const neonUrl = process.env.NEON_DIRECT_URL ?? process.env.DIRECT_URL;
+if (!neonUrl) {
+  console.error('Set NEON_DIRECT_URL to the Neon direct connection string before running this.');
+  process.exit(1);
+}
+
+const neon = new PrismaClient({ datasources: { db: { url: neonUrl } } });
 
 // Parents before children on the way in; the reverse on the way out.
 const ORDER = [
