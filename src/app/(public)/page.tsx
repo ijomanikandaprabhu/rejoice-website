@@ -56,6 +56,20 @@ export default async function HomePage() {
 
   return (
     <>
+      {/*
+        Tells the header there is film running up behind it, so it can go
+        transparent instead of cutting a seam across the top of the video.
+
+        A marker in the MARKUP rather than a check in the header, because the
+        header's own `usePathname()` has no answer while this page is being
+        prerendered — it assumed "not the homepage", baked the solid bar into the
+        saved copy, and every visitor arriving from a link, a bookmark or a
+        refresh met that bar until their first scroll. This page knows what it is
+        at build time, so it says so, and the rule in globals.css does the rest
+        before a line of JavaScript runs.
+      */}
+      <div data-over-hero hidden />
+
       {/* Organization says who runs the site; WebSite says what the site is.
           Google treats them as separate entities and both are worth stating. */}
       <script

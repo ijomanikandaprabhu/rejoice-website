@@ -40,7 +40,18 @@ export function SiteHeader({ siteName }: { siteName: string }) {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const overHero = pathname === '/' && !scrolled && !open;
+  /*
+   * Only "is the page still at the top", which is a question this component can
+   * answer correctly even while being prerendered — `scrolled` starts false and
+   * a page nobody has scrolled yet IS at the top.
+   *
+   * It deliberately no longer asks `pathname === '/'`. That was the bug:
+   * `usePathname()` returns nothing during a static prerender, so the homepage
+   * was built as though it were an inner page and shipped with the solid bar
+   * baked in. Which page has film behind the header is now declared by the page
+   * itself, via `data-over-hero`, and paired with this flag in globals.css.
+   */
+  const atTop = !scrolled && !open;
 
   const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
 
@@ -55,12 +66,14 @@ export function SiteHeader({ siteName }: { siteName: string }) {
 
   return (
     <header
-      className={cn(
-        'sticky top-0 z-40 transition-colors duration-300',
-        overHero
-          ? 'border-b border-transparent bg-transparent'
-          : 'border-b border-white/[0.06] bg-site-bg/85 backdrop-blur-xl',
-      )}
+      /*
+       * The solid bar is the DEFAULT, which is what every page but one wants —
+       * and what a prerender should fall back to if the rule below never
+       * matches. `data-at-top` is the only thing that changes here; globals.css
+       * turns it transparent, but only on a page carrying `data-over-hero`.
+       */
+      data-at-top={atTop ? '' : undefined}
+      className="sticky top-0 z-40 border-b border-white/[0.06] bg-site-bg/85 backdrop-blur-xl transition-colors duration-300"
     >
       <div className="container-page relative flex h-[4.5rem] items-center justify-between gap-6">
         <nav className="hidden items-center gap-1 md:flex" aria-label="Main">

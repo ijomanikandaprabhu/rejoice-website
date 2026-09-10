@@ -127,6 +127,28 @@
   }
 
   /*
+   * The header disappears over a page that has film behind it.
+   *
+   * Both halves are in the MARKUP the server sends — `data-over-hero` from the
+   * homepage, `data-at-top` from the header — so this resolves on the very first
+   * frame, before hydration. That is the whole point of doing it here rather
+   * than in the component: the header used to decide this with
+   * `usePathname()`, which is blank during a static prerender, so the homepage
+   * shipped with the solid bar baked in and every visitor arriving from a link
+   * or a refresh saw a seam across the top of the video until they scrolled.
+   *
+   * Written as an override rather than a base state so the solid bar remains
+   * the default. If `:has()` were ever unavailable, or the marker were dropped,
+   * the failure is a header that is too opaque — legible, merely less pretty —
+   * rather than white text floating on a bright frame of video.
+   */
+  body:has([data-over-hero]) header[data-at-top] {
+    border-bottom-color: transparent;
+    background-color: transparent;
+    backdrop-filter: none;
+  }
+
+  /*
    * ...and that gutter stays reserved while a Radix overlay is open, which
    * makes react-remove-scroll's compensation a double count.
    *
