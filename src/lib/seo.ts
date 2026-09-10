@@ -125,14 +125,59 @@ export function videoJsonLd(video: {
   };
 }
 
-export function organizationJsonLd(social: string[]) {
+/**
+ * Who runs this site, said so a machine can file it as one company.
+ *
+ * `legalName` and `alternateName` are the load-bearing pair. Everything
+ * machine-readable here says "Rejoice"; every word of prose on the site says
+ * "Rejoice Gospel Communications". A person joins those without noticing. An
+ * answer engine has no reason to, and until now was given none — so the label
+ * and the studio could be indexed as two organisations that happen to share an
+ * address. These two fields are the whole of the join.
+ *
+ * `sameAs` takes the channels as well as the social links. The five YouTube
+ * channels are where nearly all of the work actually lives, and an organisation
+ * that does not claim its own channels is one an answer engine cannot connect
+ * to them. Duplicates are removed because the main channel is usually in the
+ * social links too.
+ */
+export function organizationJsonLd(social: string[], channelUrls: string[] = []) {
+  /*
+   * Compared case-insensitively, and with any trailing slash ignored, because
+   * the same channel arrives from two places in two spellings: the social link
+   * an administrator typed (`@RejoiceGospelCommunications`) and the handle
+   * YouTube returned (`@rejoicegospelcommunications`). A plain `Set` keeps both,
+   * and an organisation listing one profile twice is claiming two.
+   *
+   * The FIRST spelling wins, so the administrator's own link is the one
+   * published — it is the form they chose to show elsewhere.
+   */
+  const seen = new Set<string>();
+  const sameAs = [...social, ...channelUrls].filter((url) => {
+    if (!url) return false;
+    const key = url.toLowerCase().replace(/\/+$/, '');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
   return {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: appConfig.name,
+    legalName: appConfig.legalName,
+    alternateName: appConfig.legalName,
     description: appConfig.description,
     url: appConfig.url,
-    ...(social.length > 0 ? { sameAs: social } : {}),
+    foundingDate: appConfig.foundingYear,
+    /*
+     * Without a street line, which is administrator-editable and lives in the
+     * database. A locality is still worth stating on its own: "a gospel music
+     * label in Chennai" is the shape of question this answers, and the street
+     * number is not part of it.
+     */
+    address: { '@type': 'PostalAddress', ...appConfig.place },
+    ...(sameAs.length > 0 ? { sameAs } : {}),
   };
 }
 
@@ -287,10 +332,23 @@ export function contactJsonLd(contact: { email: string; phone: string; address: 
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: appConfig.name,
+    /* The same join as the homepage's Organization, for the same reason: this
+       page is where somebody looking for the company by its full name lands. */
+    legalName: appConfig.legalName,
+    alternateName: appConfig.legalName,
     url: appConfig.url,
-    ...(contact.address
-      ? { address: { '@type': 'PostalAddress', streetAddress: contact.address } }
-      : {}),
+    /*
+     * The street line from the database, the city and country from config. Both
+     * halves matter and neither is enough alone: the street is the specific
+     * thing a person needs, the locality is the part that answers "where are
+     * they based". The `...place` spread stays even when the street is empty,
+     * so a cleared setting downgrades the address rather than deleting it.
+     */
+    address: {
+      '@type': 'PostalAddress',
+      ...(contact.address ? { streetAddress: contact.address } : {}),
+      ...appConfig.place,
+    },
     contactPoint: [
       {
         '@type': 'ContactPoint',
@@ -300,5 +358,61 @@ export function contactJsonLd(contact: { email: string; phone: string; address: 
         availableLanguage: ['en', 'ta'],
       },
     ],
+  };
+}
+
+/**
+ * What the studio actually sells, as data.
+ *
+ * The Services page carries the clearest statement of the business on the whole
+ * site — four offerings, each with a paragraph and a list of what is included —
+ * and it was the one public page emitting no structured data at all. To an
+ * answer engine asked "who does gospel music production in Chennai", that page
+ * was prose it had to guess at rather than a list it could read.
+ *
+ * `OfferCatalog` of `Service` rather than four loose `Service` blocks: the
+ * relationship is "this organisation offers these four things", and the catalog
+ * is what carries that. Each offering's `items` become the service's own
+ * catalog, so "Mixing" and "Mastering" are reachable rather than buried in a
+ * sentence.
+ *
+ * NOT `Offer` or `priceRange`: nothing here is priced, and inventing a figure to
+ * satisfy a schema is how structured data starts lying. `areaServed` is stated
+ * because the work is remote-friendly but the studio is a real place, and that
+ * is exactly the distinction someone asking is trying to draw.
+ */
+export function servicesJsonLd(
+  services: readonly { id: string; title: string; lead: string; items: string[] }[],
+) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: appConfig.name,
+    legalName: appConfig.legalName,
+    alternateName: appConfig.legalName,
+    url: appConfig.url,
+    address: { '@type': 'PostalAddress', ...appConfig.place },
+    hasOfferCatalog: {
+      '@type': 'OfferCatalog',
+      name: 'Production services',
+      itemListElement: services.map((service, index) => ({
+        '@type': 'Service',
+        position: index + 1,
+        name: service.title,
+        description: service.lead,
+        serviceType: service.title,
+        url: absoluteUrl(`/services#${service.id}`),
+        provider: { '@type': 'Organization', name: appConfig.name, url: appConfig.url },
+        areaServed: { '@type': 'Country', name: 'India' },
+        hasOfferCatalog: {
+          '@type': 'OfferCatalog',
+          name: service.title,
+          itemListElement: service.items.map((item) => ({
+            '@type': 'Service',
+            name: item,
+          })),
+        },
+      })),
+    },
   };
 }

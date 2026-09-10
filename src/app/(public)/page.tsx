@@ -53,6 +53,12 @@ export default async function HomePage() {
   ]);
 
   const socials = contact.socials.map((s) => s.href);
+  /*
+   * The channels are claimed by the Organization as its own profiles. Nearly
+   * all of the work lives on them, and an organisation that does not say the
+   * channels are its own is one an answer engine cannot connect to them.
+   */
+  const channelUrls = channels.map((c) => c.url).filter(Boolean);
 
   return (
     <>
@@ -74,7 +80,7 @@ export default async function HomePage() {
           Google treats them as separate entities and both are worth stating. */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd(socials)) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd(socials, channelUrls)) }}
       />
       <script
         type="application/ld+json"

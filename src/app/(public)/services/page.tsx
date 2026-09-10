@@ -10,7 +10,7 @@ import { EmptyPanel, SiteButton } from '@/components/site/Section';
 import { PageHero } from '@/components/site/PageHero';
 import { ctaPanels, servicesPage } from '@/config/content.config';
 import { getVisibleServices } from '@/features/content/queries';
-import { buildMetadata } from '@/lib/seo';
+import { buildMetadata, servicesJsonLd } from '@/lib/seo';
 import { cn } from '@/lib/utils';
 
 /**
@@ -122,6 +122,25 @@ export default function ServicesPage() {
 
   return (
     <>
+      {/*
+        What the studio sells, as data rather than prose.
+
+        This page carries the clearest statement of the business anywhere on the
+        site and was the only public page emitting no structured data at all —
+        so to anything reading the site rather than looking at it, the four
+        offerings and everything under them were invisible.
+
+        Guarded on `services.length`, because the page already handles the empty
+        case with a panel and an empty catalog would claim the studio offers
+        nothing rather than saying nothing.
+      */}
+      {services.length > 0 ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(servicesJsonLd(services)) }}
+        />
+      ) : null}
+
       {/* Full-bleed, like About — so this page does NOT wrap everything in
           `container-page`; the hero applies it inside itself. */}
       <PageHero heading={servicesPage.heading} paragraphs={servicesPage.intro} />

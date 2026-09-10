@@ -22,13 +22,47 @@ import { absoluteUrl } from '@/lib/seo';
  * longest matching rule, so `/api/image` wins for images while `/api/youtube`,
  * `/api/contact` and the rest stay disallowed.
  */
+/**
+ * The crawlers behind AI answers, named rather than left to the wildcard.
+ *
+ * They were already allowed — everything is, under `*` — so this changes no
+ * permission. It states the decision instead of leaving it to a default, which
+ * matters because the default is the thing that silently changes when a crawler
+ * starts treating an unnamed site as opt-out.
+ *
+ * The owner's decision was to be readable by them: the studio wants to be the
+ * answer when somebody asks about Tamil gospel music production. Naming each
+ * agent, with the same two exclusions everything else gets, is how that is said
+ * out loud. To reverse it, change `allow` to `disallow` here — one line, and
+ * the reason it is one line is that it is a decision worth being able to undo.
+ */
+const AI_AGENTS = [
+  'GPTBot',
+  'OAI-SearchBot',
+  'ChatGPT-User',
+  'ClaudeBot',
+  'Claude-User',
+  'anthropic-ai',
+  'PerplexityBot',
+  'Perplexity-User',
+  'Google-Extended',
+  'Applebot-Extended',
+  'CCBot',
+  'Meta-ExternalAgent',
+  'Amazonbot',
+] as const;
+
 export default function robots(): MetadataRoute.Robots {
+  const shared = {
+    allow: ['/', '/api/image', '/api/media'],
+    disallow: ['/admin/', '/api/'],
+  };
+
   return {
-    rules: {
-      userAgent: '*',
-      allow: ['/', '/api/image', '/api/media'],
-      disallow: ['/admin/', '/api/'],
-    },
+    rules: [
+      { userAgent: '*', ...shared },
+      ...AI_AGENTS.map((userAgent) => ({ userAgent, ...shared })),
+    ],
     sitemap: absoluteUrl('/sitemap.xml'),
   };
 }

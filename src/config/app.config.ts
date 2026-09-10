@@ -11,6 +11,33 @@ export const appConfig = {
   description:
     'Rejoice is a gospel music label and video production company creating worship music, live recordings and professional video production.',
   /*
+   * The identity facts, for the structured data that answer engines read.
+   *
+   * The site calls itself two things: `name` above in every machine-readable
+   * field, and "Rejoice Gospel Communications" in the About copy, the contact
+   * heading and both legal documents. A reader joins them without thinking; a
+   * machine has no reason to, and was given none — so the two could be filed as
+   * separate companies. `legalName` and `alternateName` in the Organization say
+   * outright that they are one.
+   *
+   * The place and the year exist on the site already, in prose: the address is
+   * printed on the contact page, "Since 2003" is the badge on About. They are
+   * repeated here in the shape schema.org expects, because "Chennai, Tamil
+   * Nadu, India" inside a sentence is not something a machine can rely on.
+   *
+   * The street line is NOT here. It is administrator-editable in Settings and
+   * comes from the database, so duplicating it would create a second copy to
+   * drift. Only the parts that do not change are stated.
+   */
+  legalName: 'Rejoice Gospel Communications',
+  foundingYear: '2003',
+  place: {
+    addressLocality: 'Chennai',
+    addressRegion: 'Tamil Nadu',
+    postalCode: '600091',
+    addressCountry: 'IN',
+  },
+  /*
    * `?.trim() ||` rather than `??`.
    *
    * `??` only falls back on undefined, so a variable that EXISTS but is empty
