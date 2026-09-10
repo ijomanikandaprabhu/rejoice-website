@@ -147,9 +147,23 @@ export default async function NotificationsPage() {
                     <div className="min-w-0 flex-1 px-1">{inner}</div>
                   )}
 
-                  {/* No confirmation for one: it is a note, it points at
-                      something this does not touch, and it would have cleared
-                      itself within the week anyway. */}
+                  {/*
+                    Confirmed, like every other delete in the portal.
+
+                    It shipped without one, on the argument that a notification
+                    is only a note and clears itself within the week anyway.
+                    That reasoning holds for the CONSEQUENCE and misses the
+                    CONTROL: this is a bin icon sitting at the end of every row
+                    in a list people scroll and click through, with no undo
+                    behind it. The bulk bar beside it already asks before
+                    removing a selection, so one click quietly did what four
+                    could not without a question first.
+
+                    The wording follows `/admin/enquiries` and `/admin/songs`,
+                    which is where an administrator has met this dialog before —
+                    including its "Are you sure? / Continue" frame, which
+                    `ActionButton` fixes for every delete in the portal.
+                  */}
                   <ActionButton
                     action={deleteNotificationAction}
                     hiddenFields={{ id: item.id }}
@@ -157,6 +171,7 @@ export default async function NotificationsPage() {
                     size="sm"
                     pendingLabel="…"
                     label="Delete notification"
+                    confirm="This removes the notification permanently. Whatever it points at is not affected."
                   >
                     <Trash2 className="size-4 text-destructive" />
                   </ActionButton>

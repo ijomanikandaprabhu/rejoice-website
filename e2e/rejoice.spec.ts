@@ -204,6 +204,47 @@ test.describe('Public website', () => {
   });
 });
 
+test.describe('Notifications', () => {
+  /*
+   * The bin at the end of a notification row shipped with no confirmation, on
+   * the argument that a notification is only a note. That reasoning covers the
+   * consequence and not the control: it is an icon repeated down a list people
+   * scroll and click through, with no undo, while the bulk bar beside it asked
+   * before removing a selection. One click quietly did what four could not.
+   *
+   * Tested through the DIALOG rather than the row count, because the row count
+   * alone cannot tell "the confirmation worked" from "the click missed".
+   */
+  test('deleting one notification asks first', async ({ page }) => {
+    await login(page);
+    await page.goto('/admin/notifications');
+
+    const bin = page.getByRole('button', { name: 'Delete notification' }).first();
+    // An environment with no notifications has nothing to guard; the suite's
+    // enquiry test creates one, but it does not run in every project.
+    test.skip((await bin.count()) === 0, 'no notifications to delete');
+
+    const rowsBefore = await page.getByRole('button', { name: 'Delete notification' }).count();
+
+    await bin.click();
+    const dialog = page.getByRole('alertdialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('This removes the notification permanently.');
+
+    // Cancel must leave the list exactly as it was.
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Delete notification' })).toHaveCount(rowsBefore);
+
+    // Confirming removes one, and only one.
+    await page.getByRole('button', { name: 'Delete notification' }).first().click();
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await expect(page.getByRole('button', { name: 'Delete notification' })).toHaveCount(
+      rowsBefore - 1,
+    );
+  });
+});
+
 test.describe('Administrator authentication', () => {
   test('admin requires a session', async ({ page }) => {
     await page.goto('/admin');
