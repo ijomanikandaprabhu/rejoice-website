@@ -696,4 +696,45 @@ test.describe('Regressions found by eye', () => {
     });
     expect(reachable, 'page controls should not be clickable behind the menu').toEqual([]);
   });
+
+  /*
+   * The sticky header stays above the page's own controls.
+   *
+   * The coverflow carousel stacks internally — cards at `100 - distance`, arrows
+   * at `z-[200]` to clear them — and its wrapper had `relative` without a
+   * `z-index`, which creates no stacking context. So those numbers competed
+   * against the whole page and beat the header at `z-40`: scrolling the carousel
+   * to the top of the window drew its arrows over the wordmark.
+   *
+   * `isolate` on that wrapper contains them. This test scrolls an arrow up
+   * behind the header and asks who is actually on top.
+   */
+  test('the header stays above the carousel arrows', async ({ page }) => {
+    await page.goto('/creations', { waitUntil: 'load' });
+    await settled(page);
+
+    const arrow = page.getByRole('button', { name: 'Previous slide' });
+    if ((await arrow.count()) === 0) test.skip(true, 'no carousel on this viewport');
+
+    const box = await arrow.boundingBox();
+    await page.evaluate((y) => window.scrollTo(0, y), Math.round((box?.y ?? 0) - 30));
+    await page.waitForTimeout(700);
+
+    const verdict = await page.evaluate(() => {
+      const a = document.querySelector('button[aria-label="Previous slide"]') as HTMLElement | null;
+      const header = document.querySelector('header');
+      if (!a || !header) return { checked: false, headerWins: true };
+      const b = a.getBoundingClientRect();
+      const hb = header.getBoundingClientRect();
+      // Only meaningful while the two actually overlap.
+      if (!(b.top < hb.bottom && b.bottom > hb.top)) return { checked: false, headerWins: true };
+      const top = document.elementFromPoint(
+        Math.round(b.left + b.width / 2),
+        Math.round(b.top + b.height / 2),
+      );
+      return { checked: true, headerWins: top ? header.contains(top) : false };
+    });
+
+    expect(verdict.headerWins, 'the carousel arrows are drawing over the sticky header').toBe(true);
+  });
 });

@@ -366,7 +366,27 @@ export function CoverflowCarousel({
       aria-roledescription="carousel"
       aria-label={label}
     >
-      <div className="relative">
+      {/*
+        `isolate` — `isolation: isolate` — and it is load-bearing.
+
+        This carousel stacks internally: the cards take `zIndex = 100 - distance`
+        (see the layout pass below) so the centre card sits above its neighbours,
+        and the prev/next buttons take `z-[200]` to clear all of them. Those
+        numbers are only ever meant to order the carousel against itself.
+
+        `relative` alone does NOT contain them — a positioned element without a
+        `z-index` creates no stacking context — so 100 and 200 were competing
+        against the whole page and beating everything in it. The sticky header is
+        `z-40`, so scrolling this carousel up to the top of the window drew the
+        arrows straight over the wordmark. `SiteLoader` hit the same buttons at
+        `z-[100]` and worked around it by climbing to `z-[1000]`, and the mobile
+        menu was suspected of the same thing.
+
+        One property fixes the class of problem rather than each instance: the
+        numbers now resolve inside this box, and the box takes its place in the
+        page like any other block.
+      */}
+      <div className="relative isolate">
         <div
           ref={frameRef}
           tabIndex={0}
