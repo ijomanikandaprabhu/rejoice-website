@@ -34,3 +34,32 @@ export const pillTransition = {
   duration: 0.32,
   ease: EASE_HOUSE,
 } as const;
+
+/**
+ * The mobile menu taking over the screen.
+ *
+ * Quicker than a screen arriving (`screenEnter`) and slower than the pill: this
+ * is a surface the thumb just summoned, so it has to feel answered rather than
+ * animated. The close is faster still — a menu you have finished with should get
+ * out of the way, the same reasoning as the admin dropdowns.
+ */
+export const sheetEnter = {
+  duration: 0.34,
+  ease: EASE_HOUSE,
+} as const;
+
+export const sheetExit = {
+  duration: 0.22,
+  ease: EASE_HOUSE,
+} as const;
+
+/**
+ * The links following the sheet in.
+ *
+ * `0.045` between items, which over six links finishes 0.27s after the first —
+ * inside the sheet's own 0.34s, so the stagger lands with the surface rather
+ * than trailing after it. `0.06` delay lets the glass establish first; without
+ * it the links appear to arrive through a wall that is still building.
+ */
+export const sheetLinkStagger = 0.045;
+export const sheetLinkDelay = 0.06;

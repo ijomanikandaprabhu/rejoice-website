@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { MobileNavSheet } from '@/components/layout/MobileNavSheet';
 import { appConfig, publicNav } from '@/config/app.config';
 import { cn } from '@/lib/utils';
 
@@ -20,7 +21,6 @@ function byHrefs(hrefs: string[]) {
 
 export function SiteHeader({ siteName }: { siteName: string }) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
   /*
@@ -50,8 +50,12 @@ export function SiteHeader({ siteName }: { siteName: string }) {
    * was built as though it were an inner page and shipped with the solid bar
    * baked in. Which page has film behind the header is now declared by the page
    * itself, via `data-over-hero`, and paired with this flag in globals.css.
+   *
+   * The mobile menu is not consulted either. It used to force the bar solid
+   * while open; it is now a full-screen sheet portalled above the header, so
+   * what the bar looks like underneath it cannot be seen.
    */
-  const atTop = !scrolled && !open;
+  const atTop = !scrolled;
 
   const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
 
@@ -118,49 +122,9 @@ export function SiteHeader({ siteName }: { siteName: string }) {
             ))}
           </nav>
 
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            aria-expanded={open}
-            aria-label={open ? 'Close menu' : 'Open menu'}
-            className="-mr-2 grid size-11 place-items-center rounded-pill text-site-fg md:hidden"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              className="size-5 stroke-current"
-              fill="none"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              aria-hidden="true"
-            >
-              {open ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 8h16M4 16h16" />}
-            </svg>
-          </button>
+          <MobileNavSheet items={[...leftNav, ...rightNav]} siteName={siteName} />
         </div>
       </div>
-
-      {open ? (
-        <nav className="border-t border-white/[0.06] bg-site-surface md:hidden" aria-label="Mobile">
-          <div className="container-page flex flex-col gap-1 py-3">
-            {[...leftNav, ...rightNav].map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setOpen(false)}
-                aria-current={isActive(item.href) ? 'page' : undefined}
-                className={cn(
-                  'flex min-h-[2.75rem] items-center rounded-sm2 px-4 text-[0.9375rem]',
-                  isActive(item.href)
-                    ? 'bg-white/[0.08] text-site-fg'
-                    : 'text-site-muted',
-                )}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </div>
-        </nav>
-      ) : null}
     </header>
   );
 }

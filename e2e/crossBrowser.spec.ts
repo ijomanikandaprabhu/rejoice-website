@@ -545,4 +545,83 @@ test.describe('Regressions found by eye', () => {
       'the homepage is downloading far more image data than it should',
     ).toBeLessThan(BUDGET_KB);
   });
+
+  /*
+   * The mobile menu, which had no test at all — which is how a menu with no
+   * animation, no scroll lock and no keyboard escape survived this long.
+   *
+   * Phone widths only: above `md` the sheet does not exist and the desktop nav
+   * is rendered instead.
+   */
+  test('the mobile menu takes over the screen, locks the page and gets out of the way', async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      (page.viewportSize()?.width ?? 0) >= 768,
+      'the sheet is phone-only; the desktop nav is a different control',
+    );
+
+    await page.goto('/songs', { waitUntil: 'load' });
+    await settled(page);
+
+    const opener = page.getByRole('button', { name: 'Open menu' });
+    await expect(opener, 'the menu button should be there on a phone').toBeVisible();
+
+    await opener.click();
+    const sheet = page.getByRole('dialog');
+    await expect(sheet, 'tapping the menu should open the sheet').toBeVisible();
+
+    // Every nav item is reachable, and it covers the screen rather than
+    // dropping a panel under the header.
+    await expect(sheet.getByRole('link', { name: 'Contact', exact: true })).toBeVisible();
+    const covers = await page.evaluate(() => {
+      const d = document.querySelector('[role="dialog"]')!.getBoundingClientRect();
+      return Math.round(d.height) >= innerHeight - 1;
+    });
+    expect(covers, 'the sheet should fill the screen').toBe(true);
+
+    // The page behind must not move. This was the original defect: `body`
+    // overflow stayed `visible` and the site scrolled away under the open menu.
+    /*
+     * The lock is asserted by its presence, not by trying to scroll.
+     *
+     * Two dead ends worth recording. `mouse.wheel` is unsupported in mobile
+     * WebKit, so it cannot run on the one project that matters most here. And a
+     * programmatic `window.scrollBy` is NOT blocked — Radix stops the gesture,
+     * and a script is not a finger — so that test failed while the lock was
+     * working perfectly.
+     *
+     * What can be checked everywhere is that the lock is applied while the sheet
+     * is open and RELEASED when it closes. The release is the half that would
+     * really hurt: a lock left behind freezes the whole site.
+     */
+    const locked = () =>
+      page.evaluate(
+        () =>
+          document.body.hasAttribute('data-scroll-locked') ||
+          getComputedStyle(document.body).overflow === 'hidden',
+      );
+    expect(await locked(), 'the page behind should be locked while the menu is open').toBe(true);
+
+    // Escape closes it and focus comes back to the button that opened it.
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await page.waitForTimeout(500);
+    expect(await locked(), 'closing the menu must give the page back').toBe(false);
+    expect(
+      await page.evaluate(() => document.activeElement?.getAttribute('aria-label')),
+      'focus should return to the menu button',
+    ).toBe('Open menu');
+
+    // And a link navigates, closing the sheet with it.
+    await opener.click();
+    await page.getByRole('dialog').getByRole('link', { name: 'Contact', exact: true }).click();
+    await expect(page).toHaveURL(/\/contact$/);
+    await expect(
+      page.getByRole('dialog'),
+      'the sheet should not still be open over the page it navigated to',
+    ).toHaveCount(0);
+
+    testInfo.annotations.push({ type: 'note', description: 'mobile nav sheet' });
+  });
 });
