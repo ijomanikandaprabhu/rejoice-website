@@ -204,6 +204,98 @@ test.describe('Public website', () => {
   });
 });
 
+test.describe('Cover art', () => {
+  /*
+   * Dropping a file on the cover square, which did nothing until it was asked
+   * for — the frame was click-only, and every other image box on the web takes
+   * a drag.
+   *
+   * Driven through a real `DataTransfer` because the two things most likely to
+   * break here cannot be reached any other way: `dragover` must be cancelled or
+   * the drop never fires at all, and a dropped file bypasses the input's
+   * `accept`, so the type check has to be its own code rather than an
+   * attribute.
+   */
+  const dropOnCover = async (page: Page, name: string, type: string, bytes: string) => {
+    await page.evaluate(
+      async ({ name, type, bytes }) => {
+        const frame = [...document.querySelectorAll('button')].find((b) =>
+          /cover art/i.test(b.getAttribute('aria-label') ?? ''),
+        );
+        if (!frame) throw new Error('cover frame not found');
+
+        let file: File;
+        if (type.startsWith('image/')) {
+          const canvas = document.createElement('canvas');
+          canvas.width = 400;
+          canvas.height = 400;
+          canvas.getContext('2d')!.fillRect(0, 0, 400, 400);
+          const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, type));
+          file = new File([blob!], name, { type });
+        } else {
+          file = new File([new Blob([bytes], { type })], name, { type });
+        }
+
+        const data = new DataTransfer();
+        data.items.add(file);
+        frame.dispatchEvent(
+          new DragEvent('dragover', { dataTransfer: data, bubbles: true, cancelable: true }),
+        );
+        frame.dispatchEvent(
+          new DragEvent('drop', { dataTransfer: data, bubbles: true, cancelable: true }),
+        );
+      },
+      { name, type, bytes },
+    );
+  };
+
+  /*
+   * Dispatched until it lands, rather than once.
+   *
+   * A synthetic drop is delivered to the DOM node whether or not React has
+   * attached its handlers yet, so on a cold dev compile the event is simply
+   * swallowed and the test fails against working code. Waiting on a timer would
+   * be guessing; retrying until the preview appears is asking the app.
+   */
+  const dropUntilItLands = async (page: Page, name: string, type: string) => {
+    const preview = page.getByRole('button', { name: /cover art/i }).locator('img');
+    await expect(async () => {
+      await dropOnCover(page, name, type, '');
+      await expect(preview).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 30_000 });
+    return preview;
+  };
+
+  test('a dropped image becomes the cover', async ({ page }) => {
+    await login(page);
+    await page.goto('/admin/songs/new');
+
+    // The downscale runs in the browser, so the proof is the preview and the
+    // size it reports — not merely that a handler fired.
+    await dropUntilItLands(page, 'cover.png', 'image/png');
+    await expect(page.getByText(/Ready to upload/)).toBeVisible();
+  });
+
+  test('a dropped file that is not an image is refused, and the cover is left alone', async ({
+    page,
+  }) => {
+    await login(page);
+    await page.goto('/admin/songs/new');
+
+    const preview = await dropUntilItLands(page, 'cover.png', 'image/png');
+
+    await dropOnCover(page, 'invoice.pdf', 'application/pdf', '%PDF-1.4');
+
+    await expect(page.getByText('That is not a PNG, JPEG or WebP image.')).toBeVisible();
+    /*
+     * The half of this that actually shipped broken: the refusal cleared the
+     * PREVIEW while leaving the file inputs loaded, so the screen said "no
+     * cover" over a form that would still have submitted one.
+     */
+    await expect(preview).toBeVisible();
+  });
+});
+
 test.describe('Notifications', () => {
   /*
    * The bin at the end of a notification row shipped with no confirmation, on

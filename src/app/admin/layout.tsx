@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { AdminLoader } from '@/components/admin/AdminLoader';
 import { AdminTopBar } from '@/components/admin/AdminTopBar';
 import { AdminToaster } from '@/components/admin/AdminToaster';
+import { DropGuard } from '@/components/admin/DropGuard';
 import { SyncCatchUp } from '@/components/admin/SyncCatchUp';
 import { logoutAction } from '@/features/auth/actions';
 import { markAllReadAction } from '@/features/notifications/actions';
@@ -103,6 +104,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
        * dashboard. Renders nothing; see the component.
        */}
       <SyncCatchUp />
+      {/*
+       * Here rather than on the two screens that hold an upload: a file dropped
+       * an inch below the cover square lands on the layout, not on the form, so
+       * the thing that has to catch it is the thing wrapping everything.
+       *
+       * Not in the signed-out branch above. The login page has nothing to
+       * upload, and a guard there would be taking a browser behaviour away to
+       * prevent something that cannot happen. Renders nothing; see the
+       * component for why the browser's default is worth stopping at all.
+       */}
+      <DropGuard />
     </div>
   );
 }
