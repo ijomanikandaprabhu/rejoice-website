@@ -1,4 +1,4 @@
-import { ExternalLink, Eye, EyeOff, Music, Plus, Trash2 } from 'lucide-react';
+import { ExternalLink, Eye, EyeOff, ImageOff, Music, Plus, Trash2, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -28,11 +28,23 @@ import {
   deleteSongAction,
   toggleSongVisibilityAction,
 } from '@/features/songs/actions';
-import { listPlatforms, listSongsForAdmin, mediaUrl } from '@/features/songs/queries';
+import {
+  countTemporaryCovers,
+  listPlatforms,
+  listSongsForAdmin,
+  mediaUrl,
+} from '@/features/songs/queries';
 
 export const dynamic = 'force-dynamic';
 
-type SearchParams = { q?: string; page?: string; perPage?: string; saved?: string };
+type SearchParams = {
+  q?: string;
+  page?: string;
+  perPage?: string;
+  saved?: string;
+  /** `temporary` → only songs still on a drawn placeholder cover. */
+  cover?: string;
+};
 
 /**
  * Admin → Songs. The catalogue, as a table.
@@ -46,18 +58,22 @@ export default async function SongsAdminPage(props: { searchParams: Promise<Sear
   const page = Math.max(Number(searchParams.page ?? '1') || 1, 1);
   const take = resolvePerPage(searchParams.perPage, pageSizes.adminSongs);
   const q = searchParams.q ?? '';
+  // Only the one recognised value turns the filter on; see `buildSongListWhere`.
+  const cover = searchParams.cover === 'temporary' ? 'temporary' : undefined;
 
-  const [platforms, { rows: songs, total }] = await Promise.all([
+  const [platforms, { rows: songs, total }, needArtwork] = await Promise.all([
     listPlatforms(),
-    listSongsForAdmin({ q, skip: (page - 1) * take, take }),
+    listSongsForAdmin({ q, cover, skip: (page - 1) * take, take }),
+    countTemporaryCovers(),
   ]);
 
   const pageCount = Math.max(1, Math.ceil(total / take));
 
-  /** Paging must not drop the search or the rows-per-page choice. */
+  /** Paging must not drop the search, the filter or the rows-per-page choice. */
   const buildHref = (n: number) => {
     const params = new URLSearchParams();
     if (q) params.set('q', q);
+    if (cover) params.set('cover', cover);
     if (take !== pageSizes.adminSongs) params.set('perPage', String(take));
     if (n > 1) params.set('page', String(n));
     const query = params.toString();
@@ -78,6 +94,21 @@ export default async function SongsAdminPage(props: { searchParams: Promise<Sear
               : `${total.toLocaleString()} song${total === 1 ? '' : 's'}.`}{' '}
             Each one has its cover art and the places it can be heard.
           </p>
+          {/*
+            The count of songs still waiting for artwork, as a link to exactly
+            those. Absent when there are none — a "0 need artwork" line would be
+            a permanent fixture saying nothing.
+          */}
+          {needArtwork > 0 ? (
+            <Link
+              href="/admin/songs?cover=temporary"
+              className="mt-1 inline-flex items-center gap-1.5 text-sm text-amber-300 underline-offset-4 hover:underline"
+            >
+              <ImageOff aria-hidden className="size-3.5" />
+              {needArtwork.toLocaleString()} song{needArtwork === 1 ? '' : 's'} still{' '}
+              {needArtwork === 1 ? 'needs its' : 'need their'} real artwork
+            </Link>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-2">
@@ -100,6 +131,28 @@ export default async function SongsAdminPage(props: { searchParams: Promise<Sear
        * side and had no reason to be built differently.
        */}
       <div className="flex flex-wrap items-center justify-end gap-3">
+        {/*
+          The "Needs artwork" view, as a link that toggles. Kept to the search
+          row because it narrows the same table; it carries the search along so
+          switching it on does not throw away what was typed.
+        */}
+        {cover || needArtwork > 0 ? (
+          <Button asChild variant="outline" size="sm" className={cn(cover && 'border-amber-500/40 text-amber-300')}>
+            <Link
+              href={
+                cover
+                  ? q
+                    ? `/admin/songs?q=${encodeURIComponent(q)}`
+                    : '/admin/songs'
+                  : `/admin/songs?cover=temporary${q ? `&q=${encodeURIComponent(q)}` : ''}`
+              }
+              aria-pressed={Boolean(cover)}
+            >
+              {cover ? <X className="size-3.5" /> : <ImageOff className="size-3.5" />}
+              Needs artwork
+            </Link>
+          </Button>
+        ) : null}
         <SearchField defaultValue={q} placeholder="Search title, artist or music…" />
       </div>
 
@@ -108,9 +161,11 @@ export default async function SongsAdminPage(props: { searchParams: Promise<Sear
           <CardContent className="grid place-items-center gap-2 py-16 text-center">
             <Music aria-hidden className="size-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              {q
-                ? `Nothing matches “${q}”.`
-                : 'No songs yet. The first one you add appears at the top of /songs.'}
+              {cover && !q
+                ? 'Every song has its real artwork.'
+                : q
+                  ? `Nothing matches “${q}”.`
+                  : 'No songs yet. The first one you add appears at the top of /songs.'}
             </p>
           </CardContent>
         </Card>
@@ -128,7 +183,7 @@ export default async function SongsAdminPage(props: { searchParams: Promise<Sear
             // The search is the songs table's ENTIRE filter. Add any new
             // filter here and to `buildSongListWhere` together, or
             // escalating would act on rows the operator cannot see.
-            params={{ q: q || undefined }}
+            params={{ q: q || undefined, cover }}
             noun="songs"
             confirmDescription="This applies to every song matching the current search, including those on other pages."
           />
@@ -191,6 +246,18 @@ export default async function SongsAdminPage(props: { searchParams: Promise<Sear
                           >
                             {song.title}
                           </Link>
+                          {/*
+                            Beside the title rather than over the 44px thumbnail,
+                            where it would cover the very picture it describes.
+                            Amber, as the admin's other "needs your attention"
+                            notes are — not lime, which means live, nor coral,
+                            which means something failed.
+                          */}
+                          {song.coverIsTemporary ? (
+                            <span className="ml-2 inline-flex items-center rounded-pill bg-amber-500/10 px-1.5 py-0 align-middle text-[0.6875rem] font-normal text-amber-300">
+                              Temporary cover
+                            </span>
+                          ) : null}
                         </TableCell>
 
                         <TableCell className="text-muted-foreground">

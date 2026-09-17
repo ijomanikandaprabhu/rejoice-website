@@ -55,6 +55,21 @@ export default async function EditSongPage(props: { params: Promise<{ id: string
         </div>
       </div>
 
+      {/*
+        Said once, above the form, rather than left for the owner to notice
+        from the picture. The whole point of a temporary cover is that it gets
+        replaced, and this is the page where that happens.
+      */}
+      {song.coverIsTemporary ? (
+        <p
+          role="status"
+          className="rounded-lg border border-white/10 bg-panel-alt px-4 py-3 text-sm text-muted-foreground"
+        >
+          This song is using a <strong className="text-foreground">temporary cover</strong>.
+          Upload the real artwork when you have it.
+        </p>
+      ) : null}
+
       <SongForm platforms={platforms} song={song} />
     </>
   );

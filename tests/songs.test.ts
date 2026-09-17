@@ -15,6 +15,7 @@ import {
   songSchema,
 } from '@/lib/validation';
 import { slugify } from '@/lib/utils';
+import { buildSongListWhere } from '@/features/songs/queries';
 
 describe('songSchema', () => {
   const valid = {
@@ -177,5 +178,38 @@ describe('what may be uploaded', () => {
   it('caps an upload below the platform request limit', () => {
     expect(MAX_IMAGE_BYTES).toBeLessThan(4_000_000);
     expect(MAX_IMAGE_BYTES).toBeGreaterThan(500_000);
+  });
+});
+
+/**
+ * The songs table's filter — the one function the table AND the bulk action
+ * build their `where` from.
+ *
+ * Pinned because the failure is silent and severe. If the "Needs artwork" view
+ * ever stopped reaching this function, "hide all matching" on it would match
+ * the whole catalogue, and nothing on screen would warn first.
+ */
+describe('buildSongListWhere', () => {
+  it('matches everything when nothing is asked for', () => {
+    expect(buildSongListWhere({})).toEqual({});
+  });
+
+  it('narrows to temporary covers for the Needs artwork view', () => {
+    expect(buildSongListWhere({ cover: 'temporary' })).toEqual({ coverIsTemporary: true });
+  });
+
+  it('keeps the cover filter when a search is added to it', () => {
+    const where = buildSongListWhere({ cover: 'temporary', q: 'devan' });
+    expect(where.coverIsTemporary).toBe(true);
+    expect(where.OR).toHaveLength(3);
+  });
+
+  it('ignores a cover value it does not recognise, rather than narrowing to nothing', () => {
+    // Read straight from the address bar — a typo should show the whole list.
+    expect(buildSongListWhere({ cover: 'temp' })).toEqual({});
+  });
+
+  it('treats a blank search as no search', () => {
+    expect(buildSongListWhere({ q: '   ' })).toEqual({});
   });
 });

@@ -15,6 +15,8 @@ const FILTERS = [
   { label: 'Needs reviewing', href: '/admin/youtube-content?filter=hidden' },
   { label: 'Recently imported', href: '/admin/youtube-content?filter=recent' },
   { label: 'New enquiries', href: '/admin/enquiries?status=NEW' },
+  // Songs saved with the drawn placeholder instead of real artwork.
+  { label: 'Needs artwork', href: '/admin/songs?cover=temporary' },
   { label: 'Public', href: '/admin/youtube-content?filter=visible' },
 ] as const;
 

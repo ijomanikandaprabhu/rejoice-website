@@ -368,6 +368,12 @@ model Song {
   coverId String     @unique
   cover   MediaAsset @relation("SongCover", fields: [coverId], references: [id])
 
+  /// True while the cover is the design the admin draws from the title, rather
+  /// than real artwork. The image itself is an ordinary cover — this is only
+  /// how the admin knows which songs still need their artwork. Cleared by
+  /// uploading a real one.
+  coverIsTemporary Boolean @default(false)
+
   /// Hidden songs stay in the admin and vanish from the public site, matching
   /// how a video's visibility works.
   isVisible Boolean  @default(true)

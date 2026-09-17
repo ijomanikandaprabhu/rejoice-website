@@ -89,32 +89,58 @@ const newestFirst = [
  *
  * ANY new filter added to the songs table has to be added here, not beside it.
  */
-export function buildSongListWhere({ q }: { q?: string }): Prisma.SongWhereInput {
+export function buildSongListWhere({
+  q,
+  cover,
+}: {
+  q?: string;
+  /**
+   * `'temporary'` narrows to songs still on the drawn placeholder — the
+   * "Needs artwork" view. Anything else is ignored rather than rejected: this is
+   * read straight from the address bar, and a mistyped value should show the
+   * whole list, not an error.
+   */
+  cover?: string;
+}): Prisma.SongWhereInput {
   const search = q?.trim();
-  if (!search) return {};
+  const where: Prisma.SongWhereInput = {};
 
-  return {
-    OR: [
+  if (cover === 'temporary') where.coverIsTemporary = true;
+
+  if (search) {
+    where.OR = [
       { title: { contains: search, mode: 'insensitive' } },
       { artist: { contains: search, mode: 'insensitive' } },
       // Searchable because it is a COLUMN IN THE TABLE. A field the operator can
       // see but cannot search for is a small trap, and this is the one function
       // the table and the bulk action both read, so they cannot disagree.
       { music: { contains: search, mode: 'insensitive' } },
-    ],
-  };
+    ];
+  }
+
+  return where;
+}
+
+/**
+ * How many songs are still on a temporary cover — the count the Songs header
+ * and its "Needs artwork" link are built from.
+ */
+export async function countTemporaryCovers(): Promise<number> {
+  return prisma.song.count({ where: { coverIsTemporary: true } });
 }
 
 export async function listSongsForAdmin({
   q,
+  cover,
   skip = 0,
   take = 25,
 }: {
   q?: string;
+  cover?: string;
   skip?: number;
   take?: number;
 }) {
-  const where = buildSongListWhere({ q });
+  const where = buildSongListWhere({ q, cover });
 
   const [rows, total] = await Promise.all([
     prisma.song.findMany({
@@ -129,6 +155,9 @@ export async function listSongsForAdmin({
         // them show a music credit, so it would be a column fetched for nothing
         // on every visitor's page.
         music: true,
+        // Admin-only, for the "Temporary cover" chip. The public site shows the
+        // design like any cover and has no use for the flag.
+        coverIsTemporary: true,
         // Only the count is drawn in the table, so the links themselves are not
         // fetched — 25 rows would otherwise pull every URL on the page.
         _count: { select: { links: true } },
@@ -231,6 +260,7 @@ export async function getSongForAdmin(id: string) {
       ...songCard,
       music: true,
       description: true,
+      coverIsTemporary: true,
       links: { select: { id: true, url: true, platformId: true } },
     },
   });

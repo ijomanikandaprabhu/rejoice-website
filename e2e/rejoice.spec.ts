@@ -270,18 +270,21 @@ test.describe('Cover art', () => {
    * A refused save must leave the form as it was.
    *
    * React resets a form after ANY function action finishes, success or not, so
-   * forgetting the cover used to cost the title, artist, credits and every
-   * platform link in one go — it looked like the page had reloaded. The fix is
-   * in `ActionForm`, shared by every admin form; this is the case that was
-   * reported, and it covers the rest because they all go through the same code.
+   * one mistake used to cost the title, artist, credits and every platform link
+   * at once — it looked like the page had reloaded. The fix is in `ActionForm`,
+   * shared by every admin form, so this one case covers them all.
+   *
+   * Triggered with a mistyped link. It was a missing cover when this was first
+   * written, but a missing cover is no longer refused — the form draws a
+   * temporary one — so that no longer produces a refusal to test against.
    */
-  test('a save refused for a missing cover keeps everything typed', async ({ page }) => {
+  test('a refused save keeps everything typed', async ({ page }) => {
     await login(page);
     await page.goto('/admin/songs/new');
 
     const title = page.locator('input[name="title"]');
     const artist = page.locator('input[name="artist"]');
-    const firstLink = page.locator('input[name^="link."][name$=".url"]').first();
+    const links = page.locator('input[name^="link."][name$=".url"]');
 
     // Filled until it sticks: a value typed before hydration is overwritten.
     await expect(async () => {
@@ -289,14 +292,67 @@ test.describe('Cover art', () => {
       await expect(title).toHaveValue('Kept title', { timeout: 1_000 });
     }).toPass({ timeout: 30_000 });
     await artist.fill('Kept artist');
-    await firstLink.fill('https://open.spotify.com/track/kept');
+    await links.nth(0).fill('https://open.spotify.com/track/kept');
+    /*
+     * A value the BROWSER accepts and the SERVER refuses. These are
+     * `type="url"` fields, so something like "not a link" is stopped by the
+     * browser before any request is made — which proves nothing about this
+     * fix. `https://spotify` is valid URL syntax but has no dot in its host,
+     * so it reaches the action and is turned back there.
+     */
+    await links.nth(1).fill('https://spotify');
 
     await page.getByRole('button', { name: 'Add song', exact: true }).click();
-    await expect(page.getByText('Choose an image.')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('That does not look like a web address.')).toBeVisible({ timeout: 20_000 });
 
     await expect(title).toHaveValue('Kept title');
     await expect(artist).toHaveValue('Kept artist');
-    await expect(firstLink).toHaveValue('https://open.spotify.com/track/kept');
+    await expect(links.nth(0)).toHaveValue('https://open.spotify.com/track/kept');
+    // The bad value stays too — it is the thing the person has to fix.
+    await expect(links.nth(1)).toHaveValue('https://spotify');
+    // And nothing was created.
+    await expect(page).toHaveURL(/\/admin\/songs\/new/);
+  });
+
+  /*
+   * No artwork at all: the song is saved with a drawn temporary cover, and the
+   * admin says so wherever someone would look for it.
+   */
+  test('a song saved with no artwork gets a temporary cover, and is flagged', async ({
+    page,
+  }) => {
+    const title = `E2E temporary ${Date.now()}`;
+    await login(page);
+    await page.goto('/admin/songs/new');
+
+    const cover = page.getByRole('button', { name: /cover art/i });
+    const titleField = page.locator('input[name="title"]');
+    // Typed until the design appears: it is drawn by a listener that attaches
+    // on hydration, so a title typed before then draws nothing.
+    await expect(async () => {
+      await titleField.fill('');
+      await titleField.pressSequentially(title);
+      await expect(cover.getByText('Temporary cover')).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 30_000 });
+
+    await page.getByRole('button', { name: 'Add song', exact: true }).click();
+    await expect(page).toHaveURL(/\/admin\/songs(\?|$)/, { timeout: 30_000 });
+
+    const row = page.locator('tr', { hasText: title });
+    await expect(row.getByText('Temporary cover')).toBeVisible();
+    // The stored design is a real image, not a broken one.
+    await expect
+      .poll(() => row.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth))
+      .toBeGreaterThan(0);
+
+    await page.getByRole('link', { name: 'Needs artwork' }).click();
+    await expect(page).toHaveURL(/cover=temporary/);
+    await expect(page.locator('tr', { hasText: title })).toBeVisible();
+
+    // Clean up through the admin, so the image goes with the song.
+    await page.getByRole('button', { name: `Delete ${title}` }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Delete song' }).click();
+    await expect(page.locator('tr', { hasText: title })).toHaveCount(0);
   });
 
   test('a dropped image becomes the cover', async ({ page }) => {
@@ -345,9 +401,17 @@ test.describe('Notifications', () => {
     await page.goto('/admin/notifications');
 
     const bin = page.getByRole('button', { name: 'Delete notification' }).first();
+    /*
+     * Wait for the page to SETTLE into one state or the other before deciding.
+     * Counting straight away read 0 while the list was still arriving, and the
+     * test skipped itself with six notifications on the page — a test that
+     * quietly does not run, which is worse than one that fails.
+     */
+    const empty = page.getByText('Nothing yet. New enquiries and video imports appear here.');
+    await expect(bin.or(empty).first()).toBeVisible({ timeout: 30_000 });
     // An environment with no notifications has nothing to guard; the suite's
     // enquiry test creates one, but it does not run in every project.
-    test.skip((await bin.count()) === 0, 'no notifications to delete');
+    test.skip(await empty.isVisible(), 'no notifications to delete');
 
     const rowsBefore = await page.getByRole('button', { name: 'Delete notification' }).count();
 

@@ -298,6 +298,9 @@ export async function addSongAction(_prev: ActionState, formData: FormData): Pro
       // the server's timezone shift it would show the day before in India.
       releasedAt: releasedAt ? new Date(`${releasedAt}T00:00:00Z`) : null,
       coverId: storedCover.id,
+      // Posted by the cover field only while its drawn placeholder is the image
+      // being saved. A real upload arrives without it and is recorded as real.
+      coverIsTemporary: formData.get('coverTemporary') === '1',
       links: { create: rows },
     },
     select: { id: true, title: true },
@@ -393,6 +396,12 @@ export async function updateSongAction(
         releasedAt: releasedAt ? new Date(`${releasedAt}T00:00:00Z`) : null,
         isVisible: formData.get('isVisible') === 'on',
         coverId,
+        /*
+         * Only a NEW cover says anything about this. Uploading real artwork
+         * clears the flag; a redrawn placeholder (the song was renamed) keeps
+         * it; no upload at all leaves whatever was true before.
+         */
+        ...(replacing ? { coverIsTemporary: formData.get('coverTemporary') === '1' } : {}),
         links: { create: rows },
       },
     }),
@@ -502,7 +511,11 @@ export async function bulkSetSongVisibilityAction(
 
   if (formData.get('mode') === 'filter') {
     const q = String(formData.get('q') ?? '').trim();
-    where = buildSongListWhere({ q: q || undefined });
+    // `cover` is the "Needs artwork" filter. It is read here for exactly the
+    // reason the comment above gives: without it, "hide all matching" on that
+    // view would match — and hide — the whole catalogue.
+    const cover = String(formData.get('cover') ?? '').trim();
+    where = buildSongListWhere({ q: q || undefined, cover: cover || undefined });
   } else {
     const ids = formData.getAll('ids').map(String).filter(Boolean);
     if (ids.length === 0 || ids.length > BULK_ID_LIMIT) {

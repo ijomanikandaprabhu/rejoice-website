@@ -1,7 +1,7 @@
 'use client';
 
 import { ImagePlus, Loader2, RotateCcw, Trash2 } from 'lucide-react';
-import { useRef, useState, type ChangeEvent, type DragEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
 
 import { FieldError } from '@/components/admin/ActionForm';
 import { Button } from '@/components/ui/button';
@@ -44,6 +44,7 @@ export function ImageUploadField({
   square = false,
   plate = false,
   frameClassName,
+  fallback = null,
 }: {
   /** Base field name. Each size posts `<size>`, `<size>.width`, `<size>.height`. */
   name: string;
@@ -68,6 +69,15 @@ export function ImageUploadField({
   plate?: boolean;
   /** Size of the frame. The default suits a form column; a dialog wants less. */
   frameClassName?: string;
+  /**
+   * An image to use when none is chosen — the temporary song cover.
+   *
+   * Shown and submitted exactly as a picked image would be, labelled as
+   * temporary, and posted with `<name>Temporary=1` so the server can record
+   * that it is. A real picture replaces it; removing that picture brings it
+   * back. `url` is an object URL for `blob`, owned by the caller.
+   */
+  fallback?: { blob: Blob; width: number; height: number; url: string } | null;
 }) {
   /** The newly picked image, if any. Null means "whatever was already there". */
   const [picked, setPicked] = useState<string | null>(null);
@@ -86,17 +96,59 @@ export function ImageUploadField({
   const holders = useRef<Record<string, HTMLInputElement | null>>({});
   const dimensions = useRef<Record<string, HTMLInputElement | null>>({});
 
-  const shown = picked ?? currentUrl ?? null;
+  /*
+   * What the frame shows, in order of precedence: a picture chosen just now,
+   * then the temporary design, then whatever the record already had.
+   *
+   * The temporary design outranks `currentUrl` on purpose. It is only supplied
+   * for a song whose stored cover IS a temporary one, and there it has to win —
+   * otherwise renaming the song would keep showing, and keep, the old title.
+   */
+  const usingFallback = !picked && Boolean(fallback);
+  const shown = picked ?? fallback?.url ?? currentUrl ?? null;
+
+  /*
+   * The ONE place an image is put into the form's fields, whatever it came from
+   * — the picker, a drop, or the temporary design. Four refs per size, in an
+   * order the server's field names depend on; a second writer would be the
+   * thing that drifts. `null` empties them.
+   */
+  function write(field: string, image: { blob: Blob; width: number; height: number } | null) {
+    const holder = holders.current[field];
+    if (holder) {
+      if (image) {
+        const transfer = new DataTransfer();
+        transfer.items.add(new File([image.blob], `${field}.webp`, { type: 'image/webp' }));
+        holder.files = transfer.files;
+      } else {
+        holder.value = '';
+      }
+    }
+    const width = dimensions.current[`${field}.width`];
+    const height = dimensions.current[`${field}.height`];
+    if (width) width.value = image ? String(image.width) : '';
+    if (height) height.value = image ? String(image.height) : '';
+  }
+
+  /*
+   * Keep the temporary design in the form whenever nothing real is chosen.
+   *
+   * An effect because it writes to the DOM, not to state — and it has to re-run
+   * both when the design is redrawn (the title changed) and when a real picture
+   * is removed, so the box falls back to the design rather than to empty.
+   * Only the first size is filled: the design is drawn at the cover's one size,
+   * and every caller that passes a fallback asks for exactly one.
+   */
+  useEffect(() => {
+    if (picked || !fallback) return;
+    const [first] = Object.keys(sizes);
+    if (first) write(first, fallback);
+    // `write` only touches refs; `sizes` is a literal at every call site.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [picked, fallback]);
 
   function clear() {
-    for (const field of Object.keys(sizes)) {
-      const holder = holders.current[field];
-      if (holder) holder.value = '';
-      const width = dimensions.current[`${field}.width`];
-      const height = dimensions.current[`${field}.height`];
-      if (width) width.value = '';
-      if (height) height.value = '';
-    }
+    for (const field of Object.keys(sizes)) write(field, null);
     setPicked(null);
     setInfo(null);
     setError(null);
@@ -143,18 +195,7 @@ export function ImageUploadField({
 
       for (const [field, max] of Object.entries(sizes)) {
         const result = await downscale(file, max);
-
-        const transfer = new DataTransfer();
-        transfer.items.add(new File([result.blob], `${field}.webp`, { type: 'image/webp' }));
-
-        const holder = holders.current[field];
-        if (holder) holder.files = transfer.files;
-
-        const width = dimensions.current[`${field}.width`];
-        const height = dimensions.current[`${field}.height`];
-        if (width) width.value = String(result.width);
-        if (height) height.value = String(result.height);
-
+        write(field, result);
         largest = Math.max(largest, result.blob.size);
         if (field === Object.keys(sizes)[0]) setPicked(URL.createObjectURL(result.blob));
       }
@@ -230,12 +271,27 @@ export function ImageUploadField({
         ) : shown ? (
           // A plain <img>: a blob: URL for a file that has not been uploaded yet
           // is not something next/image can take.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={shown}
-            alt=""
-            className={`size-full ${square ? 'object-cover' : 'object-contain'}`}
-          />
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={shown}
+              alt=""
+              className={`size-full ${square ? 'object-cover' : 'object-contain'}`}
+            />
+            {/*
+              Said on the picture itself, where the eye already is. The design
+              is plainly not artwork to anyone who looks at it, but "is this the
+              real one?" deserves an answer rather than a guess.
+
+              Bottom-left, not top: the design puts the wordmark at the top, and
+              a label there sat squarely on the logo.
+            */}
+            {usingFallback ? (
+              <span className="absolute bottom-2 left-2 rounded-pill bg-black/70 px-2 py-0.5 text-[0.6875rem] font-medium text-white">
+                Temporary cover
+              </span>
+            ) : null}
+          </>
         ) : (
           <span className="grid place-items-center gap-1.5 p-4 text-center">
             <ImagePlus aria-hidden className="size-6 text-muted-foreground" />
@@ -254,7 +310,9 @@ export function ImageUploadField({
             className="text-muted-foreground hover:text-foreground"
           >
             <RotateCcw className="size-3.5" />
-            Replace
+            {/* Over the temporary design there is nothing to "replace" yet in
+                the owner's terms — what they are doing is adding the artwork. */}
+            {usingFallback ? 'Upload artwork' : 'Replace'}
           </Button>
 
           {/*
@@ -294,6 +352,10 @@ export function ImageUploadField({
         onChange={onPick}
         hidden
       />
+
+      {/* Only while the design is what will be saved. Absent otherwise, so a
+          real upload is recorded as real without the server having to guess. */}
+      {usingFallback ? <input type="hidden" name={`${name}Temporary`} value="1" /> : null}
 
       {Object.keys(sizes).map((field) => (
         <div key={field} hidden>

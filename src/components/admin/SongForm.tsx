@@ -2,14 +2,13 @@ import Link from 'next/link';
 
 import { ActionForm, Field, FieldError, SubmitButton } from '@/components/admin/ActionForm';
 import { DateField } from '@/components/admin/DateField';
-import { ImageUploadField } from '@/components/admin/ImageUploadField';
 import { PlatformLogo } from '@/components/admin/PlatformLogo';
+import { SongCoverField } from '@/components/admin/SongCoverField';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { addSongAction, updateSongAction } from '@/features/songs/actions';
-import { COVER_SIZE } from '@/lib/images/downscale';
 
 type Platform = { id: string; name: string; logoId: string };
 
@@ -22,6 +21,8 @@ export type SongFormValues = {
   releasedAt: Date | null;
   isVisible: boolean;
   coverId: string;
+  /** The stored cover is the drawn placeholder, not real artwork. */
+  coverIsTemporary: boolean;
   links: Array<{ platformId: string; url: string }>;
 };
 
@@ -69,13 +70,16 @@ export function SongForm({
          * whitespace on a wide screen.
          */}
         <CardContent className="grid gap-6 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start">
-          <ImageUploadField
-            name="cover"
-            label="Cover art"
-            square
+          {/*
+            A temporary design is drawn when ADDING, and when editing a song
+            whose cover is still one — so a rename redraws it. A song with real
+            artwork gets none; see `SongCoverField`.
+          */}
+          <SongCoverField
             currentUrl={song ? `/api/media/${song.coverId}` : undefined}
-            hint="Square artwork. Any size — a 3000×3000 master is fine."
-            sizes={{ cover: COVER_SIZE }}
+            temporary={!song || song.coverIsTemporary}
+            initialTitle={song?.title ?? ''}
+            initialArtist={song?.artist ?? ''}
           />
 
           {/*
