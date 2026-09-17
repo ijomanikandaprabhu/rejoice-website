@@ -3,6 +3,7 @@
 import { Loader2 } from 'lucide-react';
 import {
   createContext,
+  startTransition,
   useActionState,
   useContext,
   useEffect,
@@ -10,7 +11,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { useFormStatus } from 'react-dom';
+import { requestFormReset, useFormStatus } from 'react-dom';
 import { toast } from 'sonner';
 
 import {
@@ -160,16 +161,31 @@ export function ActionForm({
     onSuccessRef.current = onSuccess;
   }, [onSuccess]);
 
+  const formRef = useRef<HTMLFormElement>(null);
+
   const [state, formAction] = useActionState(
     async (prev: ActionState, formData: FormData) => {
       const result = await action(prev, formData);
       announce(result);
       if (result.ok && result.message) onSuccessRef.current?.();
+      /*
+       * Clear the form on SUCCESS only — see the submit handler for why React
+       * no longer does this by itself. Clearing after a successful save is what
+       * every form here already relied on: the Add channel box empties once the
+       * channel is in, and an edit form settles onto the values just stored.
+       *
+       * Through `requestFormReset` rather than `form.reset()`, so the clear
+       * lands in the same commit as the refreshed page data instead of a beat
+       * before it. It must be called inside a transition, and by this point —
+       * after an `await` — the one the submit started is no longer current,
+       * hence the fresh one.
+       */
+      const form = formRef.current;
+      if (result.ok && form) startTransition(() => requestFormReset(form));
       return result;
     },
     { ok: false },
   );
-  const formRef = useRef<HTMLFormElement>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   /*
@@ -211,18 +227,47 @@ export function ActionForm({
         ref={formRef}
         action={formAction}
         className={className}
+        /*
+         * The submit is run BY HAND, and that is the whole fix for a real loss
+         * of work.
+         *
+         * Left to itself, React treats a function in `action` as a form action
+         * and schedules a reset of the form before running it — unconditionally
+         * (`startHostTransition` → `requestFormReset`, react-dom 19). So a save
+         * the server REFUSED still emptied every field: add a song, forget the
+         * cover, press Add song, and the title, artist and every platform link
+         * were gone, with only "Choose a cover image" left to show for it. It
+         * looked like the page had reloaded. Every admin form shares this
+         * wrapper, so the same was true of Settings, channels and video edits.
+         *
+         * Preventing the default and dispatching inside `startTransition` is
+         * React's own documented way out: it still marks the form pending — so
+         * `useFormStatus` keeps the button disabled and "Saving…" — but runs
+         * the action with no reset attached. The reset now happens in the action
+         * above, and only when the save succeeded.
+         *
+         * `action={formAction}` stays on the element. Before hydration it keeps
+         * a submit from falling back to a plain GET, which would put every field
+         * — a password included — into the address bar.
+         *
+         * The submitter is passed through because some forms are two verbs on
+         * one form: the bulk bar's Show and Hide are told apart by the name and
+         * value of the button that was pressed.
+         */
         onSubmit={(event) => {
-          if (!confirm) return;
+          event.preventDefault();
 
-          // Second pass, after confirming — let it through and re-arm the guard
-          // so the next submit is challenged again.
-          if (confirmedRef.current) {
-            confirmedRef.current = false;
+          if (confirm && !confirmedRef.current) {
+            setDialogOpen(true);
             return;
           }
+          // Second pass, after confirming — let it through and re-arm the guard
+          // so the next submit is challenged again.
+          confirmedRef.current = false;
 
-          event.preventDefault();
-          setDialogOpen(true);
+          const submitter = (event.nativeEvent as SubmitEvent).submitter;
+          const formData = new FormData(event.currentTarget, submitter);
+          startTransition(() => formAction(formData));
         }}
       >
         {hiddenFields

@@ -266,6 +266,39 @@ test.describe('Cover art', () => {
     return preview;
   };
 
+  /*
+   * A refused save must leave the form as it was.
+   *
+   * React resets a form after ANY function action finishes, success or not, so
+   * forgetting the cover used to cost the title, artist, credits and every
+   * platform link in one go — it looked like the page had reloaded. The fix is
+   * in `ActionForm`, shared by every admin form; this is the case that was
+   * reported, and it covers the rest because they all go through the same code.
+   */
+  test('a save refused for a missing cover keeps everything typed', async ({ page }) => {
+    await login(page);
+    await page.goto('/admin/songs/new');
+
+    const title = page.locator('input[name="title"]');
+    const artist = page.locator('input[name="artist"]');
+    const firstLink = page.locator('input[name^="link."][name$=".url"]').first();
+
+    // Filled until it sticks: a value typed before hydration is overwritten.
+    await expect(async () => {
+      await title.fill('Kept title');
+      await expect(title).toHaveValue('Kept title', { timeout: 1_000 });
+    }).toPass({ timeout: 30_000 });
+    await artist.fill('Kept artist');
+    await firstLink.fill('https://open.spotify.com/track/kept');
+
+    await page.getByRole('button', { name: 'Add song', exact: true }).click();
+    await expect(page.getByText('Choose an image.')).toBeVisible({ timeout: 20_000 });
+
+    await expect(title).toHaveValue('Kept title');
+    await expect(artist).toHaveValue('Kept artist');
+    await expect(firstLink).toHaveValue('https://open.spotify.com/track/kept');
+  });
+
   test('a dropped image becomes the cover', async ({ page }) => {
     await login(page);
     await page.goto('/admin/songs/new');
