@@ -25,7 +25,13 @@ const SCENES: Record<string, (props: { className?: string }) => React.JSX.Elemen
   'ai-video-production': IsoAiVideoCity,
 };
 
-export const revalidate = 300;
+/*
+ * A day. The content here comes from the config files and the Settings screen,
+ * and saving Settings rebuilds it immediately (`revalidatePath('/', 'layout')`),
+ * so the timer is only a backstop. See `features/youtube/revalidate.ts` for why
+ * these are no longer five minutes.
+ */
+export const revalidate = 86400;
 
 export const metadata = buildMetadata({
   title: 'Services',

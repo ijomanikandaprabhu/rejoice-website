@@ -4,6 +4,7 @@ import { sweepUnsentEnquiries } from '@/features/enquiries/notify';
 import { reportFault } from '@/features/monitoring/report';
 
 import { isYouTubeConfigured, youtubeConfig } from '@/config/youtube.config';
+import { revalidatePublicVideoPages } from '@/features/youtube/revalidate';
 import { clearOldNotifications } from '@/features/notifications/notify';
 import { createLogger } from '@/lib/logger';
 import { refreshAllAnalytics } from '@/services/youtube/analyticsService';
@@ -88,6 +89,23 @@ async function runSync(request: Request) {
     log.info(
       `Scheduled sync complete: ${imported} new, ${deleted} removed across ${results.length} channels`,
     );
+
+    /*
+     * Tell the public pages, rather than leaving them to notice.
+     *
+     * This run used to say nothing, and did not have to: every page rebuilt
+     * itself every five minutes, so an import at 12:30 was on the site by
+     * 12:35. That timer is exactly what drained the database's monthly
+     * allowance — hundreds of rebuilds a day per page, nearly all of them
+     * re-reading rows that had not changed — so the pages are now cached for
+     * hours instead. A nightly import is the one moment they genuinely change,
+     * and this is how they hear about it.
+     *
+     * Only when something actually changed: a sync that finds nothing new is
+     * the normal case, and throwing away every cached page for it would put
+     * back the cost this removes.
+     */
+    if (imported > 0 || deleted > 0) revalidatePublicVideoPages();
 
     /*
      * Statistics upkeep rides on the same run rather than a second cron.

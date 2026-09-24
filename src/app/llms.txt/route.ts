@@ -23,7 +23,13 @@ import { absoluteUrl } from '@/lib/seo';
  */
 
 /* Matches the public pages, so a newly connected channel appears within 5 min. */
-export const revalidate = 300;
+/*
+ * A day. The content here comes from the config files and the Settings screen,
+ * and saving Settings rebuilds it immediately (`revalidatePath('/', 'layout')`),
+ * so the timer is only a backstop. See `features/youtube/revalidate.ts` for why
+ * these are no longer five minutes.
+ */
+export const revalidate = 86400;
 
 export async function GET(): Promise<Response> {
   /*

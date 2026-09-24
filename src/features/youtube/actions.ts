@@ -3,6 +3,7 @@
 import type { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
+import { revalidatePublicVideoPages } from '@/features/youtube/revalidate';
 import { requireAdmin } from '@/lib/auth/guard';
 import { buildVideoListWhere } from '@/features/youtube/contentFilters';
 import { isMissingRow } from '@/lib/db/errors';
@@ -33,17 +34,6 @@ import { recordSyncRun, syncChannel } from '@/services/youtube/videoSyncService'
 export type ActionState = { ok: boolean; message?: string; errors?: Record<string, string> };
 
 const log = createLogger('youtubeActions');
-
-/** Refresh every surface that can show video data. */
-function revalidatePublicVideoPages() {
-  revalidatePath('/', 'page');
-  // '/videos', not '/songs': the video pages moved, and /songs is now the
-  // platform directory with nothing nested under it.
-  revalidatePath('/videos', 'layout');
-  // 'layout', not the bare path: the same channel name and card text is drawn on
-  // /creations/[id], and a page-scoped revalidate leaves those detail pages stale.
-  revalidatePath('/creations', 'layout');
-}
 
 export async function addChannelAction(
   _prev: ActionState,

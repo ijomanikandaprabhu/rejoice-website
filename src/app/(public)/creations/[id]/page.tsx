@@ -5,7 +5,18 @@ import { pageSizes } from '@/config/app.config';
 import { getMusicVideos, getPublicChannelBySlug } from '@/features/youtube/queries';
 import { breadcrumbJsonLd, buildMetadata, collectionJsonLd, listingMetadata } from '@/lib/seo';
 
-export const revalidate = 300;
+/*
+ * Six hours, not five minutes — see `features/youtube/revalidate.ts`.
+ *
+ * This is a BACKSTOP, not the mechanism. Everything that changes this page
+ * says so: the admin's actions and the nightly sync both rebuild it the moment
+ * content moves. The timer only catches what nothing announced.
+ *
+ * At five minutes it was rebuilding up to 288 times a day, per page, each one
+ * waking the database to re-read rows that had not changed — which is what
+ * exhausted the database's monthly allowance and took the site down.
+ */
+export const revalidate = 21600;
 
 type Params = { params: Promise<{ id: string }>; searchParams: Promise<{ page?: string; q?: string }> };
 

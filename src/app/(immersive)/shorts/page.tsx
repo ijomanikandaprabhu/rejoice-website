@@ -15,7 +15,18 @@ import { breadcrumbJsonLd, buildMetadata, collectionJsonLd } from '@/lib/seo';
  * it. A `?v=` request renders per-request anyway, as any page reading
  * `searchParams` does.
  */
-export const revalidate = 300;
+/*
+ * Six hours, not five minutes — see `features/youtube/revalidate.ts`.
+ *
+ * This is a BACKSTOP, not the mechanism. Everything that changes this page
+ * says so: the admin's actions and the nightly sync both rebuild it the moment
+ * content moves. The timer only catches what nothing announced.
+ *
+ * At five minutes it was rebuilding up to 288 times a day, per page, each one
+ * waking the database to re-read rows that had not changed — which is what
+ * exhausted the database's monthly allowance and took the site down.
+ */
+export const revalidate = 21600;
 
 export const metadata = buildMetadata({
   title: 'Short Takes',

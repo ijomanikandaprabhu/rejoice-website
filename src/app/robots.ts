@@ -55,7 +55,35 @@ const AI_AGENTS = [
 export default function robots(): MetadataRoute.Robots {
   const shared = {
     allow: ['/', '/api/image', '/api/media'],
-    disallow: ['/admin/', '/api/'],
+    disallow: [
+      '/admin/',
+      '/api/',
+      /*
+       * Addresses carrying a query, which are the ones that CANNOT be cached.
+       *
+       * Every other page is served from a cached copy, so a crawler reading it
+       * costs nothing. These are built per request: `?page=17` on a channel,
+       * `?q=` on a search, `?v=` on the Shorts feed. The largest channel alone
+       * runs to 36 pages, and a crawler working through them wakes the database
+       * once per address — which, with the five-minute rebuild, is how a month's
+       * database allowance disappeared and the site went down.
+       *
+       * Nothing is lost by this. The sitemap lists all 1,541 real addresses —
+       * every song, video and channel — so a crawler reaches everything without
+       * walking the pager. Search results were already marked "do not index"
+       * (`listingMetadata`); this stops them being fetched at all rather than
+       * fetched and then discarded.
+       *
+       * Visitors are unaffected: robots.txt speaks only to crawlers. Clicking
+       * "next page" or searching works exactly as before.
+       */
+      '/*?page=',
+      '/*?q=',
+      '/*?v=',
+      // A query anywhere after the first parameter, e.g. `?q=x&page=2`.
+      '/*&page=',
+      '/*&q=',
+    ],
   };
 
   return {
