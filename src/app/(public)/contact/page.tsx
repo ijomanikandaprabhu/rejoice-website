@@ -1,3 +1,5 @@
+import { Suspense } from 'react';
+
 import { ContactForm } from '@/components/common/ContactForm';
 import { MailSolid, PhoneSolid, PinSolid } from '@/components/common/icons/ContactIcons';
 import { ContactMap } from '@/components/site/ContactMap';
@@ -111,12 +113,7 @@ function DetailRow({
  * call to action, and two of them in a row is the mistake the About page made
  * before it was fixed.
  */
-export default async function ContactPage(
-  props: {
-    searchParams: Promise<{ service?: string }>;
-  }
-) {
-  const searchParams = await props.searchParams;
+export default async function ContactPage() {
   const [details, social] = await Promise.all([getContactDetails(), getSocialSettings()]);
   const { hero, form, details: detailsCopy, closing } = contactPage;
 
@@ -126,10 +123,23 @@ export default async function ContactPage(
    * `services` id and each title is also the matching entry in
    * `contactForm.interests`, so no separate lookup table is needed. Anything
    * unrecognised is ignored and the select simply starts empty.
+   *
+   * THE QUERY IS READ IN THE BROWSER, not here. This page used to take
+   * `searchParams` for that one value, and a page that reads its own query
+   * string cannot be cached at all — Next rebuilds it per request. On one of
+   * the site's most visited pages that meant a database wake-up per visitor,
+   * which is a large share of what exhausted the database's monthly allowance.
+   *
+   * What is built here instead is the fixed id → interest map, from config, at
+   * build time. `ContactForm` reads the query against it.
    */
-  const fromService = services.find((service) => service.id === searchParams.service);
-  const preselectedInterest = contactForm.interests.find(
-    (interest) => interest === fromService?.title,
+  const serviceInterests = Object.fromEntries(
+    services
+      .map((service) => [
+        service.id,
+        contactForm.interests.find((interest) => interest === service.title),
+      ])
+      .filter((pair): pair is [string, string] => Boolean(pair[1])),
   );
 
   return (
@@ -202,7 +212,16 @@ export default async function ContactPage(
             <span aria-hidden="true" className="absolute inset-0 bg-emberSoft opacity-40" />
 
             <div className="relative z-20">
-              <ContactForm defaultInterest={preselectedInterest} whatsappPhone={details.phone} />
+              {/*
+                `ContactForm` calls `useSearchParams`, which a cached page
+                requires to sit inside a Suspense boundary — without it the
+                build refuses to prerender this page and the caching is lost
+                again. The fallback is the form's own skeleton height, so
+                nothing jumps when it hydrates.
+              */}
+              <Suspense fallback={<div className="min-h-[32rem]" />}>
+                <ContactForm serviceInterests={serviceInterests} whatsappPhone={details.phone} />
+              </Suspense>
             </div>
           </div>
         </div>

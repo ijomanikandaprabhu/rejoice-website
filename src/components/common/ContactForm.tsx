@@ -1,6 +1,7 @@
 'use client';
 
 import { Loader2, Send } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 
 import { WhatsAppIcon } from '@/components/common/WhatsAppIcon';
@@ -59,11 +60,20 @@ function Field({
 
 export function ContactForm({
   /**
-   * Preselects "I'm Interested In". The Services page links here with
-   * `?service=<id>`, which `/contact` resolves to one of `contactForm.interests`
-   * — so an enquiry arrives already tagged with the offering it came from.
+   * Preselects "I'm Interested In" when the caller already knows which.
+   *
+   * The `?service=<id>` case is resolved HERE rather than by the page — see
+   * `serviceInterest` below for why that one line decides whether /contact can
+   * be cached at all.
    */
   defaultInterest,
+  /**
+   * `?service=<id>` → the matching entry in `contactForm.interests`.
+   *
+   * A fixed map, built on the server from the config at build time, so no
+   * lookup table has to be shipped or kept in step.
+   */
+  serviceInterests,
   /**
    * The label's own number, from Settings, threaded down by `/contact`.
    *
@@ -73,8 +83,27 @@ export function ContactForm({
   whatsappPhone,
 }: {
   defaultInterest?: string;
+  serviceInterests?: Record<string, string>;
   whatsappPhone?: string;
 } = {}) {
+  /*
+   * The Services page links here as `/contact?service=audio-production`, so the
+   * enquiry arrives tagged with the offering it came from.
+   *
+   * Read in the BROWSER, not on the server. A page that reads its own query
+   * string is rebuilt from scratch on every single visit — and /contact is one
+   * of the most visited pages on the site, so that was a database wake-up per
+   * visitor, all day. Reading it here leaves the page itself cacheable for a
+   * whole day, and the preselection still works exactly as before.
+   *
+   * `useSearchParams` in a cached page requires a <Suspense> boundary around
+   * this component; `/contact` provides one.
+   */
+  const searchParams = useSearchParams();
+  const fromService = searchParams.get('service');
+  const preselected =
+    (fromService && serviceInterests?.[fromService]) || defaultInterest || undefined;
+
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [errors, setErrors] = useState<Errors>({});
   const [message, setMessage] = useState('');
@@ -257,7 +286,7 @@ export function ContactForm({
          * trigger and the list — the same treatment the channel dialog needed.
          */}
         <Field label={fields.interest.label} name="subject" error={errors.subject}>
-          <Select name="subject" defaultValue={defaultInterest}>
+          <Select name="subject" defaultValue={preselected}>
             <SelectTrigger
               id="subject"
               className={cn(
