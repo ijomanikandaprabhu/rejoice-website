@@ -41,17 +41,23 @@ export default async function HomePage() {
   const [contact, channels, shorts, latestSongs] = await Promise.all([
     getContactDetails(),
     /*
-     * 50 per rail.
+     * 25 per rail, down from 50.
      *
      * The loop time scales with the count (`videos.length * 9s` in
-     * ChannelRails), so a full pass takes about 7.5 minutes rather than 108s —
-     * the trade for showing more without speeding the scroll into a blur. The
-     * arrows are the fast way through. Thumbnails stay cheap because the cards
-     * carry no `priority` and so load as they travel into view.
+     * ChannelRails), so a full pass now takes about 3.75 minutes rather than
+     * 7.5 — still far slower than a blur, and the arrows remain the fast way
+     * through. Thumbnails were never the cost here: the cards carry no
+     * `priority`, so they load as they travel into view.
+     *
+     * WHAT THIS IS FOR. Every video in these rails is written into the page
+     * itself, whether or not anyone scrolls to it. Measured on the live
+     * homepage: 214 videos, and 1.5MB of HTML sent to every visitor before a
+     * single picture loads. Halving the rails halves that, and the page is the
+     * one thing every visitor downloads in full.
      */
-    getChannelsWithVideos(50),
-    // 50 here too, on the same reasoning (`videos.length * 7s` in ShortsRail).
-    getShortsVideos(50),
+    getChannelsWithVideos(25),
+    // 25 here too, on the same reasoning (`videos.length * 7s` in ShortsRail).
+    getShortsVideos(25),
     /*
      * Ten covers, which is two rows at five across. Narrower screens hide the
      * overflow rather than fetching less — see `twoRows` in `SongGrid`.
