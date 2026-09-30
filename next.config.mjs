@@ -35,9 +35,26 @@ const nextConfig = {
      * These are the widths that map onto distinct variants and avatar sizes.
      * Fewer entries means fewer cache keys, fewer first-time fetches and much
      * less bandwidth, which is metered separately from the function time.
+     *
+     * TRIMMED AGAIN, after measuring the live homepage: 4,385 image addresses
+     * were written into it for 452 distinct pictures — 345KB of the 1.6MB page,
+     * 309KB of it the same addresses repeated. Every `<Image>` emits one srcset
+     * entry per width here, and the sources have hard ceilings, so the extra
+     * widths were resolving to files already listed:
+     *
+     *   1920, 1280, 828  ->  all the same file as 640. A YouTube thumbnail stops
+     *                        at `maxresdefault` (1280px), an avatar at s800 and a
+     *                        song cover at the one 800px file `/api/media` holds.
+     *                        There is nothing larger to ask for.
+     *   176              ->  the same avatar file as 96 (both land on s176).
+     *
+     * 1280 stays because it is the width at which a thumbnail genuinely becomes
+     * `maxresdefault` rather than `mqdefault`; 640 and below cover every card
+     * and avatar actually drawn. Nothing changes visually: the browser is
+     * offered the same files, just without the duplicate lines.
      */
-    deviceSizes: [640, 828, 1280, 1920],
-    imageSizes: [48, 96, 176, 240, 384],
+    deviceSizes: [640, 1280],
+    imageSizes: [48, 96, 240, 384],
   },
 
   /*
